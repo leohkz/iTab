@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
 
@@ -13,23 +12,6 @@ type DockProps = {
 export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp }: DockProps) {
   const surfaceAlpha = Math.min(0.44, Math.max(0.14, glass / 245));
   const blurPx = Math.round(10 + glass / 7);
-  const mouseXRef = useRef<number | null>(null);
-
-  function getMagnifiedScale(index: number, total: number, mouseX: number | null, containerEl: HTMLElement | null): number {
-    if (mouseX === null || !containerEl || editing) return 1;
-    const icons = containerEl.querySelectorAll('[data-dock-icon]');
-    const iconEl = icons[index] as HTMLElement | undefined;
-    if (!iconEl) return 1;
-    const rect = iconEl.getBoundingClientRect();
-    const iconCenterX = rect.left + rect.width / 2;
-    const dist = Math.abs(mouseX - iconCenterX);
-    const maxDist = 96;
-    if (dist > maxDist) return 1;
-    const scale = 1 + 0.55 * Math.cos((dist / maxDist) * (Math.PI / 2));
-    return scale;
-  }
-
-  const allApps = [...pinnedApps.map(a => ({ ...a, _recent: false })), ...recentTabs.map(a => ({ ...a, _recent: true }))];
 
   return (
     <aside
@@ -50,10 +32,9 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp }: Dock
           WebkitBackdropFilter: `blur(${blurPx}px)`,
         }}
         onMouseMove={(e) => {
-          mouseXRef.current = e.clientX;
           const container = e.currentTarget;
           const icons = container.querySelectorAll<HTMLElement>('[data-dock-icon]');
-          icons.forEach((icon, i) => {
+          icons.forEach((icon) => {
             const rect = icon.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
             const dist = Math.abs(e.clientX - cx);
@@ -63,7 +44,6 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp }: Dock
           });
         }}
         onMouseLeave={(e) => {
-          mouseXRef.current = null;
           const container = e.currentTarget;
           const icons = container.querySelectorAll<HTMLElement>('[data-dock-icon]');
           icons.forEach((icon) => {
@@ -91,10 +71,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp }: Dock
             >
               {editing ? (
                 <span
-                  className={[
-                    'block rounded-[1.15rem] cursor-grab',
-                    'animate-jiggle',
-                  ].join(' ')}
+                  className="block rounded-[1.15rem] cursor-grab animate-jiggle"
                   data-testid={`dock-pinned-${app.id}`}
                 >
                   <AppIcon app={app} size="dock" />
