@@ -1,12 +1,14 @@
 import { ArrowRight, Globe2, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppShortcut, SearchEngine, SearchEngineId } from '../types';
+import type { TranslationKey } from '../i18n';
 
 type SpotlightSearchProps = {
   open: boolean;
   apps: AppShortcut[];
   engines: SearchEngine[];
   defaultEngine: SearchEngineId;
+  t: (key: TranslationKey) => string;
   onClose: () => void;
   onEngineChange: (engine: SearchEngineId) => void;
 };
@@ -15,7 +17,7 @@ function buildSearchUrl(engine: SearchEngine, query: string) {
   return engine.template.replaceAll('{q}', encodeURIComponent(query));
 }
 
-export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, onEngineChange }: SpotlightSearchProps) {
+export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose, onEngineChange }: SpotlightSearchProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
   const [engineId, setEngineId] = useState<SearchEngineId>(defaultEngine);
@@ -76,14 +78,14 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
               if (event.key === 'Escape') onClose();
               if (event.key === 'Enter') submitSearch();
             }}
-            placeholder="Search apps, bookmarks, web…"
+            placeholder={t('searchPlaceholder')}
             className="min-w-0 flex-1 bg-white text-lg font-bold tracking-[-0.04em] text-slate-950 placeholder:text-slate-400 focus:outline-none"
             data-testid="input-spotlight"
           />
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close search"
+            aria-label={t('cancel')}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition duration-200 hover:bg-slate-200"
             data-testid="button-close-spotlight"
           >
@@ -95,7 +97,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
         <div className="grid gap-4 bg-white p-4">
           {/* Search engines */}
           <div>
-            <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Search engines</p>
+            <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('searchEngines')}</p>
             <div className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
               {enabledEngines.map((item) => (
                 <button
@@ -122,7 +124,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
 
           {/* App results */}
           <div>
-            <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Apps and shortcuts</p>
+            <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
             <div className="grid gap-1">
               {appResults.map((app) => (
                 <a
@@ -152,7 +154,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
                   <span className="flex items-center gap-3">
                     <Globe2 className="h-5 w-5" aria-hidden="true" />
                     <span>
-                      <span className="block text-sm font-black">Search {activeEngine.name}</span>
+                      <span className="block text-sm font-black">{t('searchWith').replace('{engine}', activeEngine.name)}</span>
                       <span className="block text-xs font-semibold text-white/60">{cleanQuery}</span>
                     </span>
                   </span>

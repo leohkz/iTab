@@ -133,14 +133,14 @@ function NewTab() {
 
   const saveShortcut = (shortcut: Pick<AppShortcut, 'name' | 'url' | 'folderId' | 'iconType' | 'iconValue' | 'iconColor'>) => {
     if (editor.mode === 'edit' && editor.appId) {
+      // Bug#11 fix: edit mode should NOT call setEditing(false) — user may not be in editing mode
       updateConfig({ ...config, apps: config.apps.map((app) => (app.id === editor.appId ? { ...app, ...shortcut } : app)) });
       notify(t('editWebsite'));
-      setEditing(false);
       return;
     }
     const id = `${shortcut.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
-    // New app belongs to current space
-    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: config.currentSpaceId }] });
+    // Bug#1 fix: new app has spaceId: undefined so it belongs to ALL spaces by default
+    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: undefined }] });
     notify(t('addWebsite'));
   };
 
@@ -247,7 +247,11 @@ function NewTab() {
         syncStatus=""
         glass={config.glass}
         t={t}
-        onSpaceChange={(spaceId) => updateConfig({ ...config, currentSpaceId: spaceId })}
+        onSpaceChange={(spaceId) => {
+          // Bug#7 fix: reset selectedFolderId when switching space
+          setSelectedFolderId(null);
+          updateConfig({ ...config, currentSpaceId: spaceId });
+        }}
         onSearchClick={() => setSearchOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleEditing={() => setEditing((v) => !v)}
@@ -281,15 +285,18 @@ function NewTab() {
         onMoveOutOfFolder={moveOutOfFolder}
       />
 
-      <Dock
-        pinnedApps={pinnedApps}
-        recentTabs={recentTabs}
-        editing={editing}
-        glass={config.glass}
-        onDropApp={pinApp}
-        onUnpinApp={unpinApp}
-        onRenameApp={renameShortcut}
-      />
+      {/* Bug#6 fix: conditionally render Dock based on config.showDock */}
+      {config.showDock && (
+        <Dock
+          pinnedApps={pinnedApps}
+          recentTabs={recentTabs}
+          editing={editing}
+          glass={config.glass}
+          onDropApp={pinApp}
+          onUnpinApp={unpinApp}
+          onRenameApp={renameShortcut}
+        />
+      )}
 
       {config.showWidgets && (
         <Widgets
@@ -316,11 +323,13 @@ function NewTab() {
       )}
 
       {searchOpen && (
+        // Bug#12 fix: pass currentSpaceApps instead of config.apps
         <SpotlightSearch
           open={searchOpen}
-          apps={config.apps}
+          apps={currentSpaceApps}
           engines={config.searchEngines}
           defaultEngine={config.defaultEngine}
+          t={t}
           onClose={() => setSearchOpen(false)}
           onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
         />
@@ -332,6 +341,7 @@ function NewTab() {
           mode={editor.mode}
           initialApp={editingApp}
           folderId={editor.folderId}
+          t={t}
           onSave={(shortcut) => { saveShortcut(shortcut); setEditor({ open: false, mode: 'add', appId: null, folderId: null }); }}
           onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
         />

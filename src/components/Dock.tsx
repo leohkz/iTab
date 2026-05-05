@@ -1,19 +1,11 @@
 import { Minus, Pencil } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
 
 const BASE = 52;
 const MAX = 82;
 const SPREAD = 130; // px radius within which magnification applies
-
-function calcSize(mouseX: number | null, centerX: number): number {
-  if (mouseX === null) return BASE;
-  const dist = Math.abs(mouseX - centerX);
-  if (dist >= SPREAD) return BASE;
-  const ratio = 1 - dist / SPREAD;
-  return Math.round(BASE + (MAX - BASE) * ratio);
-}
 
 type DockProps = {
   pinnedApps: AppShortcut[];
@@ -29,6 +21,30 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
   const dockRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [mouseX, setMouseX] = useState<number | null>(null);
+  // Bug#2 fix: store computed sizes in state, updated via useLayoutEffect to avoid 1-frame rect lag
+  const [sizes, setSizes] = useState<number[]>([]);
+
+  const allApps = [
+    ...pinnedApps.map((app) => ({ app, isRecent: false })),
+    ...recentTabs.map((app) => ({ app, isRecent: true })),
+  ];
+
+  useLayoutEffect(() => {
+    if (editing || mouseX === null) {
+      setSizes(allApps.map(() => BASE));
+      return;
+    }
+    const next = itemRefs.current.map((el) => {
+      if (!el) return BASE;
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const dist = Math.abs(mouseX - centerX);
+      if (dist >= SPREAD) return BASE;
+      const ratio = 1 - dist / SPREAD;
+      return Math.round(BASE + (MAX - BASE) * ratio);
+    });
+    setSizes(next);
+  }, [mouseX, editing, allApps.length]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLUListElement>) => {
     setMouseX(e.clientX);
@@ -36,16 +52,11 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
 
   const handleMouseLeave = () => {
     setMouseX(null);
+    setSizes(allApps.map(() => BASE));
   };
 
   const renderItem = (app: AppShortcut, isRecent: boolean, index: number) => {
-    const el = itemRefs.current[index];
-    let size = BASE;
-    if (!editing && mouseX !== null && el) {
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      size = calcSize(mouseX, centerX);
-    }
+    const size = sizes[index] ?? BASE;
     const marginTop = BASE - size;
 
     return (
@@ -63,7 +74,10 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
             onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
             aria-label={app.name}
           >
-            <AppIcon app={app} size="dock" />
+            {/* Bug#14 fix: use object-contain wrapper to prevent icon stretch at dynamic sizes */}
+            <span className="flex h-full w-full items-center justify-center overflow-hidden">
+              <AppIcon app={app} size="dock" />
+            </span>
             <button
               type="button"
               aria-label={`Remove ${app.name} from dock`}
@@ -88,7 +102,9 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
             rel="noreferrer"
             aria-label={`Open ${app.name}`}
           >
-            <AppIcon app={app} size="dock" />
+            <span className="flex h-full w-full items-center justify-center overflow-hidden">
+              <AppIcon app={app} size="dock" />
+            </span>
           </a>
         )}
         <span className="tooltip" aria-hidden="true">{app.name}</span>

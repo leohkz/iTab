@@ -1,17 +1,19 @@
 import { Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { AppShortcut } from '../types';
+import type { TranslationKey } from '../i18n';
 
 type ShortcutEditorProps = {
   open: boolean;
   mode: 'add' | 'edit';
   initialApp?: AppShortcut | null;
   folderId?: string | null;
+  t: (key: TranslationKey) => string;
   onClose: () => void;
   onSave: (shortcut: Pick<AppShortcut, 'name' | 'url' | 'folderId' | 'iconType' | 'iconValue' | 'iconColor'>) => void;
 };
 
-export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClose, onSave }: ShortcutEditorProps) {
+export function ShortcutEditor({ open, mode, initialApp, folderId = null, t, onClose, onSave }: ShortcutEditorProps) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [iconValue, setIconValue] = useState('');
@@ -53,19 +55,19 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClos
       <section
         role="dialog"
         aria-modal="true"
-        aria-label={mode === 'add' ? 'Add website shortcut' : 'Edit website shortcut'}
+        aria-label={mode === 'add' ? t('addWebsite') : t('editWebsite')}
         className="w-[min(30rem,calc(100vw-2rem))] rounded-[1.55rem] border border-white/40 bg-white/92 p-5 text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.34)] backdrop-blur-2xl"
         data-testid="modal-shortcut-editor"
       >
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Shortcut</p>
-            <h2 className="mt-1 text-xl font-black tracking-[-0.05em]">{mode === 'add' ? 'Add website' : 'Edit website'}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{t('shortcut')}</p>
+            <h2 className="mt-1 text-xl font-black tracking-[-0.05em]">{mode === 'add' ? t('addWebsite') : t('editWebsite')}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close shortcut editor"
+            aria-label={t('cancel')}
             className="grid h-9 w-9 place-items-center rounded-full bg-slate-950/8 text-slate-600"
             data-testid="button-close-shortcut-editor"
           >
@@ -74,7 +76,7 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClos
         </div>
 
         <label className="block text-sm font-black text-slate-700">
-          Name
+          {t('name')}
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -84,7 +86,7 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClos
           />
         </label>
         <label className="mt-4 block text-sm font-black text-slate-700">
-          URL
+          {t('url')}
           <input
             value={url}
             onChange={(event) => setUrl(event.target.value)}
@@ -98,7 +100,7 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClos
         </label>
 
         <label className="mt-4 block text-sm font-black text-slate-700">
-          Custom icon URL
+          {t('customIconUrl')}
           <input
             value={iconValue}
             onChange={(event) => setIconValue(event.target.value)}
@@ -110,8 +112,8 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClos
 
         <label className="mt-4 flex items-center justify-between gap-4 text-sm font-black text-slate-700">
           <span>
-            Icon color
-            <span className="mt-1 block text-xs font-semibold text-slate-500">Leave empty to auto-match the favicon style.</span>
+            {t('iconColor')}
+            <span className="mt-1 block text-xs font-semibold text-slate-500">{t('iconColorDesc')}</span>
           </span>
           <span className="flex items-center gap-2">
             <input
@@ -139,7 +141,7 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, onClos
           data-testid="button-save-shortcut"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          {mode === 'add' ? 'Add to grid' : 'Save changes'}
+          {mode === 'add' ? t('addToGrid') : t('saveChanges')}
         </button>
       </section>
     </div>
