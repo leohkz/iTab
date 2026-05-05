@@ -1,10 +1,8 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-}
-
-/* macOS-style icon jiggle — must NOT be inside @layer so Tailwind won't purge it */
+/* macOS-style icon jiggle */
 @keyframes jiggle {
   0%   { transform: rotate(-2.2deg) scale(1.02); }
   25%  { transform: rotate(2.2deg)  scale(1.02); }
