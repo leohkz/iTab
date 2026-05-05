@@ -44,6 +44,10 @@ export function TopBar({
   const surfaceAlpha = Math.min(0.42, Math.max(0.12, glass / 260));
   const blurPx = Math.round(8 + glass / 8);
 
+  // Detect platform: show Ctrl on Windows/Linux, ⌘ on Mac
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+  const shortcutBadge = isMac ? '⌘K' : 'Ctrl+K';
+
   return (
     <header
       className="fixed left-4 right-4 top-4 z-40 grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-[1.4rem] border border-white/25 px-4 py-2 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] max-md:grid-cols-2 max-md:gap-2"
@@ -114,8 +118,8 @@ export function TopBar({
           data-testid="button-open-search"
         >
           <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1 text-sm font-medium text-white/62">Search apps, bookmarks, web</span>
-          <span className="rounded-md border border-white/20 px-1.5 py-0.5 text-[0.65rem] font-black text-white/70">⌘K</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/62">Search apps &amp; web</span>
+          <span className="shrink-0 rounded-md border border-white/20 px-1.5 py-0.5 text-[0.65rem] font-black text-white/70">{shortcutBadge}</span>
         </button>
         <button
           type="button"

@@ -73,7 +73,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
               if (event.key === 'Escape') onClose();
               if (event.key === 'Enter') submitSearch();
             }}
-            placeholder="Search apps, bookmarks, or type shortcut + query"
+            placeholder="Search apps, bookmarks, web…"
             className="min-w-0 flex-1 bg-transparent text-lg font-bold tracking-[-0.04em] placeholder:text-slate-400 focus:outline-none"
             data-testid="input-spotlight"
           />
