@@ -9,6 +9,7 @@ export interface AppShortcut {
   name: string;
   url: string;
   folderId: string | null;
+  spaceId?: string;
   iconType: 'api' | 'monogram' | 'custom';
   iconValue: string;
   iconColor?: string;

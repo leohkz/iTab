@@ -2,6 +2,7 @@ import { FolderPlus, Grip, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut, Folder } from '../types';
+import type { TranslationKey } from '../i18n';
 
 type AppGridProps = {
   apps: AppShortcut[];
@@ -10,6 +11,7 @@ type AppGridProps = {
   selectedFolderId: string | null;
   gridColumns: number;
   gridRows: number;
+  t: (key: TranslationKey) => string;
   onOpenFolder: (folderId: string) => void;
   onCloseFolder: () => void;
   onStartEditing: () => void;
@@ -70,7 +72,7 @@ function AppEditControls({ onDelete, onRename }: { onDelete: () => void; onRenam
   );
 }
 
-function FolderRenameOverlay({ name, onSave, onCancel }: { name: string; onSave: (n: string) => void; onCancel: () => void }) {
+function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string }) {
   const [value, setValue] = useState(name);
   return (
     <div
@@ -78,7 +80,7 @@ function FolderRenameOverlay({ name, onSave, onCancel }: { name: string; onSave:
       onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div className="w-72 rounded-2xl bg-white p-6 shadow-2xl">
-        <p className="mb-3 text-sm font-black text-slate-700">Rename folder</p>
+        <p className="mb-3 text-sm font-black text-slate-700">{t('renameFolder')}</p>
         <input
           autoFocus
           value={value}
@@ -87,8 +89,8 @@ function FolderRenameOverlay({ name, onSave, onCancel }: { name: string; onSave:
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-400"
         />
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">Cancel</button>
-          <button type="button" onClick={() => onSave(value)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">Save</button>
+          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
+          <button type="button" onClick={() => onSave(value)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">{t('save')}</button>
         </div>
       </div>
     </div>
@@ -96,7 +98,7 @@ function FolderRenameOverlay({ name, onSave, onCancel }: { name: string; onSave:
 }
 
 export function AppGrid({
-  apps, folders, editing, selectedFolderId, gridColumns, gridRows,
+  apps, folders, editing, selectedFolderId, gridColumns, gridRows, t,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onReorder, onMoveToFolder, onMoveOutOfFolder,
@@ -145,7 +147,7 @@ export function AppGrid({
       {editing && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4" aria-live="polite">
           <span className="rounded-full bg-slate-950/60 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80 backdrop-blur-md">
-            ✏️ Edit mode — tap blank area or press Esc to exit
+            ✏️ {t('editModeHint')}
           </span>
         </div>
       )}
@@ -178,7 +180,6 @@ export function AppGrid({
                 >
                   {editing && (
                     <>
-                      {/* Delete folder */}
                       <button
                         type="button"
                         aria-label="Delete folder"
@@ -187,7 +188,6 @@ export function AppGrid({
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
-                      {/* Rename folder */}
                       <button
                         type="button"
                         aria-label="Rename folder"
@@ -228,7 +228,7 @@ export function AppGrid({
               >
                 {editing && <AppEditControls onDelete={() => onDeleteApp(item.app.id)} onRename={() => onRenameApp(item.app.id)} />}
                 <span className={editing ? 'animate-jiggle' : ''}>
-                  <AppIcon app={item.app} />
+                  <AppIcon app={item.app} size="grid" />
                 </span>
                 <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
                   {item.app.name}
@@ -248,7 +248,7 @@ export function AppGrid({
                 <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
                   <Plus className="h-7 w-7" aria-hidden="true" />
                 </span>
-                <span className="text-sm font-bold text-white">Add</span>
+                <span className="text-sm font-bold text-white">{t('add')}</span>
               </button>
               <button
                 type="button"
@@ -259,7 +259,7 @@ export function AppGrid({
                 <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
                   <FolderPlus className="h-7 w-7" aria-hidden="true" />
                 </span>
-                <span className="text-sm font-bold text-white">New Folder</span>
+                <span className="text-sm font-bold text-white">{t('newFolder')}</span>
               </button>
             </>
           )}
@@ -287,7 +287,7 @@ export function AppGrid({
           >
             <div className="mb-6 text-center">
               <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
-              <p className="mt-1 text-sm font-semibold text-white/68">{selectedFolderApps.length} websites</p>
+              <p className="mt-1 text-sm font-semibold text-white/68">{selectedFolderApps.length} {t('websites')}</p>
             </div>
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (
@@ -304,7 +304,7 @@ export function AppGrid({
                 >
                   {editing && <AppEditControls onDelete={() => onDeleteApp(app.id)} onRename={() => onRenameApp(app.id)} />}
                   <span className={editing ? 'animate-jiggle' : ''}>
-                    <AppIcon app={app} />
+                    <AppIcon app={app} size="grid" />
                   </span>
                   <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
                 </a>
@@ -319,7 +319,7 @@ export function AppGrid({
                   <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
                     <Plus className="h-7 w-7" aria-hidden="true" />
                   </span>
-                  <span className="text-xs font-bold text-white">Add</span>
+                  <span className="text-xs font-bold text-white">{t('add')}</span>
                 </button>
               )}
             </div>
@@ -330,6 +330,7 @@ export function AppGrid({
       {renamingFolder && (
         <FolderRenameOverlay
           name={renamingFolder.name}
+          t={t}
           onSave={(name) => { onRenameFolder(renamingFolder.id, name); setRenamingFolderId(null); }}
           onCancel={() => setRenamingFolderId(null)}
         />

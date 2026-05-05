@@ -1,5 +1,6 @@
 import { Search, Settings, Sun } from 'lucide-react';
 import type { Space } from '../types';
+import type { TranslationKey } from '../i18n';
 
 type TopBarProps = {
   spaces: Space[];
@@ -7,6 +8,7 @@ type TopBarProps = {
   editing: boolean;
   syncStatus: string;
   glass: number;
+  t: (key: TranslationKey) => string;
   onSpaceChange: (spaceId: string) => void;
   onSearchClick: () => void;
   onSettingsClick: () => void;
@@ -19,6 +21,7 @@ export function TopBar({
   currentSpaceId,
   editing,
   glass: _glass,
+  t,
   onSpaceChange,
   onSearchClick,
   onSettingsClick,
@@ -61,18 +64,18 @@ export function TopBar({
           </button>
           <button
             type="button"
-            aria-label={editing ? 'Done editing' : 'Edit shortcuts'}
+            aria-label={editing ? t('done') : t('edit')}
             onClick={onToggleEditing}
             className={[
               'rounded-full px-3 py-1 text-xs font-bold transition',
               editing ? 'bg-white text-slate-900' : 'text-white/70 hover:bg-white/18 hover:text-white',
             ].join(' ')}
           >
-            {editing ? 'Done' : 'Edit'}
+            {editing ? t('done') : t('edit')}
           </button>
           <button
             type="button"
-            aria-label="Settings"
+            aria-label={t('settings')}
             onClick={onSettingsClick}
             className="grid h-8 w-8 place-items-center rounded-full text-white/70 transition hover:bg-white/18 hover:text-white"
           >
@@ -81,16 +84,16 @@ export function TopBar({
         </div>
       </div>
 
-      {/* Search bar — centred below the action row, above the icons */}
+      {/* Search bar */}
       <div className="flex justify-center px-4 pb-3">
         <button
           type="button"
-          aria-label="Open search"
+          aria-label={t('searchPlaceholderBar')}
           onClick={onSearchClick}
           className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-white/25 bg-white/18 px-4 py-2.5 text-white/60 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-white/25 hover:text-white/80"
         >
           <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span className="text-sm font-medium">Search or type a URL…</span>
+          <span className="text-sm font-medium">{t('searchPlaceholderBar')}</span>
         </button>
       </div>
     </header>

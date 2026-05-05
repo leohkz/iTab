@@ -64,6 +64,12 @@ function NewTab() {
     [config.apps, config.pinnedIds],
   );
 
+  // Filter apps by current space: apps without spaceId belong to all spaces
+  const currentSpaceApps = useMemo(
+    () => config.apps.filter((app) => !app.spaceId || app.spaceId === config.currentSpaceId),
+    [config.apps, config.currentSpaceId],
+  );
+
   const updateConfig = (next: AppConfig) => {
     const enabledEngines = next.searchEngines.filter((e) => e.enabled);
     const normalized: AppConfig = {
@@ -128,13 +134,14 @@ function NewTab() {
   const saveShortcut = (shortcut: Pick<AppShortcut, 'name' | 'url' | 'folderId' | 'iconType' | 'iconValue' | 'iconColor'>) => {
     if (editor.mode === 'edit' && editor.appId) {
       updateConfig({ ...config, apps: config.apps.map((app) => (app.id === editor.appId ? { ...app, ...shortcut } : app)) });
-      notify('Shortcut updated');
+      notify(t('editWebsite'));
       setEditing(false);
       return;
     }
     const id = `${shortcut.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
-    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut }] });
-    notify('Shortcut added');
+    // New app belongs to current space
+    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: config.currentSpaceId }] });
+    notify(t('addWebsite'));
   };
 
   const deleteApp = (appId: string) => {
@@ -143,7 +150,7 @@ function NewTab() {
       apps: config.apps.filter((app) => app.id !== appId),
       pinnedIds: config.pinnedIds.filter((id) => id !== appId),
     });
-    notify('Shortcut removed');
+    notify(t('delete'));
   };
 
   const unpinApp = (appId: string) => {
@@ -180,13 +187,13 @@ function NewTab() {
 
   const addFolder = () => {
     const id = `folder-${Date.now().toString(36)}`;
-    updateConfig({ ...config, folders: [...config.folders, { id, name: 'New Folder' }] });
-    notify('Folder created');
+    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder') }] });
+    notify(t('newFolder'));
   };
 
   const renameFolder = (folderId: string, name: string) => {
     updateConfig({ ...config, folders: config.folders.map((f) => (f.id === folderId ? { ...f, name } : f)) });
-    notify('Folder renamed');
+    notify(t('renameFolder'));
   };
 
   const deleteFolder = (folderId: string) => {
@@ -195,7 +202,7 @@ function NewTab() {
       folders: config.folders.filter((f) => f.id !== folderId),
       apps: config.apps.map((app) => (app.folderId === folderId ? { ...app, folderId: null } : app)),
     });
-    notify('Folder deleted');
+    notify(t('delete'));
   };
 
   const exportJson = () => {
@@ -204,20 +211,20 @@ function NewTab() {
     const anchor = document.createElement('a');
     anchor.href = url; anchor.download = 'workspace-new-tab-config.json'; anchor.click();
     URL.revokeObjectURL(url);
-    notify('JSON exported');
+    notify(t('exportJson'));
   };
 
   const importJson = async (file: File) => {
     try {
       const next = mergeConfigWithDefaults(JSON.parse(await file.text()) as Partial<AppConfig>);
       updateConfig(next);
-      notify('JSON imported');
+      notify(t('importJson'));
     } catch { notify('Invalid JSON file'); }
   };
 
   const resetDefaults = () => {
     updateConfig(cloneDefaultConfig()); setEditing(false); setSelectedFolderId(null);
-    notify('Defaults restored');
+    notify(t('resetDefaults'));
   };
 
   const themeClass =
@@ -239,6 +246,7 @@ function NewTab() {
         editing={editing}
         syncStatus=""
         glass={config.glass}
+        t={t}
         onSpaceChange={(spaceId) => updateConfig({ ...config, currentSpaceId: spaceId })}
         onSearchClick={() => setSearchOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -251,12 +259,13 @@ function NewTab() {
       />
 
       <AppGrid
-        apps={config.apps}
+        apps={currentSpaceApps}
         folders={config.folders}
         editing={editing}
         selectedFolderId={selectedFolderId}
         gridColumns={config.gridColumns}
         gridRows={config.gridRows}
+        t={t}
         onOpenFolder={setSelectedFolderId}
         onCloseFolder={() => setSelectedFolderId(null)}
         onStartEditing={() => setEditing(true)}

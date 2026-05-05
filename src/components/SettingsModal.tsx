@@ -83,7 +83,7 @@ export function SettingsModal({
       defaultEngine: config.defaultEngine || id,
     });
     setNewEngine({ name: '', shortcut: '', template: '' });
-    onAction('Custom search engine added');
+    onAction(t('addCustomEngine'));
   };
 
   return (
@@ -109,7 +109,7 @@ export function SettingsModal({
                 {t('settings')}
               </h2>
             </div>
-            <button type="button" aria-label="Close settings" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-slate-950/8 text-slate-700" data-testid="button-close-settings">
+            <button type="button" aria-label={t('settings')} onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-slate-950/8 text-slate-700" data-testid="button-close-settings">
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
@@ -139,7 +139,7 @@ export function SettingsModal({
               <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">{t(title as TranslationKey)}</p>
               <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h3>
             </div>
-            <button type="button" aria-label="Close settings" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-slate-950/8 text-slate-700 md:hidden" data-testid="button-close-settings-mobile">
+            <button type="button" aria-label={t('settings')} onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-slate-950/8 text-slate-700 md:hidden" data-testid="button-close-settings-mobile">
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
@@ -148,7 +148,7 @@ export function SettingsModal({
             <div className="grid gap-4">
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <label className="block text-sm font-black text-slate-700">
-                  Language
+                  {t('language')}
                   <select
                     value={config.locale}
                     onChange={(event) => onConfigChange({ ...config, locale: event.target.value as Locale })}
@@ -164,8 +164,8 @@ export function SettingsModal({
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-base font-black tracking-[-0.03em]">Glass intensity</h4>
-                    <p className="mt-1 text-sm font-semibold text-slate-600">Applies to top bar, Dock, folders, widgets.</p>
+                    <h4 className="text-base font-black tracking-[-0.03em]">{t('glassIntensity')}</h4>
+                    <p className="mt-1 text-sm font-semibold text-slate-600">{t('glassIntensityDesc')}</p>
                   </div>
                   <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{config.glass}%</span>
                 </div>
@@ -211,21 +211,21 @@ export function SettingsModal({
                 <h4 className="font-black">{t('gridSize')}</h4>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="text-sm font-bold">
-                    Columns
+                    {t('columns')}
                     <input type="number" min="4" max="10" value={config.gridColumns} onChange={(event) => onConfigChange({ ...config, gridColumns: Number(event.target.value) })} className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 px-3" data-testid="input-grid-columns" />
                   </label>
                   <label className="text-sm font-bold">
-                    Rows
+                    {t('rows')}
                     <input type="number" min="3" max="7" value={config.gridRows} onChange={(event) => onConfigChange({ ...config, gridRows: Number(event.target.value) })} className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 px-3" data-testid="input-grid-rows" />
                   </label>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-                <div><h4 className="font-black">Show Dock</h4><p className="text-sm font-semibold text-slate-600">Drag icons here to pin.</p></div>
+                <div><h4 className="font-black">{t('showDock')}</h4><p className="text-sm font-semibold text-slate-600">{t('showDockDesc')}</p></div>
                 <Toggle checked={config.showDock} onChange={(value) => onConfigChange({ ...config, showDock: value })} testId="toggle-show-dock" />
               </div>
               <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-                <div><h4 className="font-black">Show Widgets</h4><p className="text-sm font-semibold text-slate-600">To-do, Pomodoro, and quick note.</p></div>
+                <div><h4 className="font-black">{t('showWidgets')}</h4><p className="text-sm font-semibold text-slate-600">{t('showWidgetsDesc')}</p></div>
                 <Toggle checked={config.showWidgets} onChange={(value) => onConfigChange({ ...config, showWidgets: value })} testId="toggle-show-widgets" />
               </div>
             </div>
@@ -234,13 +234,13 @@ export function SettingsModal({
           {active === 'search' ? (
             <div className="grid gap-4">
               <label className="block rounded-2xl bg-white p-4 text-sm font-black shadow-sm">
-                Default search engine
+                {t('defaultEngine')}
                 <select value={config.defaultEngine} onChange={(event) => onConfigChange({ ...config, defaultEngine: event.target.value })} className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold" data-testid="select-default-engine">
                   {config.searchEngines.filter((engine) => engine.enabled).map((engine) => <option key={engine.id} value={engine.id}>{engine.name}</option>)}
                 </select>
               </label>
               <div className="rounded-2xl bg-white p-4 shadow-sm">
-                <h4 className="font-black">Search engines</h4>
+                <h4 className="font-black">{t('searchEngines')}</h4>
                 <div className="mt-3 grid gap-2">
                   {config.searchEngines.map((engine) => (
                     <div key={engine.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl bg-slate-950/5 p-3">
@@ -254,13 +254,13 @@ export function SettingsModal({
                 </div>
               </div>
               <div className="rounded-2xl bg-white p-4 shadow-sm">
-                <h4 className="font-black">Add custom engine</h4>
+                <h4 className="font-black">{t('addCustomEngine')}</h4>
                 <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
-                  <input value={newEngine.name} onChange={(event) => setNewEngine({ ...newEngine, name: event.target.value })} placeholder="Name" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-name" />
+                  <input value={newEngine.name} onChange={(event) => setNewEngine({ ...newEngine, name: event.target.value })} placeholder={t('name')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-name" />
                   <input value={newEngine.shortcut} onChange={(event) => setNewEngine({ ...newEngine, shortcut: event.target.value })} placeholder="Shortcut" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-shortcut" />
                   <input value={newEngine.template} onChange={(event) => setNewEngine({ ...newEngine, template: event.target.value })} placeholder="https://example.com?q={q}" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-template" />
                 </div>
-                <button type="button" onClick={addEngine} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white" data-testid="button-add-engine"><Plus className="h-4 w-4" />Add engine</button>
+                <button type="button" onClick={addEngine} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white" data-testid="button-add-engine"><Plus className="h-4 w-4" />{t('add')}</button>
               </div>
             </div>
           ) : null}
@@ -268,8 +268,8 @@ export function SettingsModal({
           {active === 'bookmarks' ? (
             <div className="grid gap-3">
               <button type="button" onClick={onSyncBookmarks} className="rounded-2xl bg-white p-4 text-left shadow-sm transition duration-200 hover:bg-slate-50" data-testid="button-bookmark-sync-settings">
-                <h4 className="font-black">Read Chrome bookmarks</h4>
-                <p className="mt-1 text-sm font-semibold text-slate-600">In extension context this calls chrome.bookmarks. In dev preview it imports sample bookmarks.</p>
+                <h4 className="font-black">{t('readBookmarks')}</h4>
+                <p className="mt-1 text-sm font-semibold text-slate-600">{t('readBookmarksDesc')}</p>
               </button>
             </div>
           ) : null}
