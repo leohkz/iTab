@@ -23,6 +23,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
 
   useEffect(() => {
     if (open) {
+      setQuery('');
       setEngineId(defaultEngine);
       window.setTimeout(() => inputRef.current?.focus(), 60);
     }
@@ -50,7 +51,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-950/55 px-4 pt-[12vh] backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-950/60 px-4 pt-[12vh] backdrop-blur-md"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -60,11 +61,13 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
         role="dialog"
         aria-modal="true"
         aria-label="Spotlight search"
-        className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white text-slate-950 shadow-[0_32px_90px_rgba(15,23,42,0.55)]"
+        className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden rounded-[1.7rem] border border-white/20 bg-white shadow-[0_32px_90px_rgba(15,23,42,0.6)]"
+        style={{ backgroundColor: '#ffffff' }}
         data-testid="modal-spotlight"
       >
-        <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
-          <Search className="h-5 w-5 text-slate-400" aria-hidden="true" />
+        {/* Search input row */}
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-5 py-4">
+          <Search className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
           <input
             ref={inputRef}
             value={query}
@@ -74,21 +77,23 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
               if (event.key === 'Enter') submitSearch();
             }}
             placeholder="Search apps, bookmarks, web…"
-            className="min-w-0 flex-1 bg-transparent text-lg font-bold tracking-[-0.04em] text-slate-950 placeholder:text-slate-400 focus:outline-none"
+            className="min-w-0 flex-1 bg-white text-lg font-bold tracking-[-0.04em] text-slate-950 placeholder:text-slate-400 focus:outline-none"
             data-testid="input-spotlight"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500 transition duration-200 hover:bg-slate-200"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition duration-200 hover:bg-slate-200"
             data-testid="button-close-spotlight"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
+        {/* Body */}
         <div className="grid gap-4 bg-white p-4">
+          {/* Search engines */}
           <div>
             <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Search engines</p>
             <div className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
@@ -115,6 +120,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, onClose, o
             </div>
           </div>
 
+          {/* App results */}
           <div>
             <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Apps and shortcuts</p>
             <div className="grid gap-1">

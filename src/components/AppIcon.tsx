@@ -9,13 +9,14 @@ type AppIconProps = {
 
 const sizeClasses = {
   grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
-  dock: 'h-12 w-12 rounded-[1rem]',
+  // dock icons fill the parent <li> which controls size via CSS
+  dock: 'h-full w-full rounded-[12px]',
   mini: 'h-6 w-6 rounded-[0.48rem]',
 };
 
 const monogramSizes = {
   grid: 'text-xl',
-  dock: 'text-sm',
+  dock: 'text-base',
   mini: 'text-[0.62rem]',
 };
 
@@ -51,7 +52,7 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
         <img
           src={iconSource}
           alt=""
-          className="h-[58%] w-[58%] object-contain"
+          className="h-[62%] w-[62%] object-contain"
           decoding="async"
           loading="lazy"
           onError={() => setFailed(true)}

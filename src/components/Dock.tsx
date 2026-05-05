@@ -1,5 +1,14 @@
+import { useRef } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
+
+const MAX_ADDITIONAL_SIZE = 5;
+
+function scaleValue(value: number, from: [number, number], to: [number, number]) {
+  const scale = (to[1] - to[0]) / (from[1] - from[0]);
+  const capped = Math.min(from[1], Math.max(from[0], value));
+  return capped * scale - from[0] * scale + to[0];
+}
 
 type DockProps = {
   pinnedApps: AppShortcut[];
@@ -9,51 +18,57 @@ type DockProps = {
   onDropApp: (appId: string) => void;
 };
 
-export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp }: DockProps) {
-  const surfaceAlpha = Math.min(0.52, Math.max(0.22, glass / 200));
-  const blurPx = Math.round(16 + glass / 6);
+export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp }: DockProps) {
+  const dockRef = useRef<HTMLUListElement>(null);
+
+  const handleAppHover = (ev: React.MouseEvent<HTMLLIElement>) => {
+    if (!dockRef.current) return;
+    const mouseX = ev.clientX;
+    const rect = ev.currentTarget.getBoundingClientRect();
+    const cursorDistance = (mouseX - rect.left) / rect.width;
+    const offsetPx = scaleValue(cursorDistance, [0, 1], [-MAX_ADDITIONAL_SIZE, MAX_ADDITIONAL_SIZE]);
+    dockRef.current.style.setProperty('--dock-offset-left',  `${offsetPx * -1}px`);
+    dockRef.current.style.setProperty('--dock-offset-right', `${offsetPx}px`);
+  };
 
   const renderItem = (app: AppShortcut, isRecent: boolean) => (
-    <div key={app.id} className="dock-item" data-testid={isRecent ? `dock-recent-${app.id}` : `dock-pinned-${app.id}`}>
-      <div className="dock-item-inner">
-        {editing ? (
-          <span
-            className="animate-jiggle block cursor-grab"
-            draggable
-            onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
-          >
-            <AppIcon app={app} size="dock" />
-          </span>
-        ) : (
-          <a
-            href={app.url}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${app.name}`}
-            className="block"
-          >
-            <AppIcon app={app} size="dock" />
-          </a>
-        )}
-      </div>
-      {isRecent && (
-        <span className="dock-dot" />
+    <li
+      key={app.id}
+      className="app"
+      onMouseMove={editing ? undefined : handleAppHover}
+      data-testid={isRecent ? `dock-recent-${app.id}` : `dock-pinned-${app.id}`}
+    >
+      {editing ? (
+        <span
+          className="app-link animate-jiggle"
+          draggable
+          onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
+          aria-label={app.name}
+        >
+          <AppIcon app={app} size="dock" />
+        </span>
+      ) : (
+        <a
+          href={app.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open ${app.name}`}
+        >
+          <AppIcon app={app} size="dock" />
+        </a>
       )}
-    </div>
+      <span className="tooltip" aria-hidden="true">{app.name}</span>
+      {isRecent && <span className="dock-dot" />}
+    </li>
   );
 
   return (
-    <aside
-      className={['dock-root', editing ? 'z-[70]' : 'z-30'].join(' ')}
+    <div
+      className="dock-root"
       aria-label="Dock"
     >
-      <div
-        className={['dock-container', editing ? 'ring-2 ring-white/55' : ''].join(' ')}
-        style={{
-          backgroundColor: `rgba(255,255,255,${surfaceAlpha})`,
-          backdropFilter: `blur(${blurPx}px)`,
-          WebkitBackdropFilter: `blur(${blurPx}px)`,
-        }}
+      <nav
+        className={['dock', editing ? 'dock--editing' : ''].join(' ')}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           const appId = e.dataTransfer.getData('text/plain');
@@ -61,23 +76,17 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp }: Dock
         }}
         data-testid="dock-drop-target"
       >
-        {/* Pinned */}
-        <div className="dock-section dock-section--pinned">
+        <ul ref={dockRef}>
           {pinnedApps.map((app) => renderItem(app, false))}
-        </div>
 
-        {/* Separator */}
-        {recentTabs.length > 0 && (
-          <span className="dock-separator" aria-hidden="true" />
-        )}
-
-        {/* Recent */}
-        {recentTabs.length > 0 && (
-          <div className="dock-section dock-section--recent">
-            {recentTabs.map((app) => renderItem(app, true))}
-          </div>
-        )}
-      </div>
-    </aside>
+          {recentTabs.length > 0 && (
+            <>
+              <li aria-hidden="true"><span className="dock-separator" /></li>
+              {recentTabs.map((app) => renderItem(app, true))}
+            </>
+          )}
+        </ul>
+      </nav>
+    </div>
   );
 }

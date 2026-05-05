@@ -121,6 +121,11 @@ export function AppGrid({
   const renamingFolder = folders.find((f) => f.id === renamingFolderId) ?? null;
   const mainRef = useRef<HTMLElement>(null);
 
+  // Escape key exits editing mode
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (editing && e.key === 'Escape') onStopEditing();
+  };
+
   const items = useMemo<GridItem[]>(() => {
     const rootApps = apps.filter((app) => app.folderId === null).map((app) => ({ kind: 'app' as const, id: app.id, app }));
     const folderItems = folders.map((folder) => ({
@@ -146,8 +151,11 @@ export function AppGrid({
       ref={mainRef}
       className="relative z-10 flex min-h-screen items-center justify-center px-6 pb-32 pt-28"
       data-testid="main-new-tab"
+      tabIndex={editing ? 0 : undefined}
+      onKeyDown={handleKeyDown}
       onContextMenu={(event) => { event.preventDefault(); onStartEditing(); }}
       onClick={(event) => {
+        // Exit editing when clicking the bare background (not any child element)
         if (editing && event.target === mainRef.current) onStopEditing();
       }}
       onDragOver={(event) => { if (selectedFolderId) event.preventDefault(); }}
@@ -156,6 +164,18 @@ export function AppGrid({
         setDraggedId(null);
       }}
     >
+      {/* Edit mode hint bar */}
+      {editing && (
+        <div
+          className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4"
+          aria-live="polite"
+        >
+          <span className="rounded-full bg-slate-950/60 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80 backdrop-blur-md">
+            ✏️ Edit mode &mdash; tap blank area or press Esc to exit
+          </span>
+        </div>
+      )}
+
       <section className="w-full max-w-5xl" aria-label="iPadOS style app grid">
         <div
           className="mx-auto grid gap-x-7 gap-y-8 rounded-[2.3rem] p-6"
@@ -183,13 +203,14 @@ export function AppGrid({
                     event.dataTransfer.setData('text/plain', item.id);
                   }}
                   onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => {
-                    if (draggedId) onMoveToFolder(draggedId, item.folder.id);
+                  onDrop={(event) => {
+                    event.stopPropagation();
+                    if (draggedId && draggedId !== item.id) onMoveToFolder(draggedId, item.folder.id);
                     setDraggedId(null);
                   }}
                   onPointerDown={(event) => setLongPress(event.currentTarget)}
-                  onClick={() => {
-                    if (editing) return;
+                  onClick={(event) => {
+                    if (editing) { event.stopPropagation(); return; }
                     onOpenFolder(item.folder.id);
                   }}
                   className={commonClass}
@@ -210,6 +231,7 @@ export function AppGrid({
                       </span>
                     </>
                   ) : null}
+                  {/* jiggle wrapper — always present, animation toggled by class */}
                   <span className={editing ? 'animate-jiggle' : ''}>
                     <FolderPreview apps={item.apps} />
                   </span>
@@ -232,16 +254,20 @@ export function AppGrid({
                   event.dataTransfer.setData('text/plain', item.id);
                 }}
                 onDragOver={(event) => event.preventDefault()}
-                onDrop={() => {
+                onDrop={(event) => {
+                  event.stopPropagation();
                   if (draggedId && draggedId !== item.id) onReorder(draggedId, item.id);
                   setDraggedId(null);
                 }}
                 onPointerDown={(event) => setLongPress(event.currentTarget)}
-                onClick={(event) => { if (editing) event.preventDefault(); }}
+                onClick={(event) => {
+                  if (editing) { event.preventDefault(); event.stopPropagation(); }
+                }}
                 className={commonClass}
                 data-testid={`link-app-${item.app.id}`}
               >
                 {editing ? <AppEditControls onDelete={() => onDeleteApp(item.app.id)} onRename={() => onRenameApp(item.app.id)} /> : null}
+                {/* jiggle wrapper */}
                 <span className={editing ? 'animate-jiggle' : ''}>
                   <AppIcon app={item.app} />
                 </span>
@@ -256,7 +282,7 @@ export function AppGrid({
             <>
               <button
                 type="button"
-                onClick={() => onAddShortcut(null)}
+                onClick={(e) => { e.stopPropagation(); onAddShortcut(null); }}
                 className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 data-testid="button-add-grid-shortcut"
               >
@@ -267,7 +293,7 @@ export function AppGrid({
               </button>
               <button
                 type="button"
-                onClick={onAddFolder}
+                onClick={(e) => { e.stopPropagation(); onAddFolder(); }}
                 className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 data-testid="button-add-folder"
               >
