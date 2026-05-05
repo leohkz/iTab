@@ -1,3 +1,4 @@
+import { Minus, Pencil } from 'lucide-react';
 import { useRef } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
@@ -16,9 +17,11 @@ type DockProps = {
   editing: boolean;
   glass: number;
   onDropApp: (appId: string) => void;
+  onUnpinApp: (appId: string) => void;
+  onRenameApp: (appId: string) => void;
 };
 
-export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp }: DockProps) {
+export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
   const dockRef = useRef<HTMLUListElement>(null);
 
   const handleAppHover = (ev: React.MouseEvent<HTMLLIElement>) => {
@@ -27,7 +30,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
     const rect = ev.currentTarget.getBoundingClientRect();
     const cursorDistance = (mouseX - rect.left) / rect.width;
     const offsetPx = scaleValue(cursorDistance, [0, 1], [-MAX_ADDITIONAL_SIZE, MAX_ADDITIONAL_SIZE]);
-    dockRef.current.style.setProperty('--dock-offset-left',  `${offsetPx * -1}px`);
+    dockRef.current.style.setProperty('--dock-offset-left', `${offsetPx * -1}px`);
     dockRef.current.style.setProperty('--dock-offset-right', `${offsetPx}px`);
   };
 
@@ -46,6 +49,24 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
           aria-label={app.name}
         >
           <AppIcon app={app} size="dock" />
+          {/* Delete button */}
+          <button
+            type="button"
+            aria-label={`Remove ${app.name} from dock`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onUnpinApp(app.id); }}
+            className="absolute -left-1 -top-1 z-20 grid h-6 w-6 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
+          >
+            <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          {/* Edit button */}
+          <button
+            type="button"
+            aria-label={`Edit ${app.name}`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRenameApp(app.id); }}
+            className="absolute -right-1 -top-1 z-20 grid h-6 w-6 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
+          >
+            <Pencil className="h-3 w-3" aria-hidden="true" />
+          </button>
         </span>
       ) : (
         <a
@@ -63,10 +84,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
   );
 
   return (
-    <div
-      className="dock-root"
-      aria-label="Dock"
-    >
+    <div className="dock-root" aria-label="Dock">
       <nav
         className={['dock', editing ? 'dock--editing' : ''].join(' ')}
         onDragOver={(e) => e.preventDefault()}
@@ -78,7 +96,6 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
       >
         <ul ref={dockRef}>
           {pinnedApps.map((app) => renderItem(app, false))}
-
           {recentTabs.length > 0 && (
             <>
               <li aria-hidden="true"><span className="dock-separator" /></li>

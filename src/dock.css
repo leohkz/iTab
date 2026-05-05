@@ -1,29 +1,23 @@
-/* ============================================================
-   macOS Dock — faithful port of frontendfyi/macos-dock-animation-with-css
-   Uses onMouseMove → --dock-offset-left / --dock-offset-right
-   to create asymmetric magnification that follows the cursor.
-   ============================================================ */
+/* macOS Dock — faithful port, relaxed spacing */
 
-/* ── Positioning ── */
 .dock-root {
   position: fixed;
-  bottom: 10px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
 }
 
-/* ── Glass pill ── */
 .dock {
-  border-radius: 22px;
-  padding: 0 10px;
+  border-radius: 20px;
+  padding: 6px 12px;
   background-image: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0),
-    rgba(255, 255, 255, 0.18)
+    rgba(255,255,255,0),
+    rgba(255,255,255,0.16)
   );
-  box-shadow: rgba(255, 255, 255, 0.18) 0px 0px 0px 1px inset,
-    0 20px 60px rgba(10, 20, 40, 0.38);
+  box-shadow: rgba(255,255,255,0.18) 0px 0px 0px 1px inset,
+    0 20px 60px rgba(10,20,40,0.38);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
@@ -34,22 +28,21 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  gap: 0;
+  gap: 8px;
 }
 
-/* ── Each icon slot ─────────────────────────────────────────
-   Base size: 56px — matches the reference project's 60px
-   but slightly smaller to feel right at new-tab scale.
-   Transition: width + height + margin-top all together.
-   ─────────────────────────────────────────────────────────── */
+/* ── Icon slot ─────────────────────────────────────────────
+   Base 52px, hover 82px — slightly smaller than before so
+   icons breathe without crowding.
+──────────────────────────────────────────────────────────── */
 .app {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   position: relative;
-  /* must transition ALL three for the lift effect */
-  transition: width 100ms cubic-bezier(0.25, 1, 0.5, 1),
-              height 100ms cubic-bezier(0.25, 1, 0.5, 1),
-              margin-top 100ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition:
+    width  100ms cubic-bezier(0.25,1,0.5,1),
+    height 100ms cubic-bezier(0.25,1,0.5,1),
+    margin-top 100ms cubic-bezier(0.25,1,0.5,1);
 }
 
 .app a,
@@ -57,92 +50,75 @@
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 14px;
-  overflow: hidden;
+  border-radius: 13px;
+  overflow: visible;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
   user-select: none;
   -webkit-user-drag: none;
+  position: relative;
 }
 
-/* AppIcon fills its parent completely */
-.app a > span,
-.app-link > span {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 14px !important;
-}
-
-.app img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  pointer-events: none;
-}
-
-/* ── Magnification: hovered icon ── */
+/* Magnification */
 .app:hover {
-  width: 88px;
-  height: 88px;
-  margin-top: -32px;
+  width: 82px;
+  height: 82px;
+  margin-top: -30px;
 }
 
-/* ── Right neighbours (cursor position offsets via JS) ── */
 .app:hover + .app {
-  width:      calc(72px + var(--dock-offset-right, 0px));
-  height:     calc(72px + var(--dock-offset-right, 0px));
-  margin-top: calc(-16px + var(--dock-offset-right, 0px) * -1);
+  width:      calc(66px + var(--dock-offset-right, 0px));
+  height:     calc(66px + var(--dock-offset-right, 0px));
+  margin-top: calc(-14px + var(--dock-offset-right, 0px) * -1);
 }
 
 .app:hover + .app + .app {
-  width:      calc(62px + var(--dock-offset-right, 0px));
-  height:     calc(62px + var(--dock-offset-right, 0px));
-  margin-top: calc(-6px  + var(--dock-offset-right, 0px) * -1);
+  width:      calc(58px + var(--dock-offset-right, 0px));
+  height:     calc(58px + var(--dock-offset-right, 0px));
+  margin-top: calc(-6px + var(--dock-offset-right, 0px) * -1);
 }
 
-/* ── Left neighbours ── */
 .app:has(+ .app:hover) {
-  width:      calc(72px + var(--dock-offset-left, 0px));
-  height:     calc(72px + var(--dock-offset-left, 0px));
-  margin-top: calc(-16px + var(--dock-offset-left, 0px) * -1);
+  width:      calc(66px + var(--dock-offset-left, 0px));
+  height:     calc(66px + var(--dock-offset-left, 0px));
+  margin-top: calc(-14px + var(--dock-offset-left, 0px) * -1);
 }
 
 .app:has(+ .app + .app:hover) {
-  width:      calc(62px + var(--dock-offset-left, 0px));
-  height:     calc(62px + var(--dock-offset-left, 0px));
-  margin-top: calc(-6px  + var(--dock-offset-left, 0px) * -1);
+  width:      calc(58px + var(--dock-offset-left, 0px));
+  height:     calc(58px + var(--dock-offset-left, 0px));
+  margin-top: calc(-6px + var(--dock-offset-left, 0px) * -1);
 }
 
-/* ── Disable magnification in edit mode ── */
+/* Disable magnification in edit mode */
 .dock--editing .app:hover,
 .dock--editing .app:hover + .app,
 .dock--editing .app:hover + .app + .app,
 .dock--editing .app:has(+ .app:hover),
 .dock--editing .app:has(+ .app + .app:hover) {
-  width: 56px !important;
-  height: 56px !important;
+  width: 52px !important;
+  height: 52px !important;
   margin-top: 0 !important;
 }
 
-/* ── Tooltip ── */
+/* Tooltip */
 .tooltip {
   position: absolute;
-  top: -42px;
+  top: -40px;
   left: 50%;
   transform: translateX(-50%);
   opacity: 0;
   pointer-events: none;
   white-space: nowrap;
-  background: rgba(20, 20, 20, 0.82);
+  background: rgba(20,20,20,0.82);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  padding: 5px 10px;
-  border-radius: 9px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  padding: 4px 10px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22);
   transition: opacity 100ms ease-in;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -154,12 +130,9 @@
   opacity: 1;
 }
 
-/* Hide tooltip in edit mode */
-.dock--editing .tooltip {
-  display: none;
-}
+.dock--editing .tooltip { display: none; }
 
-/* ── Recent-tab dot indicator ── */
+/* Recent-tab dot */
 .dock-dot {
   display: block;
   position: absolute;
@@ -169,15 +142,15 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255,255,255,0.85);
 }
 
-/* ── Separator ── */
+/* Separator */
 .dock-separator {
   display: block;
   width: 1px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.3);
-  margin: 0 6px 10px;
+  height: 32px;
+  background: rgba(255,255,255,0.28);
+  margin: 0 4px 8px;
   border-radius: 1px;
 }

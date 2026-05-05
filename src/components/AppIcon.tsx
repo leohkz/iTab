@@ -7,27 +7,29 @@ type AppIconProps = {
   size?: 'grid' | 'dock' | 'mini';
 };
 
-// grid / mini use fixed Tailwind sizes.
-// dock: fill parent — the .app <li> controls actual size via dock.css
 const sizeClasses = {
   grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
-  dock: 'h-full w-full rounded-[14px]',
+  dock: 'h-full w-full rounded-[13px]',
   mini: 'h-6 w-6 rounded-[0.48rem]',
 };
 
 const monogramSizes = {
   grid: 'text-xl',
-  dock: 'text-base',
+  dock: 'text-sm',
   mini: 'text-[0.62rem]',
+};
+
+// favicon fills 60% of slot — prevents icon looking too large in dock
+const faviconSizes = {
+  grid: 'h-[62%] w-[62%]',
+  dock: 'h-[60%] w-[60%]',
+  mini: 'h-[70%] w-[70%]',
 };
 
 function autoAccent(input: string) {
   let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = input.charCodeAt(index) + ((hash << 5) - hash);
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue} 72% 62%)`;
+  for (let i = 0; i < input.length; i++) hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360} 72% 62%)`;
 }
 
 export function AppIcon({ app, size = 'grid' }: AppIconProps) {
@@ -53,8 +55,7 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
         <img
           src={iconSource}
           alt=""
-          // dock icons: favicon fills ~72% of the slot, same as grid
-          className="h-[72%] w-[72%] object-contain"
+          className={`object-contain ${faviconSizes[size]}`}
           decoding="async"
           loading="lazy"
           onError={() => setFailed(true)}
@@ -65,9 +66,7 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
             'flex h-full w-full items-center justify-center font-black tracking-[-0.04em] text-slate-800',
             monogramSizes[size],
           ].join(' ')}
-          style={{
-            background: `linear-gradient(135deg, color-mix(in oklab, ${accent} 12%, white), color-mix(in oklab, ${accent} 66%, white))`,
-          }}
+          style={{ background: `linear-gradient(135deg, color-mix(in oklab, ${accent} 12%, white), color-mix(in oklab, ${accent} 66%, white))` }}
           aria-hidden="true"
         >
           {getInitials(app.name)}

@@ -52,13 +52,9 @@ function NewTab() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState('Synced');
   const [toast, setToast] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState>({
-    open: false,
-    mode: 'add',
-    appId: null,
-    folderId: null,
+    open: false, mode: 'add', appId: null, folderId: null,
   });
 
   const t = useMemo(() => createTranslator(config.locale), [config.locale]);
@@ -69,10 +65,10 @@ function NewTab() {
   );
 
   const updateConfig = (next: AppConfig) => {
-    const enabledEngines = next.searchEngines.filter((engine) => engine.enabled);
+    const enabledEngines = next.searchEngines.filter((e) => e.enabled);
     const normalized: AppConfig = {
       ...next,
-      defaultEngine: enabledEngines.some((engine) => engine.id === next.defaultEngine)
+      defaultEngine: enabledEngines.some((e) => e.id === next.defaultEngine)
         ? next.defaultEngine
         : (enabledEngines[0]?.id ?? next.searchEngines[0]?.id ?? 'google'),
       gridColumns: Math.min(10, Math.max(4, Number(next.gridColumns) || 7)),
@@ -80,9 +76,7 @@ function NewTab() {
       glass: Math.min(95, Math.max(30, Number(next.glass) || 72)),
     };
     setConfig(normalized);
-    if (isChromeExtensionApiAvailable()) {
-      chrome.storage.local.set({ [CONFIG_KEY]: normalized });
-    }
+    if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: normalized });
   };
 
   const notify = (message: string) => {
@@ -101,15 +95,9 @@ function NewTab() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
-      if (isCommandK && config.experiments.keyboardShortcuts) {
-        event.preventDefault();
-        setSearchOpen(true);
-      }
+      if (isCommandK && config.experiments.keyboardShortcuts) { event.preventDefault(); setSearchOpen(true); }
       if (event.key === 'Escape') {
-        setSettingsOpen(false);
-        setSearchOpen(false);
-        setSelectedFolderId(null);
-        setEditing(false);
+        setSettingsOpen(false); setSearchOpen(false); setSelectedFolderId(null); setEditing(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -121,14 +109,7 @@ function NewTab() {
     const timer = window.setInterval(() => {
       setConfig((current) => {
         const remaining = Math.max(0, current.widgets.pomodoroRemainingSeconds - 1);
-        const next = {
-          ...current,
-          widgets: {
-            ...current.widgets,
-            pomodoroRemainingSeconds: remaining,
-            pomodoroRunning: remaining > 0,
-          },
-        };
+        const next = { ...current, widgets: { ...current.widgets, pomodoroRemainingSeconds: remaining, pomodoroRunning: remaining > 0 } };
         if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: next });
         return next;
       });
@@ -163,6 +144,11 @@ function NewTab() {
       pinnedIds: config.pinnedIds.filter((id) => id !== appId),
     });
     notify('Shortcut removed');
+  };
+
+  const unpinApp = (appId: string) => {
+    updateConfig({ ...config, pinnedIds: config.pinnedIds.filter((id) => id !== appId) });
+    notify('Removed from Dock');
   };
 
   const pinApp = (appId: string) => {
@@ -203,39 +189,20 @@ function NewTab() {
     notify('Folder renamed');
   };
 
-  const syncBookmarks = () => {
-    setSyncStatus(t('syncing'));
-    if (typeof chrome !== 'undefined' && chrome.bookmarks?.getTree) {
-      chrome.bookmarks.getTree((tree) => {
-        const imported: AppShortcut[] = [];
-        const walk = (nodes: chrome.bookmarks.BookmarkTreeNode[]) => {
-          nodes.forEach((node) => {
-            if (node.url && imported.length < 12) {
-              imported.push({ id: `bookmark-${node.id}`, name: node.title || node.url, url: node.url, folderId: null, iconType: 'api', iconValue: node.url });
-            }
-            if (node.children) walk(node.children);
-          });
-        };
-        walk(tree);
-        updateConfig({ ...config, apps: [...config.apps, ...imported.filter((item) => !config.apps.some((app) => app.url === item.url))] });
-        setSyncStatus(t('synced'));
-        notify(`${imported.length} bookmarks imported`);
-      });
-      return;
-    }
-    const sample: AppShortcut = { id: `bookmark-demo-${Date.now().toString(36)}`, name: 'Chrome Bookmark', url: 'https://www.google.com/bookmarks', folderId: null, iconType: 'api', iconValue: 'https://www.google.com' };
-    updateConfig({ ...config, apps: [...config.apps, sample] });
-    window.setTimeout(() => setSyncStatus(t('synced')), 800);
-    notify('Dev preview: sample bookmark imported');
+  const deleteFolder = (folderId: string) => {
+    updateConfig({
+      ...config,
+      folders: config.folders.filter((f) => f.id !== folderId),
+      apps: config.apps.map((app) => (app.folderId === folderId ? { ...app, folderId: null } : app)),
+    });
+    notify('Folder deleted');
   };
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'workspace-new-tab-config.json';
-    anchor.click();
+    anchor.href = url; anchor.download = 'workspace-new-tab-config.json'; anchor.click();
     URL.revokeObjectURL(url);
     notify('JSON exported');
   };
@@ -245,15 +212,11 @@ function NewTab() {
       const next = mergeConfigWithDefaults(JSON.parse(await file.text()) as Partial<AppConfig>);
       updateConfig(next);
       notify('JSON imported');
-    } catch {
-      notify('Invalid JSON file');
-    }
+    } catch { notify('Invalid JSON file'); }
   };
 
   const resetDefaults = () => {
-    updateConfig(cloneDefaultConfig());
-    setEditing(false);
-    setSelectedFolderId(null);
+    updateConfig(cloneDefaultConfig()); setEditing(false); setSelectedFolderId(null);
     notify('Defaults restored');
   };
 
@@ -274,11 +237,10 @@ function NewTab() {
         spaces={spaces}
         currentSpaceId={config.currentSpaceId}
         editing={editing}
-        syncStatus={syncStatus === 'Synced' ? t('synced') : syncStatus}
+        syncStatus=""
         glass={config.glass}
         onSpaceChange={(spaceId) => updateConfig({ ...config, currentSpaceId: spaceId })}
         onSearchClick={() => setSearchOpen(true)}
-        onSyncBookmarks={syncBookmarks}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleEditing={() => setEditing((v) => !v)}
         onToggleTheme={() => {
@@ -304,61 +266,57 @@ function NewTab() {
         onAddShortcut={openShortcutEditor}
         onAddFolder={addFolder}
         onRenameFolder={renameFolder}
+        onDeleteFolder={deleteFolder}
         onReorder={reorderItems}
         onMoveToFolder={moveToFolder}
         onMoveOutOfFolder={moveOutOfFolder}
       />
 
-      {config.experiments.smartRecommendations ? (
-        <div className="fixed left-5 top-24 z-20 w-64 rounded-[1.35rem] border border-white/20 bg-white/18 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md max-xl:hidden" data-testid="panel-smart-recommendations">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-white/55">Suggested now</p>
-          <div className="mt-3 grid gap-2">
-            {(config.apps.find((app) => app.id === 'gmail') ? [config.apps.find((app) => app.id === 'gmail')!] : config.apps.slice(0, 1)).map((app) => (
-              <a key={app.id} href={app.url} target="_blank" rel="noreferrer" className="rounded-xl bg-white/12 px-3 py-2 text-sm font-black transition hover:bg-white/20">{app.name}</a>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {config.experiments.conflictWarning ? (
-        <div className="fixed bottom-24 left-5 z-20 max-w-72 rounded-2xl border border-white/18 bg-slate-950/28 px-4 py-3 text-xs font-bold text-white/76 shadow-lg backdrop-blur-md max-xl:hidden" data-testid="panel-conflict-warning">
-          Only one Chrome extension can control New Tab at a time.
-        </div>
-      ) : null}
-
-      {config.showDock ? <Dock pinnedApps={pinnedApps} recentTabs={config.experiments.recentVisits ? recentTabs : []} editing={editing} glass={config.glass} onDropApp={pinApp} /> : null}
-      {config.showWidgets ? <Widgets widgets={config.widgets} glass={config.glass} t={t} onChange={(widgets) => updateConfig({ ...config, widgets })} /> : null}
-
-      <SpotlightSearch
-        open={searchOpen}
-        apps={config.apps}
-        engines={config.searchEngines}
-        defaultEngine={config.defaultEngine}
-        onClose={() => setSearchOpen(false)}
-        onEngineChange={(engine) => updateConfig({ ...config, defaultEngine: engine })}
+      <Dock
+        pinnedApps={pinnedApps}
+        recentTabs={recentTabs}
+        editing={editing}
+        glass={config.glass}
+        onDropApp={pinApp}
+        onUnpinApp={unpinApp}
+        onRenameApp={renameShortcut}
       />
 
-      <SettingsModal
-        open={settingsOpen}
-        config={config}
+      <Widgets
+        config={config.widgets}
+        onUpdate={(widgets) => updateConfig({ ...config, widgets })}
         t={t}
-        onClose={() => setSettingsOpen(false)}
-        onConfigChange={updateConfig}
-        onAction={notify}
-        onSyncBookmarks={syncBookmarks}
-        onExportJson={exportJson}
-        onImportJson={importJson}
-        onResetDefaults={resetDefaults}
       />
 
-      <ShortcutEditor
-        open={editor.open}
-        mode={editor.mode}
-        initialApp={editingApp}
-        folderId={editor.folderId}
-        onClose={() => setEditor((current) => ({ ...current, open: false }))}
-        onSave={saveShortcut}
-      />
+      {settingsOpen && (
+        <SettingsModal
+          config={config}
+          onClose={() => setSettingsOpen(false)}
+          onUpdateConfig={updateConfig}
+          onExportJson={exportJson}
+          onImportJson={importJson}
+          onResetDefaults={resetDefaults}
+          t={t}
+        />
+      )}
+
+      {searchOpen && (
+        <SpotlightSearch
+          apps={config.apps}
+          defaultEngine={config.defaultEngine}
+          searchEngines={config.searchEngines}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+
+      {editor.open && (
+        <ShortcutEditor
+          app={editingApp}
+          folderId={editor.folderId}
+          onSave={(shortcut) => { saveShortcut(shortcut); setEditor({ open: false, mode: 'add', appId: null, folderId: null }); }}
+          onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
+        />
+      )}
 
       <Toast message={toast} />
     </div>
