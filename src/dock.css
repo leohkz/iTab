@@ -1,0 +1,168 @@
+/* ============================================================
+   macOS Dock — pure CSS has() + CSS variable magnification
+   Inspired by https://github.com/frontendfyi/macos-dock-animation-with-css
+   ============================================================ */
+
+/* Base size of each dock icon */
+:root {
+  --dock-icon-size: 54px;
+  --dock-icon-max: 84px;
+  --dock-magnify-1: 74px;  /* direct neighbour */
+  --dock-magnify-2: 64px;  /* 2nd neighbour    */
+}
+
+/* ── Root positioning ── */
+.dock-root {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(52rem, calc(100vw - 2rem));
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Glass pill container ── */
+.dock-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 10px 14px 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.32);
+  box-shadow:
+    0 28px 80px rgba(15, 23, 42, 0.32),
+    inset 0 1px 0 rgba(255,255,255,0.38);
+  transition: border-color 0.2s;
+}
+
+/* ── Sections ── */
+.dock-section {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* ── Separator ── */
+.dock-separator {
+  display: block;
+  width: 1px;
+  height: 36px;
+  background: rgba(255,255,255,0.28);
+  margin: 0 4px 8px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* ── Each dock item wrapper ── */
+.dock-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* CSS variable that drives the icon size — overridden by :has() rules below */
+  --item-size: var(--dock-icon-size);
+  width: var(--item-size);
+  transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dock-item-inner {
+  width: var(--item-size);
+  height: var(--item-size);
+  transition:
+    width  0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom center;
+  /* icons scale up and lift from the bottom */
+  transform: translateY(calc((var(--dock-icon-size) - var(--item-size)) * 0.5));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dock-item-inner img,
+.dock-item-inner span,
+.dock-item-inner a {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Recent-tab dot indicator ── */
+.dock-dot {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.82);
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   THE MAGIC: CSS has() magnification
+   When ANY .dock-item is hovered, we walk the sibling tree and
+   set a smaller --item-size on 1st/2nd neighbours.
+   ================================================================ */
+
+/* Hovered item itself → max size */
+.dock-container:has(.dock-item:hover) .dock-item:hover {
+  --item-size: var(--dock-icon-max);
+}
+
+/* Immediate neighbours (prev & next) */
+.dock-container:has(.dock-item:hover) .dock-item:hover + .dock-item,
+.dock-container:has(.dock-item:hover) .dock-item:has(+ .dock-item:hover) {
+  --item-size: var(--dock-magnify-1);
+}
+
+/* 2nd neighbours */
+.dock-container:has(.dock-item:hover) .dock-item:hover + .dock-item + .dock-item,
+.dock-container:has(.dock-item:hover) .dock-item:has(+ .dock-item + .dock-item:hover) {
+  --item-size: var(--dock-magnify-2);
+}
+
+/* Cross-section: work across the separator too */
+.dock-section:has(.dock-item:hover) + .dock-separator + .dock-section .dock-item:first-child,
+.dock-section .dock-item:last-child:has(~ * .dock-item:hover) {
+  --item-size: var(--dock-magnify-2);
+}
+
+/* Disable magnification in edit mode */
+.dock-container.ring-2 .dock-item {
+  --item-size: var(--dock-icon-size) !important;
+}
+
+/* ── Tooltip label on hover ── */
+.dock-item::before {
+  content: attr(data-name);
+  position: absolute;
+  bottom: calc(var(--dock-icon-max) + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(30, 30, 30, 0.82);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 7px;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.14s,
+    transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.dock-item:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
