@@ -42,6 +42,14 @@ function Toggle({ checked, onChange, testId }: { checked: boolean; onChange: (va
   );
 }
 
+// Bug#10: Experiments keys mapped to i18n translation keys
+const experimentKeys: Array<[keyof AppConfig['experiments'], TranslationKey]> = [
+  ['smartRecommendations', 'smartRecommendations'],
+  ['recentVisits', 'recentVisits'],
+  ['keyboardShortcuts', 'keyboardShortcuts'],
+  ['conflictWarning', 'conflictWarning'],
+];
+
 export function SettingsModal({
   open,
   config,
@@ -283,17 +291,16 @@ export function SettingsModal({
             </div>
           ) : null}
 
+          {/* Bug#10 fix: Experiments block now uses i18n via experimentKeys mapping */}
           {active === 'experiments' ? (
             <div className="grid gap-3">
-              {[
-                ['smartRecommendations', 'Smart recommendations'],
-                ['recentVisits', 'Recent visits'],
-                ['keyboardShortcuts', 'Keyboard shortcuts'],
-                ['conflictWarning', 'New tab conflict warning'],
-              ].map(([key, label]) => (
+              {experimentKeys.map(([key, labelKey]) => (
                 <div key={key} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-                  <div><h4 className="font-black">{label}</h4><p className="text-sm font-semibold text-slate-600">This state now changes the config object.</p></div>
-                  <Toggle checked={config.experiments[key as keyof AppConfig['experiments']]} onChange={(value) => onConfigChange({ ...config, experiments: { ...config.experiments, [key]: value } })} testId={`toggle-experiment-${key}`} />
+                  <div>
+                    <h4 className="font-black">{t(labelKey)}</h4>
+                    <p className="text-sm font-semibold text-slate-600">{t('experimentDesc')}</p>
+                  </div>
+                  <Toggle checked={config.experiments[key]} onChange={(value) => onConfigChange({ ...config, experiments: { ...config.experiments, [key]: value } })} testId={`toggle-experiment-${key}`} />
                 </div>
               ))}
             </div>

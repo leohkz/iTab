@@ -72,8 +72,13 @@ function AppEditControls({ onDelete, onRename }: { onDelete: () => void; onRenam
   );
 }
 
+// Bug#9 fix: validate non-empty string before saving
 function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string }) {
   const [value, setValue] = useState(name);
+  const handleSave = () => {
+    if (!value.trim()) return; // reject empty names
+    onSave(value.trim());
+  };
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm"
@@ -85,12 +90,12 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSa
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') onSave(value); if (e.key === 'Escape') onCancel(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onCancel(); }}
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-400"
         />
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
-          <button type="button" onClick={() => onSave(value)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">{t('save')}</button>
+          <button type="button" onClick={handleSave} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">{t('save')}</button>
         </div>
       </div>
     </div>

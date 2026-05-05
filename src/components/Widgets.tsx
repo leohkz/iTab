@@ -66,4 +66,73 @@ export function Widgets({ widgets, glass, t, onChange }: WidgetsProps) {
                     todos: widgets.todos.map((item) => (item.id === todo.id ? { ...item, text: event.target.value } : item)),
                   })
                 }
-                className="min-w-0 flex-1 bg-transparent text-slate-800 ou
+                className="min-w-0 flex-1 bg-transparent text-slate-800 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => onChange({ ...widgets, todos: widgets.todos.filter((item) => item.id !== todo.id) })}
+                className="text-slate-400 hover:text-slate-700"
+                data-testid={`button-widget-delete-todo-${todo.id}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {/* Pomodoro */}
+      <section className="rounded-[1.35rem] border border-black/8 p-4 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,23,42,0.12)]" style={glassStyle}>
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">{t('pomodoro')}</p>
+        <div className="grid gap-3">
+          <div className="flex items-center gap-2">
+            <Timer className="h-5 w-5 text-slate-600" aria-hidden="true" />
+            <input
+              type="number"
+              min="1"
+              max="90"
+              value={widgets.pomodoroMinutes}
+              onChange={(event) => {
+                const nextMinutes = Math.min(90, Math.max(1, Number(event.target.value) || 25));
+                onChange({ ...widgets, pomodoroMinutes: nextMinutes, pomodoroRemainingSeconds: nextMinutes * 60, pomodoroRunning: false });
+              }}
+              className="w-16 rounded-lg bg-black/8 px-2 py-1 text-lg font-black text-slate-800 outline-none"
+              data-testid="input-pomodoro-minutes"
+            />
+            <span className="text-sm font-bold text-slate-500">min</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="rounded-full bg-black/8 px-3 py-1 text-sm font-black tabular-nums text-slate-800" data-testid="text-pomodoro-timer">
+              {timerLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                onChange({
+                  ...widgets,
+                  pomodoroRemainingSeconds: widgets.pomodoroRemainingSeconds || widgets.pomodoroMinutes * 60,
+                  pomodoroRunning: !widgets.pomodoroRunning,
+                })
+              }
+              className="grid h-10 w-10 place-items-center rounded-full bg-black/8 text-slate-700 transition hover:bg-black/14"
+              data-testid="button-pomodoro-toggle"
+            >
+              {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Bug#5 fix: Quick note title now uses i18n t('quickNote') */}
+      <section className="rounded-[1.35rem] border border-black/8 p-4 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,23,42,0.12)]" style={glassStyle}>
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">{t('quickNote')}</p>
+        <textarea
+          value={widgets.notes}
+          onChange={(event) => onChange({ ...widgets, notes: event.target.value })}
+          className="min-h-20 w-full resize-none rounded-xl bg-black/6 p-3 text-sm font-bold leading-5 text-slate-800 outline-none placeholder:text-slate-400"
+          data-testid="textarea-widget-note"
+        />
+      </section>
+    </aside>
+  );
+}
