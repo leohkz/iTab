@@ -109,9 +109,9 @@ function NewTab() {
         setSettingsOpen(false);
         setSearchOpen(false);
         setSelectedFolderId(null);
+        setEditing(false);
       }
     };
-
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [config.experiments.keyboardShortcuts]);
@@ -129,13 +129,10 @@ function NewTab() {
             pomodoroRunning: remaining > 0,
           },
         };
-        if (isChromeExtensionApiAvailable()) {
-          chrome.storage.local.set({ [CONFIG_KEY]: next });
-        }
+        if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: next });
         return next;
       });
     }, 1000);
-
     return () => window.clearInterval(timer);
   }, [config.widgets.pomodoroRunning]);
 
@@ -149,15 +146,11 @@ function NewTab() {
 
   const saveShortcut = (shortcut: Pick<AppShortcut, 'name' | 'url' | 'folderId' | 'iconType' | 'iconValue' | 'iconColor'>) => {
     if (editor.mode === 'edit' && editor.appId) {
-      updateConfig({
-        ...config,
-        apps: config.apps.map((app) => (app.id === editor.appId ? { ...app, ...shortcut } : app)),
-      });
+      updateConfig({ ...config, apps: config.apps.map((app) => (app.id === editor.appId ? { ...app, ...shortcut } : app)) });
       notify('Shortcut updated');
       setEditing(false);
       return;
     }
-
     const id = `${shortcut.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
     updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut }] });
     notify('Shortcut added');
@@ -199,6 +192,17 @@ function NewTab() {
     notify('Moved to Home Screen');
   };
 
+  const addFolder = () => {
+    const id = `folder-${Date.now().toString(36)}`;
+    updateConfig({ ...config, folders: [...config.folders, { id, name: 'New Folder' }] });
+    notify('Folder created');
+  };
+
+  const renameFolder = (folderId: string, name: string) => {
+    updateConfig({ ...config, folders: config.folders.map((f) => (f.id === folderId ? { ...f, name } : f)) });
+    notify('Folder renamed');
+  };
+
   const syncBookmarks = () => {
     setSyncStatus(t('syncing'));
     if (typeof chrome !== 'undefined' && chrome.bookmarks?.getTree) {
@@ -207,14 +211,7 @@ function NewTab() {
         const walk = (nodes: chrome.bookmarks.BookmarkTreeNode[]) => {
           nodes.forEach((node) => {
             if (node.url && imported.length < 12) {
-              imported.push({
-                id: `bookmark-${node.id}`,
-                name: node.title || node.url,
-                url: node.url,
-                folderId: null,
-                iconType: 'api',
-                iconValue: node.url,
-              });
+              imported.push({ id: `bookmark-${node.id}`, name: node.title || node.url, url: node.url, folderId: null, iconType: 'api', iconValue: node.url });
             }
             if (node.children) walk(node.children);
           });
@@ -226,15 +223,7 @@ function NewTab() {
       });
       return;
     }
-
-    const sample: AppShortcut = {
-      id: `bookmark-demo-${Date.now().toString(36)}`,
-      name: 'Chrome Bookmark',
-      url: 'https://www.google.com/bookmarks',
-      folderId: null,
-      iconType: 'api',
-      iconValue: 'https://www.google.com',
-    };
+    const sample: AppShortcut = { id: `bookmark-demo-${Date.now().toString(36)}`, name: 'Chrome Bookmark', url: 'https://www.google.com/bookmarks', folderId: null, iconType: 'api', iconValue: 'https://www.google.com' };
     updateConfig({ ...config, apps: [...config.apps, sample] });
     window.setTimeout(() => setSyncStatus(t('synced')), 800);
     notify('Dev preview: sample bookmark imported');
@@ -291,7 +280,7 @@ function NewTab() {
         onSearchClick={() => setSearchOpen(true)}
         onSyncBookmarks={syncBookmarks}
         onSettingsClick={() => setSettingsOpen(true)}
-        onToggleEditing={() => setEditing((value) => !value)}
+        onToggleEditing={() => setEditing((v) => !v)}
         onToggleTheme={() => {
           const themes = ['sonoma', 'ventura', 'slate'] as const;
           const index = themes.indexOf(config.theme);
@@ -309,9 +298,12 @@ function NewTab() {
         onOpenFolder={setSelectedFolderId}
         onCloseFolder={() => setSelectedFolderId(null)}
         onStartEditing={() => setEditing(true)}
+        onStopEditing={() => setEditing(false)}
         onDeleteApp={deleteApp}
         onRenameApp={renameShortcut}
         onAddShortcut={openShortcutEditor}
+        onAddFolder={addFolder}
+        onRenameFolder={renameFolder}
         onReorder={reorderItems}
         onMoveToFolder={moveToFolder}
         onMoveOutOfFolder={moveOutOfFolder}
@@ -322,9 +314,7 @@ function NewTab() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-white/55">Suggested now</p>
           <div className="mt-3 grid gap-2">
             {(config.apps.find((app) => app.id === 'gmail') ? [config.apps.find((app) => app.id === 'gmail')!] : config.apps.slice(0, 1)).map((app) => (
-              <a key={app.id} href={app.url} target="_blank" rel="noreferrer" className="rounded-xl bg-white/12 px-3 py-2 text-sm font-black transition hover:bg-white/20">
-                {app.name}
-              </a>
+              <a key={app.id} href={app.url} target="_blank" rel="noreferrer" className="rounded-xl bg-white/12 px-3 py-2 text-sm font-black transition hover:bg-white/20">{app.name}</a>
             ))}
           </div>
         </div>

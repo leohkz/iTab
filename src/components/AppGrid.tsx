@@ -1,5 +1,5 @@
-import { Grip, Minus, Pencil, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { FolderPlus, Grip, Minus, Pencil, Plus } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut, Folder } from '../types';
 
@@ -13,9 +13,12 @@ type AppGridProps = {
   onOpenFolder: (folderId: string) => void;
   onCloseFolder: () => void;
   onStartEditing: () => void;
+  onStopEditing: () => void;
   onDeleteApp: (appId: string) => void;
   onRenameApp: (appId: string) => void;
   onAddShortcut: (folderId?: string | null) => void;
+  onAddFolder: () => void;
+  onRenameFolder: (folderId: string, name: string) => void;
   onReorder: (draggedId: string, targetId: string) => void;
   onMoveToFolder: (appId: string, folderId: string) => void;
   onMoveOutOfFolder: (appId: string) => void;
@@ -27,7 +30,6 @@ type GridItem =
 
 function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   const previewApps = apps.slice(0, 4);
-
   return (
     <span className="grid h-[5.4rem] w-[5.4rem] grid-cols-2 grid-rows-2 place-items-center gap-2 rounded-[1.55rem] border border-white/35 bg-white/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_18px_40px_rgba(17,24,39,0.2)] backdrop-blur-sm">
       {Array.from({ length: 4 }).map((_, index) => {
@@ -48,11 +50,7 @@ function AppEditControls({ onDelete, onRename }: { onDelete: () => void; onRenam
       <button
         type="button"
         aria-label="Delete shortcut"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onDelete();
-        }}
+        onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDelete(); }}
         className="absolute -left-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
         data-testid="button-delete-shortcut"
       >
@@ -61,17 +59,38 @@ function AppEditControls({ onDelete, onRename }: { onDelete: () => void; onRenam
       <button
         type="button"
         aria-label="Edit shortcut"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onRename();
-        }}
+        onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRename(); }}
         className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
         data-testid="button-rename-shortcut"
       >
         <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </>
+  );
+}
+
+function FolderRenameOverlay({ name, onSave, onCancel }: { name: string; onSave: (n: string) => void; onCancel: () => void }) {
+  const [value, setValue] = useState(name);
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm"
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="w-72 rounded-2xl bg-white p-6 shadow-2xl">
+        <p className="mb-3 text-sm font-black text-slate-700">Rename folder</p>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') onSave(value); if (e.key === 'Escape') onCancel(); }}
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-400"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">Cancel</button>
+          <button type="button" onClick={() => onSave(value)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">Save</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -85,16 +104,22 @@ export function AppGrid({
   onOpenFolder,
   onCloseFolder,
   onStartEditing,
+  onStopEditing,
   onDeleteApp,
   onRenameApp,
   onAddShortcut,
+  onAddFolder,
+  onRenameFolder,
   onReorder,
   onMoveToFolder,
   onMoveOutOfFolder,
 }: AppGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const selectedFolder = folders.find((folder) => folder.id === selectedFolderId) ?? null;
   const selectedFolderApps = selectedFolder ? apps.filter((app) => app.folderId === selectedFolder.id) : [];
+  const renamingFolder = folders.find((f) => f.id === renamingFolderId) ?? null;
+  const mainRef = useRef<HTMLElement>(null);
 
   const items = useMemo<GridItem[]>(() => {
     const rootApps = apps.filter((app) => app.folderId === null).map((app) => ({ kind: 'app' as const, id: app.id, app }));
@@ -104,7 +129,6 @@ export function AppGrid({
       folder,
       apps: apps.filter((app) => app.folderId === folder.id),
     }));
-
     return [...rootApps, ...folderItems];
   }, [apps, folders]);
 
@@ -119,15 +143,14 @@ export function AppGrid({
 
   return (
     <main
+      ref={mainRef}
       className="relative z-10 flex min-h-screen items-center justify-center px-6 pb-32 pt-28"
       data-testid="main-new-tab"
-      onContextMenu={(event) => {
-        event.preventDefault();
-        onStartEditing();
+      onContextMenu={(event) => { event.preventDefault(); onStartEditing(); }}
+      onClick={(event) => {
+        if (editing && event.target === mainRef.current) onStopEditing();
       }}
-      onDragOver={(event) => {
-        if (selectedFolderId) event.preventDefault();
-      }}
+      onDragOver={(event) => { if (selectedFolderId) event.preventDefault(); }}
       onDrop={() => {
         if (selectedFolderId && draggedId) onMoveOutOfFolder(draggedId);
         setDraggedId(null);
@@ -165,14 +188,27 @@ export function AppGrid({
                     setDraggedId(null);
                   }}
                   onPointerDown={(event) => setLongPress(event.currentTarget)}
-                  onClick={() => onOpenFolder(item.folder.id)}
+                  onClick={() => {
+                    if (editing) return;
+                    onOpenFolder(item.folder.id);
+                  }}
                   className={commonClass}
                   data-testid={`button-folder-${item.folder.id}`}
                 >
                   {editing ? (
-                    <span className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/90 text-slate-950 shadow-lg">
-                      <Grip className="h-3.5 w-3.5" aria-hidden="true" />
-                    </span>
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Rename folder"
+                        onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
+                        className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <span className="absolute -left-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/30 text-white shadow-lg">
+                        <Grip className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                    </>
                   ) : null}
                   <span className={editing ? 'animate-jiggle' : ''}>
                     <FolderPreview apps={item.apps} />
@@ -201,9 +237,7 @@ export function AppGrid({
                   setDraggedId(null);
                 }}
                 onPointerDown={(event) => setLongPress(event.currentTarget)}
-                onClick={(event) => {
-                  if (editing) event.preventDefault();
-                }}
+                onClick={(event) => { if (editing) event.preventDefault(); }}
                 className={commonClass}
                 data-testid={`link-app-${item.app.id}`}
               >
@@ -219,17 +253,30 @@ export function AppGrid({
           })}
 
           {editing ? (
-            <button
-              type="button"
-              onClick={() => onAddShortcut(null)}
-              className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-              data-testid="button-add-grid-shortcut"
-            >
-              <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                <Plus className="h-7 w-7" aria-hidden="true" />
-              </span>
-              <span className="text-sm font-bold text-white">Add</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onAddShortcut(null)}
+                className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+                data-testid="button-add-grid-shortcut"
+              >
+                <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
+                  <Plus className="h-7 w-7" aria-hidden="true" />
+                </span>
+                <span className="text-sm font-bold text-white">Add</span>
+              </button>
+              <button
+                type="button"
+                onClick={onAddFolder}
+                className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+                data-testid="button-add-folder"
+              >
+                <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
+                  <FolderPlus className="h-7 w-7" aria-hidden="true" />
+                </span>
+                <span className="text-sm font-bold text-white">New Folder</span>
+              </button>
+            </>
           ) : null}
         </div>
       </section>
@@ -239,9 +286,7 @@ export function AppGrid({
           className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
           role="presentation"
           data-testid="modal-folder-backdrop"
-          onPointerDown={(event) => {
-            if (event.target === event.currentTarget) onCloseFolder();
-          }}
+          onPointerDown={(event) => { if (event.target === event.currentTarget) onCloseFolder(); }}
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
             event.stopPropagation();
@@ -260,10 +305,9 @@ export function AppGrid({
             onDrop={(event) => event.stopPropagation()}
           >
             <div className="mb-6 text-center">
-              <h2 className="text-[var(--text-xl)] font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
+              <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
               <p className="mt-1 text-sm font-semibold text-white/68">{selectedFolderApps.length} websites</p>
             </div>
-
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (
                 <a
@@ -272,17 +316,9 @@ export function AppGrid({
                   target="_blank"
                   rel="noreferrer"
                   draggable={editing}
-                  onDragStart={(event) => {
-                    setDraggedId(app.id);
-                    event.dataTransfer.setData('text/plain', app.id);
-                  }}
-                  onClick={(event) => {
-                    if (editing) event.preventDefault();
-                  }}
-                  className={[
-                    'relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12',
-                    editing ? 'cursor-grab' : '',
-                  ].join(' ')}
+                  onDragStart={(event) => { setDraggedId(app.id); event.dataTransfer.setData('text/plain', app.id); }}
+                  onClick={(event) => { if (editing) event.preventDefault(); }}
+                  className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12', editing ? 'cursor-grab' : ''].join(' ')}
                   data-testid={`folder-app-${app.id}`}
                 >
                   {editing ? <AppEditControls onDelete={() => onDeleteApp(app.id)} onRename={() => onRenameApp(app.id)} /> : null}
@@ -308,6 +344,14 @@ export function AppGrid({
             </div>
           </section>
         </div>
+      ) : null}
+
+      {renamingFolder ? (
+        <FolderRenameOverlay
+          name={renamingFolder.name}
+          onSave={(name) => { onRenameFolder(renamingFolder.id, name); setRenamingFolderId(null); }}
+          onCancel={() => setRenamingFolderId(null)}
+        />
       ) : null}
     </main>
   );

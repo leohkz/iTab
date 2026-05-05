@@ -1,4 +1,4 @@
-import { Bookmark, Check, Moon, Search, Settings, Sparkles } from 'lucide-react';
+import { Bookmark, Moon, Search, Settings, Sparkles, Check } from 'lucide-react';
 import { WorkspaceMark } from './WorkspaceMark';
 import type { Space } from '../types';
 
@@ -26,7 +26,6 @@ export function TopBar({
   onSearchClick,
   onSyncBookmarks,
   onSettingsClick,
-  onToggleEditing,
   onToggleTheme,
 }: TopBarProps) {
   const now = new Date();
@@ -44,13 +43,15 @@ export function TopBar({
   const surfaceAlpha = Math.min(0.42, Math.max(0.12, glass / 260));
   const blurPx = Math.round(8 + glass / 8);
 
-  // Detect platform: show Ctrl on Windows/Linux, ⌘ on Mac
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
   const shortcutBadge = isMac ? '⌘K' : 'Ctrl+K';
 
   return (
     <header
-      className="fixed left-4 right-4 top-4 z-40 grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-[1.4rem] border border-white/25 px-4 py-2 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] max-md:grid-cols-2 max-md:gap-2"
+      className={[
+        'fixed left-4 right-4 top-4 z-40 grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-[1.4rem] border px-4 py-2 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] max-md:grid-cols-2 max-md:gap-2 transition duration-300',
+        editing ? 'border-white/60 ring-2 ring-white/30' : 'border-white/25',
+      ].join(' ')}
       style={{
         backgroundColor: `rgba(255,255,255,${surfaceAlpha})`,
         backdropFilter: `blur(${blurPx}px)`,
@@ -91,13 +92,9 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/10 px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] max-md:hidden">
-        <span className="text-sm font-bold tabular-nums" data-testid="text-clock">
-          {time}
-        </span>
+        <span className="text-sm font-bold tabular-nums" data-testid="text-clock">{time}</span>
         <span className="h-1 w-1 rounded-full bg-white/45" />
-        <span className="text-sm font-medium text-white/76" data-testid="text-date">
-          {date}
-        </span>
+        <span className="text-sm font-medium text-white/76" data-testid="text-date">{date}</span>
         <span className="h-1 w-1 rounded-full bg-white/45" />
         <span className="flex items-center gap-1.5 text-sm font-medium text-white/76" data-testid="text-weather">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -111,16 +108,22 @@ export function TopBar({
       </div>
 
       <nav className="flex min-w-0 items-center justify-end gap-2" aria-label="Workspace tools">
-        <button
-          type="button"
-          onClick={onSearchClick}
-          className="flex h-10 min-w-0 max-w-[18rem] flex-1 items-center gap-2 rounded-full border border-white/20 bg-white/18 px-3 text-left text-white/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-md transition duration-200 hover:bg-white/26 max-md:hidden"
-          data-testid="button-open-search"
-        >
-          <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/62">Search apps &amp; web</span>
-          <span className="shrink-0 rounded-md border border-white/20 px-1.5 py-0.5 text-[0.65rem] font-black text-white/70">{shortcutBadge}</span>
-        </button>
+        {editing ? (
+          <span className="rounded-full border border-white/40 bg-white/20 px-3 py-1 text-xs font-black text-white backdrop-blur-sm">
+            ✏️ Edit mode — click blank area to exit
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onSearchClick}
+            className="flex h-10 min-w-0 max-w-[18rem] flex-1 items-center gap-2 rounded-full border border-white/20 bg-white/18 px-3 text-left text-white/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-md transition duration-200 hover:bg-white/26 max-md:hidden"
+            data-testid="button-open-search"
+          >
+            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/62">Search apps &amp; web</span>
+            <span className="shrink-0 rounded-md border border-white/20 px-1.5 py-0.5 text-[0.65rem] font-black text-white/70">{shortcutBadge}</span>
+          </button>
+        )}
         <button
           type="button"
           aria-label="Sync bookmarks"
@@ -129,18 +132,6 @@ export function TopBar({
           data-testid="button-bookmark-sync"
         >
           <Bookmark className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          aria-label={editing ? 'Done editing' : 'Enter edit mode'}
-          onClick={onToggleEditing}
-          className={[
-            'flex h-10 items-center justify-center rounded-full border border-white/20 px-3 text-sm font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-200 hover:bg-white/28 active:scale-95',
-            editing ? 'bg-slate-950/45' : 'hidden',
-          ].join(' ')}
-          data-testid="button-topbar-edit"
-        >
-          Done
         </button>
         <button
           type="button"
