@@ -7,10 +7,11 @@ type AppIconProps = {
   size?: 'grid' | 'dock' | 'mini';
 };
 
+// grid / mini use fixed Tailwind sizes.
+// dock: fill parent — the .app <li> controls actual size via dock.css
 const sizeClasses = {
   grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
-  // dock icons fill the parent <li> which controls size via CSS
-  dock: 'h-full w-full rounded-[12px]',
+  dock: 'h-full w-full rounded-[14px]',
   mini: 'h-6 w-6 rounded-[0.48rem]',
 };
 
@@ -52,7 +53,8 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
         <img
           src={iconSource}
           alt=""
-          className="h-[62%] w-[62%] object-contain"
+          // dock icons: favicon fills ~72% of the slot, same as grid
+          className="h-[72%] w-[72%] object-contain"
           decoding="async"
           loading="lazy"
           onError={() => setFailed(true)}
