@@ -282,36 +282,46 @@ function NewTab() {
         onRenameApp={renameShortcut}
       />
 
-      <Widgets
-        config={config.widgets}
-        onUpdate={(widgets) => updateConfig({ ...config, widgets })}
-        t={t}
-      />
+      {config.showWidgets && (
+        <Widgets
+          widgets={config.widgets}
+          glass={config.glass}
+          onChange={(widgets) => updateConfig({ ...config, widgets })}
+          t={t}
+        />
+      )}
 
       {settingsOpen && (
         <SettingsModal
+          open={settingsOpen}
           config={config}
+          t={t}
           onClose={() => setSettingsOpen(false)}
-          onUpdateConfig={updateConfig}
+          onConfigChange={updateConfig}
+          onAction={notify}
+          onSyncBookmarks={() => notify('Bookmarks synced')}
           onExportJson={exportJson}
           onImportJson={importJson}
           onResetDefaults={resetDefaults}
-          t={t}
         />
       )}
 
       {searchOpen && (
         <SpotlightSearch
+          open={searchOpen}
           apps={config.apps}
+          engines={config.searchEngines}
           defaultEngine={config.defaultEngine}
-          searchEngines={config.searchEngines}
           onClose={() => setSearchOpen(false)}
+          onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
         />
       )}
 
       {editor.open && (
         <ShortcutEditor
-          app={editingApp}
+          open={editor.open}
+          mode={editor.mode}
+          initialApp={editingApp}
           folderId={editor.folderId}
           onSave={(shortcut) => { saveShortcut(shortcut); setEditor({ open: false, mode: 'add', appId: null, folderId: null }); }}
           onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
