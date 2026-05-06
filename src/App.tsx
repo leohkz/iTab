@@ -204,7 +204,6 @@ function NewTab() {
     notify(t('delete'));
   };
 
-  // ── Prompt CRUD ────────────────────────────────────────────────────────────────
   const addPrompt = (data: Omit<Prompt, 'id' | 'createdAt'>) => {
     const id = `p-${Date.now().toString(36)}`;
     updateConfig({ ...config, prompts: [...(config.prompts ?? []), { id, ...data, createdAt: Date.now() }] });
@@ -274,7 +273,6 @@ function NewTab() {
         }}
       />
 
-      {/* ── Prompt Library 左側觸發按鈕 ── */}
       <button
         type="button"
         onClick={() => setShowPrompts((v) => !v)}
@@ -293,7 +291,6 @@ function NewTab() {
         </span>
       </button>
 
-      {/* App Grid 或 Prompt Library */}
       {showPrompts ? (
         <PromptLibrary
           prompts={config.prompts ?? []}
@@ -361,7 +358,6 @@ function NewTab() {
           onClose={() => setSettingsOpen(false)}
           onConfigChange={updateConfig}
           onAction={notify}
-          onSyncBookmarks={() => notify('Bookmarks synced')}
           onExportJson={exportJson}
           onImportJson={importJson}
           onResetDefaults={resetDefaults}
