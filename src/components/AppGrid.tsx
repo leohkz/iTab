@@ -1,7 +1,7 @@
 import { FolderPlus, Grip, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { AppIcon } from './AppIcon';
-import type { AppShortcut, Folder } from '../types';
+import type { AppShortcut, Folder, Space } from '../types';
 import type { TranslationKey } from '../i18n';
 
 type AppGridProps = {
@@ -11,6 +11,8 @@ type AppGridProps = {
   selectedFolderId: string | null;
   gridColumns: number;
   gridRows: number;
+  currentSpaceId: string;
+  spaces: Space[];
   t: (key: TranslationKey) => string;
   onOpenFolder: (folderId: string) => void;
   onCloseFolder: () => void;
@@ -25,6 +27,7 @@ type AppGridProps = {
   onReorder: (draggedId: string, targetId: string) => void;
   onMoveToFolder: (appId: string, folderId: string) => void;
   onMoveOutOfFolder: (appId: string) => void;
+  onMoveToSpace: (appId: string, spaceId: string | undefined) => void;
 };
 
 type GridItem =
@@ -47,7 +50,23 @@ function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   );
 }
 
-function AppEditControls({ onDelete, onRename }: { onDelete: () => void; onRename: () => void }) {
+function AppEditControls({
+  app,
+  spaces,
+  currentSpaceId,
+  onDelete,
+  onRename,
+  onMoveToSpace,
+}: {
+  app: AppShortcut;
+  spaces: Space[];
+  currentSpaceId: string;
+  onDelete: () => void;
+  onRename: () => void;
+  onMoveToSpace: (spaceId: string | undefined) => void;
+}) {
+  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
+
   return (
     <>
       <button
@@ -68,15 +87,53 @@ function AppEditControls({ onDelete, onRename }: { onDelete: () => void; onRenam
       >
         <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
+
+      {/* Space badge — 點擊展開 Space 選單 */}
+      <button
+        type="button"
+        aria-label="Move to space"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSpaceMenuOpen((v) => !v); }}
+        className="absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-black text-slate-700 shadow backdrop-blur-sm"
+        data-testid="button-space-badge"
+      >
+        {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '✦ All'}
+      </button>
+
+      {spaceMenuOpen && (
+        <div
+          className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="min-w-[9rem] py-1 text-xs font-black text-slate-800">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-100"
+              onClick={(e) => { e.stopPropagation(); onMoveToSpace(undefined); setSpaceMenuOpen(false); }}
+            >
+              <span className="text-slate-400">✦</span> All Spaces
+            </button>
+            {spaces.map((space) => (
+              <button
+                key={space.id}
+                type="button"
+                className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-100', space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
+                onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}
+              >
+                <span className={`h-2 w-2 rounded-full bg-gradient-to-br ${space.accent}`} />
+                {space.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-// Bug#9 fix: validate non-empty string before saving
 function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string }) {
   const [value, setValue] = useState(name);
   const handleSave = () => {
-    if (!value.trim()) return; // reject empty names
+    if (!value.trim()) return;
     onSave(value.trim());
   };
   return (
@@ -103,10 +160,11 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSa
 }
 
 export function AppGrid({
-  apps, folders, editing, selectedFolderId, gridColumns, gridRows, t,
+  apps, folders, editing, selectedFolderId, gridColumns, gridRows,
+  currentSpaceId, spaces, t,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
-  onReorder, onMoveToFolder, onMoveOutOfFolder,
+  onReorder, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
 }: AppGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -231,7 +289,16 @@ export function AppGrid({
                 className={commonClass}
                 data-testid={`link-app-${item.app.id}`}
               >
-                {editing && <AppEditControls onDelete={() => onDeleteApp(item.app.id)} onRename={() => onRenameApp(item.app.id)} />}
+                {editing && (
+                  <AppEditControls
+                    app={item.app}
+                    spaces={spaces}
+                    currentSpaceId={currentSpaceId}
+                    onDelete={() => onDeleteApp(item.app.id)}
+                    onRename={() => onRenameApp(item.app.id)}
+                    onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
+                  />
+                )}
                 <span className={editing ? 'animate-jiggle' : ''}>
                   <AppIcon app={item.app} size="grid" />
                 </span>
@@ -307,7 +374,16 @@ export function AppGrid({
                   className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12', editing ? 'cursor-grab' : ''].join(' ')}
                   data-testid={`folder-app-${app.id}`}
                 >
-                  {editing && <AppEditControls onDelete={() => onDeleteApp(app.id)} onRename={() => onRenameApp(app.id)} />}
+                  {editing && (
+                    <AppEditControls
+                      app={app}
+                      spaces={spaces}
+                      currentSpaceId={currentSpaceId}
+                      onDelete={() => onDeleteApp(app.id)}
+                      onRename={() => onRenameApp(app.id)}
+                      onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
+                    />
+                  )}
                   <span className={editing ? 'animate-jiggle' : ''}>
                     <AppIcon app={app} size="grid" />
                   </span>

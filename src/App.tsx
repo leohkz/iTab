@@ -133,14 +133,13 @@ function NewTab() {
 
   const saveShortcut = (shortcut: Pick<AppShortcut, 'name' | 'url' | 'folderId' | 'iconType' | 'iconValue' | 'iconColor'>) => {
     if (editor.mode === 'edit' && editor.appId) {
-      // Bug#11 fix: edit mode should NOT call setEditing(false) — user may not be in editing mode
       updateConfig({ ...config, apps: config.apps.map((app) => (app.id === editor.appId ? { ...app, ...shortcut } : app)) });
       notify(t('editWebsite'));
       return;
     }
     const id = `${shortcut.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
-    // Bug#1 fix: new app has spaceId: undefined so it belongs to ALL spaces by default
-    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: undefined }] });
+    // 新增 app 綁定到目前 Space
+    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: config.currentSpaceId }] });
     notify(t('addWebsite'));
   };
 
@@ -183,6 +182,16 @@ function NewTab() {
   const moveOutOfFolder = (appId: string) => {
     updateConfig({ ...config, apps: config.apps.map((app) => (app.id === appId ? { ...app, folderId: null } : app)) });
     notify('Moved to Home Screen');
+  };
+
+  // 新增：把 app 移到指定 Space（或 undefined = 全域）
+  const moveToSpace = (appId: string, spaceId: string | undefined) => {
+    updateConfig({
+      ...config,
+      apps: config.apps.map((app) => (app.id === appId ? { ...app, spaceId } : app)),
+    });
+    const spaceName = spaceId ? (spaces.find((s) => s.id === spaceId)?.name ?? spaceId) : 'All Spaces';
+    notify(`Moved to ${spaceName}`);
   };
 
   const addFolder = () => {
@@ -248,7 +257,6 @@ function NewTab() {
         glass={config.glass}
         t={t}
         onSpaceChange={(spaceId) => {
-          // Bug#7 fix: reset selectedFolderId when switching space
           setSelectedFolderId(null);
           updateConfig({ ...config, currentSpaceId: spaceId });
         }}
@@ -269,6 +277,8 @@ function NewTab() {
         selectedFolderId={selectedFolderId}
         gridColumns={config.gridColumns}
         gridRows={config.gridRows}
+        currentSpaceId={config.currentSpaceId}
+        spaces={spaces}
         t={t}
         onOpenFolder={setSelectedFolderId}
         onCloseFolder={() => setSelectedFolderId(null)}
@@ -283,9 +293,9 @@ function NewTab() {
         onReorder={reorderItems}
         onMoveToFolder={moveToFolder}
         onMoveOutOfFolder={moveOutOfFolder}
+        onMoveToSpace={moveToSpace}
       />
 
-      {/* Bug#6 fix: conditionally render Dock based on config.showDock */}
       {config.showDock && (
         <Dock
           pinnedApps={pinnedApps}
@@ -323,7 +333,6 @@ function NewTab() {
       )}
 
       {searchOpen && (
-        // Bug#12 fix: pass currentSpaceApps instead of config.apps
         <SpotlightSearch
           open={searchOpen}
           apps={currentSpaceApps}
