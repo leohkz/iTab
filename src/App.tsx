@@ -8,7 +8,7 @@ import { ShortcutEditor } from './components/ShortcutEditor';
 import { SpotlightSearch } from './components/SpotlightSearch';
 import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
-import { Widgets, FocusModeOverlay } from './components/Widgets';
+import { Widgets } from './components/Widgets';
 import { defaultConfig, recentTabs, spaces } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, WidgetMeta, WidgetState } from './types';
@@ -48,7 +48,6 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
     todoMeta:         { ...DEFAULT_META, ...(raw.todoMeta     ?? {}) },
     pomodoroMeta:     { ...DEFAULT_META, ...(raw.pomodoroMeta ?? {}) },
     notesMeta:        { ...DEFAULT_META, ...(raw.notesMeta    ?? {}) },
-    focusModeActive:  raw.focusModeActive ?? false,
   };
 
   if (!widgets.pomodoroRemainingSeconds) {
@@ -134,16 +133,12 @@ function NewTab() {
       const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
       if (isCommandK && config.experiments.keyboardShortcuts) { event.preventDefault(); setSearchOpen(true); }
       if (event.key === 'Escape') {
-        if (config.widgets.focusModeActive) {
-          updateConfig({ ...config, widgets: { ...config.widgets, focusModeActive: false } });
-          return;
-        }
         setSettingsOpen(false); setSearchOpen(false); setSelectedFolderId(null); setEditing(false); setShowPrompts(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [config.experiments.keyboardShortcuts, config.widgets.focusModeActive]);
+  }, [config.experiments.keyboardShortcuts]);
 
   useEffect(() => {
     if (!config.widgets.pomodoroRunning) return;
@@ -222,7 +217,7 @@ function NewTab() {
 
   const addFolder = () => {
     const id = `folder-${Date.now().toString(36)}`;
-    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder'), spaceId: config.currentSpaceId }] });
+    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder'), appIds: [], spaceId: config.currentSpaceId }] });
     notify(t('newFolder'));
   };
 
@@ -303,7 +298,7 @@ function NewTab() {
         onToggleEditing={() => setEditing((v) => !v)}
         onToggleTheme={() => {
           const themes = ['sonoma', 'ventura', 'slate'] as const;
-          const index = themes.indexOf(config.theme);
+          const index = themes.indexOf(config.theme as 'sonoma' | 'ventura' | 'slate');
           updateConfig({ ...config, theme: themes[(index + 1) % themes.length] });
         }}
         onWidgetsChange={handleWidgetsChange}
@@ -383,15 +378,6 @@ function NewTab() {
           glass={config.glass}
           onChange={handleWidgetsChange}
           t={t}
-        />
-      )}
-
-      {/* Focus Mode full-screen overlay */}
-      {config.widgets.focusModeActive && (
-        <FocusModeOverlay
-          widgets={config.widgets}
-          onChange={handleWidgetsChange}
-          backgroundClass={themeClass}
         />
       )}
 

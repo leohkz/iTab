@@ -41,15 +41,8 @@ export interface WidgetState {
   todoLists: TodoList[];
   activeTodoListId: string;
   pomodoroMinutes: number;
-  pomodoroBreakMinutes: number;
   pomodoroRemainingSeconds: number;
   pomodoroRunning: boolean;
-  pomodoroIsBreak: boolean;
-  pomodoroTask: string;
-  // Focus Mode
-  focusModeActive: boolean;
-  // Focus Sound state (stored inline)
-  focusSoundState?: Record<string, unknown>;
   // Per-widget UI state
   todoMeta: WidgetMeta;
   pomodoroMeta: WidgetMeta;
@@ -99,7 +92,6 @@ export interface SearchEngine {
   id: string;
   name: string;
   url?: string;
-  // Extended fields used throughout the codebase
   shortcut?: string;
   template?: string;
   enabled?: boolean;
@@ -117,7 +109,6 @@ export interface AppConfig {
   folders: Folder[];
   pinnedIds: string[];
   searchEngines: SearchEngine[];
-  defaultEngineId?: string;
   defaultEngine?: string;
   locale: Locale;
   glass: number;
@@ -126,7 +117,7 @@ export interface AppConfig {
   showDock: boolean;
   showWidgets: boolean;
   wallpaper?: string;
-  theme: ThemeName | 'light' | 'dark' | 'system';
+  theme: ThemeName | string;
   widgets: WidgetState;
   prompts: Prompt[];
   experiments: {
