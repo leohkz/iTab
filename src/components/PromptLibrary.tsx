@@ -53,12 +53,13 @@ function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; on
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ring-2 transition"
+      className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black transition"
       style={{
         backgroundColor: active ? tag.color : `${tag.color}33`,
         color: active ? tagTextColor(tag.color) : tag.color,
-        ringColor: active ? tag.color : 'transparent',
         border: `1.5px solid ${tag.color}`,
+        outline: active ? `2px solid ${tag.color}` : 'none',
+        outlineOffset: '2px',
       }}
     >
       <Tag className="h-2.5 w-2.5" />
@@ -118,7 +119,7 @@ function PromptCard({
           </div>
         )}
 
-        {/* Content preview — solid dark text */}
+        {/* Content preview */}
         <p className="line-clamp-3 text-xs font-medium leading-relaxed text-slate-700">{prompt.content}</p>
       </div>
 
@@ -203,7 +204,7 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
         onClick={onClose}
       />
 
-      {/* ── Panel — centred, full height minus topbar ── */}
+      {/* ── Panel ── */}
       <div
         className="fixed inset-x-4 bottom-4 top-20 z-[61] flex flex-col overflow-hidden rounded-[2rem] border border-white/25 bg-white/95 shadow-[0_24px_80px_rgba(15,23,42,0.35)] backdrop-blur-2xl"
         style={{ animation: 'slideUp 0.28s cubic-bezier(0.34,1.3,0.64,1)' }}
@@ -245,11 +246,10 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
             {search && <button type="button" onClick={() => setSearch('')} className="shrink-0 text-slate-400 hover:text-slate-700"><X className="h-3.5 w-3.5" /></button>}
           </div>
 
-          {/* All pill */}
           <button
             type="button"
             onClick={() => setActiveTag(null)}
-            className={['rounded-full border-1.5 px-3 py-1 text-xs font-black transition', activeTag === null ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'].join(' ')}
+            className={['rounded-full px-3 py-1 text-xs font-black transition', activeTag === null ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'].join(' ')}
           >
             {t('allTags')}
           </button>
@@ -313,7 +313,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
         />
       )}
 
-      {/* Keyframe styles */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(32px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
