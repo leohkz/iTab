@@ -45,6 +45,8 @@ export interface WidgetState {
   pomodoroRunning: boolean;
   pomodoroIsBreak: boolean;
   pomodoroTask: string;
+  // Focus Mode
+  focusModeActive: boolean;
   // Per-widget UI state
   todoMeta: WidgetMeta;
   pomodoroMeta: WidgetMeta;

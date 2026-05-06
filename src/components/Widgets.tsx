@@ -1,12 +1,14 @@
 import {
   CalendarDays, CheckSquare, ChevronDown, FileText,
-  Maximize2, Minimize2, Pause, Pin, PinOff, Play,
+  Focus, Minimize2, Pause, Pin, PinOff, Play,
   Plus, RotateCcw, Timer, Trash2, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { TranslationKey } from '../i18n';
 import type { TodoItem, TodoList, WidgetMeta, WidgetState } from '../types';
 import { DEFAULT_TODO_LISTS } from '../types';
+import { FocusSoundPanel, defaultFocusSoundState } from './FocusSound';
+import type { FocusSoundState } from './FocusSound';
 
 type WidgetsProps = {
   widgets: WidgetState;
@@ -54,7 +56,7 @@ function dueDateSlot(dueDate?: string): 'today' | 'upcoming' | 'other' {
   const today = todayStr();
   if (d === today) return 'today';
   if (d > today) return 'upcoming';
-  return 'today'; // overdue → show in today
+  return 'today';
 }
 
 function formatDate(dueDate: string, locale: Locale): string {
@@ -199,9 +201,10 @@ type WidgetShellProps = {
   headerRight?: React.ReactNode;
   children: React.ReactNode;
   onMetaChange: (m: WidgetMeta) => void;
+  hideExpand?: boolean;
 };
 
-function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMetaChange }: WidgetShellProps) {
+function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMetaChange, hideExpand }: WidgetShellProps) {
   const shellRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -232,9 +235,11 @@ function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMet
         <span className="mr-1 text-slate-400">{icon}</span>
         <p className="flex-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500">{label}</p>
         {headerRight}
-        <button type="button" onClick={() => onMetaChange({ ...meta, expanded: !meta.expanded })} className={iconBtn} aria-label={meta.expanded ? 'Collapse' : 'Expand'}>
-          {meta.expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-        </button>
+        {!hideExpand && (
+          <button type="button" onClick={() => onMetaChange({ ...meta, expanded: !meta.expanded })} className={iconBtn} aria-label={meta.expanded ? 'Collapse' : 'Expand'}>
+            {meta.expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5 rotate-180" />}
+          </button>
+        )}
         <button type="button" onClick={() => onMetaChange({ ...meta, pinned: !meta.pinned })} className={[iconBtn, meta.pinned ? 'text-slate-800' : ''].join(' ')} aria-label={meta.pinned ? 'Unpin' : 'Pin'}>
           {meta.pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
         </button>
@@ -530,16 +535,84 @@ type PomodoroWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: 
 function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
   const meta = safeMeta(widgets.pomodoroMeta);
   const set  = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
-  const totalSeconds = widgets.pomodoroMinutes * 60;
+  const locale: Locale = detectLocale();
+
+  const isBreak = widgets.pomodoroIsBreak ?? false;
+  const totalSeconds = isBreak
+    ? (widgets.pomodoroBreakMinutes ?? 5) * 60
+    : widgets.pomodoroMinutes * 60;
   const remaining   = widgets.pomodoroRemainingSeconds;
   const progress    = totalSeconds > 0 ? remaining / totalSeconds : 0;
   const isDone      = remaining === 0;
-  const timerLabel  = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '00')}`;
+  const timerLabel  = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '0')}`;
+
+  // FocusSound state stored in widgets (fallback to default)
+  const soundState: FocusSoundState = (widgets as any).focusSoundState ?? defaultFocusSoundState();
+  const setSoundState = (s: FocusSoundState) => set({ ...(widgets as any), focusSoundState: s } as any);
+
+  const [showSound, setShowSound] = useState(false);
+  const soundPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showSound) return;
+    const handler = (e: MouseEvent) => {
+      if (soundPanelRef.current && !soundPanelRef.current.contains(e.target as Node)) {
+        setShowSound(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSound]);
+
+  const handleFocusMode = () => {
+    set({ focusModeActive: true, pomodoroRunning: true, pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60 });
+  };
+
+  const switchMode = (toBreak: boolean) => {
+    const mins = toBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes;
+    set({ pomodoroIsBreak: toBreak, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: false });
+  };
 
   return (
-    <div className="w-64">
-      <WidgetShell label="Pomodoro" icon={<Timer className="h-3.5 w-3.5" />} meta={meta} glass={glass} onMetaChange={(m) => set({ pomodoroMeta: m })}>
+    <div className="w-64 relative">
+      <WidgetShell
+        label={locale === 'zh' ? '番茄鐘' : 'Pomodoro'}
+        icon={<Timer className="h-3.5 w-3.5" />}
+        meta={meta}
+        glass={glass}
+        hideExpand
+        headerRight={
+          <button
+            type="button"
+            onClick={handleFocusMode}
+            className="mr-1 flex items-center gap-1 rounded-full bg-slate-800/10 px-2.5 py-1 text-[0.65rem] font-black uppercase tracking-wider text-slate-600 transition hover:bg-slate-800 hover:text-white"
+            title={locale === 'zh' ? '專注模式' : 'Focus Mode'}
+          >
+            <Focus className="h-3 w-3" />
+            {locale === 'zh' ? '專注' : 'Focus'}
+          </button>
+        }
+        onMetaChange={(m) => set({ pomodoroMeta: m })}
+      >
         <div className="flex w-full flex-col items-center gap-3">
+          {/* Focus / Break tabs */}
+          <div className="flex w-full gap-1 rounded-xl bg-black/6 p-0.5">
+            <button
+              type="button"
+              onClick={() => switchMode(false)}
+              className={['flex-1 rounded-[0.6rem] py-1 text-xs font-black transition', !isBreak ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-700'].join(' ')}
+            >
+              {locale === 'zh' ? '專注' : 'Focus'}
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode(true)}
+              className={['flex-1 rounded-[0.6rem] py-1 text-xs font-black transition', isBreak ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-700'].join(' ')}
+            >
+              {locale === 'zh' ? '休息' : 'Break'}
+            </button>
+          </div>
+
           <div className="relative">
             <PomodoroRing progress={progress} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -549,29 +622,78 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
               }
             </div>
           </div>
+
           <div className="flex w-full items-center justify-between gap-2">
             <div className="flex items-center gap-1">
               <Timer className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
               <input
                 type="number" min="1" max="90"
-                value={widgets.pomodoroMinutes}
-                onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false }); }}
+                value={isBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes}
+                onChange={(e) => {
+                  const m = Math.min(90, Math.max(1, Number(e.target.value) || 25));
+                  if (isBreak) set({ pomodoroBreakMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
+                  else set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
+                }}
                 className="w-12 rounded-lg bg-black/8 px-2 py-1 text-sm font-black text-slate-800 outline-none"
                 data-testid="input-pomodoro-minutes"
               />
-              <span className="text-xs font-bold text-slate-500">min</span>
+              <span className="text-xs font-bold text-slate-500">{locale === 'zh' ? '分鐘' : 'min'}</span>
             </div>
-            <div className="flex gap-2">
-              {isDone ? (
-                <button type="button" onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })} className="grid h-10 w-10 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700" data-testid="button-pomodoro-reset" aria-label="Reset">
-                  <RotateCcw className="h-4 w-4" />
-                </button>
-              ) : (
-                <button type="button" onClick={() => set({ pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60, pomodoroRunning: !widgets.pomodoroRunning })} className="grid h-10 w-10 place-items-center rounded-full bg-black/8 text-slate-700 transition hover:bg-black/14" data-testid="button-pomodoro-toggle" aria-label={widgets.pomodoroRunning ? 'Pause' : 'Start'}>
-                  {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </button>
+
+            {/* Sound button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowSound(v => !v)}
+                className="flex items-center gap-1 rounded-full bg-black/8 px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:bg-black/14"
+                title={locale === 'zh' ? '聲音' : 'Sound'}
+              >
+                🎵 {locale === 'zh' ? '聲音' : 'Sound'}
+              </button>
+              {showSound && (
+                <div
+                  ref={soundPanelRef}
+                  className="absolute bottom-full right-0 mb-2 z-50 rounded-2xl shadow-2xl overflow-hidden"
+                  style={{ background: 'rgba(20,20,30,0.95)', backdropFilter: 'blur(20px)' }}
+                >
+                  <FocusSoundPanel
+                    state={soundState}
+                    onChange={setSoundState}
+                    onClose={() => setShowSound(false)}
+                  />
+                </div>
               )}
             </div>
+          </div>
+
+          {/* Start / Pause / Reset */}
+          <div className="flex w-full gap-2">
+            {isDone ? (
+              <button
+                type="button"
+                onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-sm font-black text-white transition hover:bg-slate-700"
+                data-testid="button-pomodoro-reset"
+                aria-label="Reset"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {locale === 'zh' ? '重置' : 'Reset'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => set({ pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60, pomodoroRunning: !widgets.pomodoroRunning })}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-sm font-black text-white transition hover:bg-slate-700"
+                data-testid="button-pomodoro-toggle"
+                aria-label={widgets.pomodoroRunning ? 'Pause' : 'Start'}
+              >
+                {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {widgets.pomodoroRunning
+                  ? (locale === 'zh' ? '暫停' : 'Pause')
+                  : (locale === 'zh' ? '開始' : 'Start')
+                }
+              </button>
+            )}
           </div>
         </div>
       </WidgetShell>
@@ -601,6 +723,111 @@ function NotesWidget({ widgets, glass, onChange }: NotesWidgetProps) {
           data-testid="textarea-widget-note"
         />
       </WidgetShell>
+    </div>
+  );
+}
+
+// ── Focus Mode Overlay (iPad lock-screen style) ───────────────────────
+type FocusModeOverlayProps = {
+  widgets: WidgetState;
+  onChange: (w: WidgetState) => void;
+  backgroundClass: string;
+};
+
+export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusModeOverlayProps) {
+  const locale: Locale = detectLocale();
+  const isBreak = widgets.pomodoroIsBreak ?? false;
+  const totalSeconds = isBreak
+    ? (widgets.pomodoroBreakMinutes ?? 5) * 60
+    : widgets.pomodoroMinutes * 60;
+  const remaining = widgets.pomodoroRemainingSeconds;
+  const progress  = totalSeconds > 0 ? remaining / totalSeconds : 0;
+  const isDone    = remaining === 0;
+  const timerLabel = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '00')}`;
+  const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
+
+  // Current time
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const timeStr = now.toLocaleTimeString(locale === 'zh' ? 'zh-TW' : 'en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const dateStr = now.toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const r = 80;
+  const circ = 2 * Math.PI * r;
+
+  return (
+    <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 ${backgroundClass}`}>
+      {/* Frosted overlay */}
+      <div className="absolute inset-0" style={{ backdropFilter: 'blur(2px)', background: 'rgba(0,0,0,0.18)' }} />
+
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center gap-8 select-none">
+        {/* Clock */}
+        <div className="text-center">
+          <p className="text-7xl font-thin text-white tracking-tight leading-none drop-shadow-lg">{timeStr}</p>
+          <p className="mt-2 text-sm font-medium text-white/70 tracking-wide">{dateStr}</p>
+        </div>
+
+        {/* Big ring timer */}
+        <div className="relative" style={{ width: 200, height: 200 }}>
+          <svg width="200" height="200" className="-rotate-90" aria-hidden="true">
+            <circle cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
+            <circle
+              cx="100" cy="100" r={r} fill="none"
+              stroke={isBreak ? '#34d399' : 'white'}
+              strokeWidth="8"
+              strokeDasharray={circ}
+              strokeDashoffset={circ * (1 - progress)}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dashoffset 1s linear' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">
+              {isBreak ? (locale === 'zh' ? '休息' : 'Break') : (locale === 'zh' ? '專注' : 'Focus')}
+            </p>
+            {isDone
+              ? <span className="text-4xl">✅</span>
+              : <span className="text-4xl font-thin text-white tabular-nums">{timerLabel}</span>
+            }
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-4">
+          {isDone ? (
+            <button
+              onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })}
+              className="flex items-center gap-2 rounded-full bg-white/20 px-6 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/30"
+            >
+              <RotateCcw className="h-4 w-4" />
+              {locale === 'zh' ? '重置' : 'Reset'}
+            </button>
+          ) : (
+            <button
+              onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })}
+              className="flex items-center gap-2 rounded-full bg-white/20 px-6 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/30"
+            >
+              {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {widgets.pomodoroRunning
+                ? (locale === 'zh' ? '暫停' : 'Pause')
+                : (locale === 'zh' ? '繼續' : 'Resume')
+              }
+            </button>
+          )}
+          <button
+            onClick={() => set({ focusModeActive: false })}
+            className="flex items-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-sm font-bold text-white/70 backdrop-blur transition hover:bg-white/20 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+            {locale === 'zh' ? '退出' : 'Exit'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
