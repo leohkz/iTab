@@ -1,11 +1,11 @@
 import {
-  CheckSquare, ChevronDown, FileText,
+  CalendarDays, CheckSquare, ChevronDown, FileText,
   Maximize2, Minimize2, Pause, Pin, PinOff, Play,
   Plus, RotateCcw, Timer, Trash2, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { TranslationKey } from '../i18n';
-import type { TodoList, WidgetMeta, WidgetState } from '../types';
+import type { TodoItem, TodoList, WidgetMeta, WidgetState } from '../types';
 import { DEFAULT_TODO_LISTS } from '../types';
 
 type WidgetsProps = {
@@ -15,7 +15,51 @@ type WidgetsProps = {
   onChange: (widgets: WidgetState) => void;
 };
 
-// ── helpers ──────────────────────────────────────────────────────────
+// ── i18n labels ───────────────────────────────────────────────────────
+type Locale = 'en' | 'zh';
+
+function detectLocale(): Locale {
+  const lang = navigator.language ?? '';
+  return lang.startsWith('zh') ? 'zh' : 'en';
+}
+
+const LABELS: Record<string, Record<Locale, string>> = {
+  today:        { en: 'Today',     zh: '今日' },
+  upcoming:     { en: 'Upcoming',  zh: '即將' },
+  inbox:        { en: 'Inbox',     zh: '收件箱' },
+  completed:    { en: 'Completed', zh: '已完成' },
+  newList:      { en: '+ New List', zh: '+ 新清單' },
+  noTasks:      { en: 'No tasks', zh: '暫無任務' },
+  addTask:      { en: '+ Add task…', zh: '+ 新增任務…' },
+  listName:     { en: 'List name…', zh: '清單名稱…' },
+  setDate:      { en: 'Set date/time', zh: '設定日期時間' },
+  clearDate:    { en: 'Clear', zh: '清除' },
+};
+
+function lb(key: string, locale: Locale): string {
+  return LABELS[key]?.[locale] ?? LABELS[key]?.['en'] ?? key;
+}
+
+function getBuiltInLabel(id: string, locale: Locale): string {
+  return lb(id, locale);
+}
+
+// ── date helpers ──────────────────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Returns 'today' | 'upcoming' | 'other' based on dueDate */
+function dueDateSlot(dueDate?: string): 'today' | 'upcoming' | 'other' {
+  if (!dueDate) return 'other';
+  const d = dueDate.slice(0, 10);
+  const today = todayStr();
+  if (d === today) return 'today';
+  if (d > today) return 'upcoming';
+  return 'today'; // overdue → show in today
+}
+
+// ── helpers ───────────────────────────────────────────────────────────
 function defaultMeta(): WidgetMeta {
   return { enabled: true, minimised: false, pinned: false, expanded: false };
 }
@@ -147,38 +191,158 @@ function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMet
   );
 }
 
+// ── TodoItem row ──────────────────────────────────────────────────────
+function TodoRow({
+  todo, locale, isCompleted,
+  onToggle, onEdit, onDelete, onDateChange,
+}: {
+  todo: TodoItem;
+  locale: Locale;
+  isCompleted: boolean;
+  onToggle: () => void;
+  onEdit: (text: string) => void;
+  onDelete: () => void;
+  onDateChange: (d: string | undefined) => void;
+}) {
+  const [showDate, setShowDate] = useState(false);
+
+  const dateDisplay = todo.dueDate
+    ? todo.dueDate.length > 10
+      ? new Date(todo.dueDate).toLocaleString(locale === 'zh' ? 'zh-TW' : 'en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : new Date(todo.dueDate + 'T00:00').toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { month: 'short', day: 'numeric' })
+    : null;
+
+  return (
+    <div className="group flex w-full flex-col gap-1 overflow-hidden rounded-xl bg-black/6 px-2 py-2">
+      <div className="flex w-full items-center gap-2">
+        <input
+          type="checkbox"
+          checked={todo.done}
+          onChange={onToggle}
+          className="shrink-0 accent-slate-700"
+        />
+        <input
+          value={todo.text}
+          onChange={(e) => onEdit(e.target.value)}
+          style={{ minWidth: 0 }}
+          className={[
+            'w-full flex-1 bg-transparent text-sm font-bold outline-none',
+            (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800',
+          ].join(' ')}
+        />
+        {/* Calendar button */}
+        <button
+          type="button"
+          onClick={() => setShowDate((v) => !v)}
+          className="shrink-0 text-slate-300 transition hover:text-slate-600 group-hover:text-slate-400"
+          aria-label={lb('setDate', locale)}
+          title={lb('setDate', locale)}
+        >
+          <CalendarDays className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="shrink-0 text-slate-300 transition hover:text-red-400"
+          aria-label="Delete"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Date badge */}
+      {dateDisplay && !showDate && (
+        <span className="ml-5 text-[0.65rem] font-bold text-slate-400">{dateDisplay}</span>
+      )}
+
+      {/* Date picker inline */}
+      {showDate && (
+        <div className="ml-5 flex items-center gap-2">
+          <input
+            type="datetime-local"
+            defaultValue={todo.dueDate ?? ''}
+            onChange={(e) => onDateChange(e.target.value || undefined)}
+            className="rounded-lg bg-black/8 px-2 py-0.5 text-xs font-bold text-slate-700 outline-none"
+          />
+          {todo.dueDate && (
+            <button
+              type="button"
+              onClick={() => { onDateChange(undefined); setShowDate(false); }}
+              className="text-xs font-bold text-slate-400 hover:text-red-400"
+            >
+              {lb('clearDate', locale)}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Todo widget ───────────────────────────────────────────────────────
 type TodoWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: WidgetState) => void };
 
 function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
+  const locale: Locale = detectLocale();
   const meta     = safeMeta(widgets.todoMeta);
   const lists    = safeList(widgets.todoLists);
   const activeId = widgets.activeTodoListId ?? 'today';
-  const activeTodos = widgets.todos.filter((t) => t.listId === activeId);
 
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [newListName, setNewListName]     = useState('');
   const [addingList, setAddingList]       = useState(false);
   const [newListInput, setNewListInput]   = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const newTodoRef = useRef<HTMLInputElement>(null);
 
   const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
   const setMeta = (m: WidgetMeta) => set({ todoMeta: m });
 
+  // ── computed lists for display ────────────────────────────────────
+  // "completed" is a virtual list that shows all done tasks
+  // "today" shows: tasks explicitly in today list + tasks with dueDate=today
+  // "upcoming" shows: tasks in upcoming list + tasks with dueDate in future
+  const getDisplayTodos = (listId: string): TodoItem[] => {
+    if (listId === 'completed') {
+      return widgets.todos.filter((t) => t.done);
+    }
+    if (listId === 'today') {
+      return widgets.todos.filter((t) => !t.done && (
+        t.listId === 'today' ||
+        (t.dueDate && dueDateSlot(t.dueDate) === 'today' && t.listId !== 'upcoming')
+      ));
+    }
+    if (listId === 'upcoming') {
+      return widgets.todos.filter((t) => !t.done && (
+        t.listId === 'upcoming' ||
+        (t.dueDate && dueDateSlot(t.dueDate) === 'upcoming' && t.listId !== 'today')
+      ));
+    }
+    return widgets.todos.filter((t) => !t.done && t.listId === listId);
+  };
+
+  const activeTodos = getDisplayTodos(activeId);
+
   const addTodo = (text: string) => {
     if (!text.trim()) return;
     const id = `todo-${Date.now().toString(36)}`;
-    set({ todos: [...widgets.todos, { id, text: text.trim(), done: false, listId: activeId }] });
+    // If user is on completed tab, add to inbox instead
+    const targetList = activeId === 'completed' ? 'inbox' : activeId;
+    set({ todos: [...widgets.todos, { id, text: text.trim(), done: false, listId: targetList }] });
   };
 
-  const toggleDone = (id: string) =>
+  const toggleDone = (id: string) => {
     set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, done: !t.done } : t) });
+  };
 
   const editText = (id: string, text: string) =>
     set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, text } : t) });
 
   const deleteTodo = (id: string) =>
     set({ todos: widgets.todos.filter((t) => t.id !== id) });
+
+  const setDueDate = (id: string, dueDate: string | undefined) =>
+    set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, dueDate } : t) });
 
   const addList = () => {
     if (!newListInput.trim()) { setAddingList(false); return; }
@@ -190,11 +354,14 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
 
   const deleteList = (id: string) => {
     const remaining = lists.filter((l) => l.id !== id);
+    // Move tasks from deleted list to inbox
+    const updatedTodos = widgets.todos.map((t) => t.listId === id ? { ...t, listId: 'inbox' } : t);
     set({
       todoLists: remaining,
-      todos: widgets.todos.filter((t) => t.listId !== id),
-      activeTodoListId: activeId === id ? (remaining[0]?.id ?? 'today') : activeId,
+      todos: updatedTodos,
+      activeTodoListId: activeId === id ? (remaining[0]?.id ?? 'inbox') : activeId,
     });
+    setConfirmDeleteId(null);
   };
 
   const renameList = (id: string) => {
@@ -202,10 +369,16 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
     setEditingListId(null);
   };
 
+  const listLabel = (list: TodoList) =>
+    list.builtIn ? getBuiltInLabel(list.id, locale) : list.name;
+
+  // expanded: wider panel
+  const panelW = meta.expanded ? 'w-[28rem]' : 'w-72';
+
   return (
-    <div className={meta.expanded ? 'w-80' : 'w-64'}>
+    <div className={panelW}>
       <WidgetShell
-        label="To-Do"
+        label={locale === 'zh' ? '待辦事項' : 'To-Do'}
         icon={<CheckSquare className="h-3.5 w-3.5" />}
         meta={meta}
         glass={glass}
@@ -214,9 +387,9 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
         <div className={['flex gap-3', meta.expanded ? 'flex-row' : 'flex-col'].join(' ')}>
 
           {/* Sidebar list selector */}
-          <div className={['flex shrink-0 flex-col gap-0.5', meta.expanded ? 'w-28' : 'flex-row flex-wrap gap-1'].join(' ')}>
+          <div className={['flex shrink-0 flex-col gap-0.5', meta.expanded ? 'w-32' : 'flex-row flex-wrap gap-1'].join(' ')}>
             {lists.map((list) => (
-              <div key={list.id} className="group flex items-center gap-1">
+              <div key={list.id} className="group/list flex items-center gap-1">
                 {editingListId === list.id ? (
                   <input
                     autoFocus
@@ -228,29 +401,52 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                     style={{ minWidth: 0 }}
                   />
                 ) : (
-                  <button
-                    type="button"
-                    onDoubleClick={() => { if (!list.builtIn) { setEditingListId(list.id); setNewListName(list.name); } }}
-                    onClick={() => set({ activeTodoListId: list.id })}
-                    className={[
-                      'flex-1 truncate rounded-lg px-2 py-1 text-left text-xs font-bold transition',
-                      activeId === list.id
-                        ? 'bg-slate-800 text-white'
-                        : 'text-slate-600 hover:bg-black/8',
-                    ].join(' ')}
-                  >
-                    {list.name}
-                  </button>
-                )}
-                {!list.builtIn && activeId !== list.id && (
-                  <button
-                    type="button"
-                    onClick={() => deleteList(list.id)}
-                    className="hidden shrink-0 text-slate-300 transition hover:text-red-400 group-hover:block"
-                    aria-label={`Delete ${list.name}`}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onDoubleClick={() => { if (!list.builtIn) { setEditingListId(list.id); setNewListName(list.name); } }}
+                      onClick={() => set({ activeTodoListId: list.id })}
+                      className={[
+                        'flex-1 truncate rounded-lg px-2 py-1 text-left text-xs font-bold transition',
+                        activeId === list.id
+                          ? 'bg-slate-800 text-white'
+                          : 'text-slate-600 hover:bg-black/8',
+                      ].join(' ')}
+                    >
+                      {listLabel(list)}
+                    </button>
+
+                    {/* Delete button — show on hover for ALL non-builtIn lists */}
+                    {!list.builtIn && (
+                      confirmDeleteId === list.id ? (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => deleteList(list.id)}
+                            className="rounded px-1 text-[0.6rem] font-black text-red-500 hover:bg-red-50"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="rounded px-1 text-[0.6rem] font-black text-slate-400 hover:bg-black/8"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(list.id)}
+                          className="hidden shrink-0 text-slate-300 transition hover:text-red-400 group-hover/list:flex"
+                          aria-label={`Delete ${list.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )
+                    )}
+                  </>
                 )}
               </div>
             ))}
@@ -263,7 +459,7 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                 onChange={(e) => setNewListInput(e.target.value)}
                 onBlur={addList}
                 onKeyDown={(e) => { if (e.key === 'Enter') addList(); if (e.key === 'Escape') setAddingList(false); }}
-                placeholder="List name…"
+                placeholder={lb('listName', locale)}
                 className="rounded-lg bg-black/8 px-2 py-1 text-xs font-bold text-slate-800 outline-none placeholder:text-slate-400"
                 style={{ minWidth: 0 }}
               />
@@ -274,7 +470,7 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-slate-400 transition hover:bg-black/8 hover:text-slate-600"
               >
                 <Plus className="h-3 w-3" />
-                New List
+                {locale === 'zh' ? '新清單' : 'New List'}
               </button>
             )}
           </div>
@@ -285,50 +481,37 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
           {/* Todo items */}
           <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden">
             {activeTodos.length === 0 && (
-              <p className="py-2 text-center text-xs text-slate-400">No tasks yet</p>
+              <p className="py-2 text-center text-xs text-slate-400">{lb('noTasks', locale)}</p>
             )}
             {activeTodos.map((todo) => (
-              <div key={todo.id} className="flex w-full items-center gap-2 overflow-hidden rounded-xl bg-black/6 px-2 py-2">
-                <input
-                  type="checkbox"
-                  checked={todo.done}
-                  onChange={() => toggleDone(todo.id)}
-                  className="shrink-0 accent-slate-700"
-                />
-                <input
-                  value={todo.text}
-                  onChange={(e) => editText(todo.id, e.target.value)}
-                  style={{ minWidth: 0 }}
-                  className={[
-                    'w-full flex-1 bg-transparent text-sm font-bold outline-none',
-                    todo.done ? 'text-slate-400 line-through' : 'text-slate-800',
-                  ].join(' ')}
-                />
-                <button
-                  type="button"
-                  onClick={() => deleteTodo(todo.id)}
-                  className="shrink-0 text-slate-400 transition hover:text-slate-700"
-                  aria-label="Delete"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <TodoRow
+                key={todo.id}
+                todo={todo}
+                locale={locale}
+                isCompleted={activeId === 'completed'}
+                onToggle={() => toggleDone(todo.id)}
+                onEdit={(text) => editText(todo.id, text)}
+                onDelete={() => deleteTodo(todo.id)}
+                onDateChange={(d) => setDueDate(todo.id, d)}
+              />
             ))}
 
-            {/* New todo input */}
-            <input
-              ref={newTodoRef}
-              type="text"
-              placeholder="+ Add task…"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  addTodo(e.currentTarget.value);
-                  e.currentTarget.value = '';
-                }
-              }}
-              style={{ minWidth: 0 }}
-              className="box-border w-full rounded-xl bg-black/6 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none placeholder:text-slate-400 focus:bg-black/10"
-            />
+            {/* New todo input — hidden on completed tab */}
+            {activeId !== 'completed' && (
+              <input
+                ref={newTodoRef}
+                type="text"
+                placeholder={lb('addTask', locale)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    addTodo(e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+                style={{ minWidth: 0 }}
+                className="box-border w-full rounded-xl bg-black/6 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none placeholder:text-slate-400 focus:bg-black/10"
+              />
+            )}
           </div>
         </div>
       </WidgetShell>
@@ -449,56 +632,61 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
   const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
   const notesMeta    = safeMeta(widgets.notesMeta);
 
+  // Separate expanded widgets from minimised icons so they never overlap
+  const expandedWidgets = (
+    <aside
+      className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden"
+      aria-label="Widgets"
+    >
+      {todoMeta.enabled && !todoMeta.minimised && (
+        <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />
+      )}
+      {pomodoroMeta.enabled && !pomodoroMeta.minimised && (
+        <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />
+      )}
+      {notesMeta.enabled && !notesMeta.minimised && (
+        <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />
+      )}
+    </aside>
+  );
+
+  // Minimised icons are anchored to the BOTTOM-right to avoid overlapping expanded widgets
+  const miniIcons = (
+    <div
+      className="fixed bottom-24 right-5 z-20 flex flex-col items-end gap-2 max-xl:hidden"
+      aria-label="Minimised widgets"
+    >
+      {todoMeta.enabled && todoMeta.minimised && (
+        <MiniIcon
+          icon={<CheckSquare className="h-4 w-4" />}
+          label="To-Do"
+          glass={glass}
+          onClick={() => onChange({ ...widgets, todoMeta: { ...todoMeta, minimised: false } })}
+        />
+      )}
+      {pomodoroMeta.enabled && pomodoroMeta.minimised && (
+        <MiniIcon
+          icon={<Timer className="h-4 w-4" />}
+          label="Pomodoro"
+          glass={glass}
+          onClick={() => onChange({ ...widgets, pomodoroMeta: { ...pomodoroMeta, minimised: false } })}
+        />
+      )}
+      {notesMeta.enabled && notesMeta.minimised && (
+        <MiniIcon
+          icon={<FileText className="h-4 w-4" />}
+          label="Quick Note"
+          glass={glass}
+          onClick={() => onChange({ ...widgets, notesMeta: { ...notesMeta, minimised: false } })}
+        />
+      )}
+    </div>
+  );
+
   return (
     <>
-      {/* ── Expanded widgets column ───────────────── */}
-      <aside
-        className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden"
-        aria-label="Widgets"
-      >
-        {todoMeta.enabled && !todoMeta.minimised && (
-          <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />
-        )}
-        {pomodoroMeta.enabled && !pomodoroMeta.minimised && (
-          <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />
-        )}
-        {notesMeta.enabled && !notesMeta.minimised && (
-          <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />
-        )}
-      </aside>
-
-      {/* ── Minimised icons column ────────────────── */}
-      <div
-        className="fixed right-5 top-24 z-20 flex flex-col items-end gap-2 max-xl:hidden"
-        style={{ pointerEvents: 'none' }}
-      >
-        <div className="flex flex-col gap-2" style={{ pointerEvents: 'auto' }}>
-          {todoMeta.enabled && todoMeta.minimised && (
-            <MiniIcon
-              icon={<CheckSquare className="h-4 w-4" />}
-              label="To-Do"
-              glass={glass}
-              onClick={() => onChange({ ...widgets, todoMeta: { ...todoMeta, minimised: false } })}
-            />
-          )}
-          {pomodoroMeta.enabled && pomodoroMeta.minimised && (
-            <MiniIcon
-              icon={<Timer className="h-4 w-4" />}
-              label="Pomodoro"
-              glass={glass}
-              onClick={() => onChange({ ...widgets, pomodoroMeta: { ...pomodoroMeta, minimised: false } })}
-            />
-          )}
-          {notesMeta.enabled && notesMeta.minimised && (
-            <MiniIcon
-              icon={<FileText className="h-4 w-4" />}
-              label="Quick Note"
-              glass={glass}
-              onClick={() => onChange({ ...widgets, notesMeta: { ...notesMeta, minimised: false } })}
-            />
-          )}
-        </div>
-      </div>
+      {expandedWidgets}
+      {miniIcons}
     </>
   );
 }

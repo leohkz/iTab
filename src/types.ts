@@ -51,6 +51,15 @@ export const DEFAULT_TODO_LISTS: TodoList[] = [
   { id: 'completed', name: 'Completed', builtIn: true },
 ];
 
+// ── Todo item ─────────────────────────────────────────────────────────
+export interface TodoItem {
+  id: string;
+  text: string;
+  done: boolean;
+  listId: string;
+  dueDate?: string; // ISO date string, e.g. "2026-05-08" or "2026-05-08T14:30"
+}
+
 // ── Widget visibility / UI state ──────────────────────────────────────
 export interface WidgetMeta {
   enabled: boolean;   // true = widget exists; false = completely hidden (no icon)
@@ -61,7 +70,7 @@ export interface WidgetMeta {
 
 export interface WidgetState {
   notes: string;
-  todos: Array<{ id: string; text: string; done: boolean; listId: string }>;
+  todos: TodoItem[];
   todoLists: TodoList[];
   activeTodoListId: string;
   pomodoroMinutes: number;
