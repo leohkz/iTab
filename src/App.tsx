@@ -73,6 +73,12 @@ function NewTab() {
     [config.apps, config.currentSpaceId],
   );
 
+  // Folders are space-scoped: show only folders that belong to the current space (or have no spaceId)
+  const currentSpaceFolders = useMemo(
+    () => config.folders.filter((f) => !f.spaceId || f.spaceId === config.currentSpaceId),
+    [config.folders, config.currentSpaceId],
+  );
+
   const updateConfig = (next: AppConfig) => {
     const enabledEngines = next.searchEngines.filter((e) => e.enabled);
     const normalized: AppConfig = {
@@ -190,7 +196,8 @@ function NewTab() {
 
   const addFolder = () => {
     const id = `folder-${Date.now().toString(36)}`;
-    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder') }] });
+    // Bind folder to the current space so it only shows here
+    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder'), spaceId: config.currentSpaceId }] });
     notify(t('newFolder'));
   };
 
@@ -304,7 +311,7 @@ function NewTab() {
       ) : (
         <AppGrid
           apps={currentSpaceApps}
-          folders={config.folders}
+          folders={currentSpaceFolders}
           editing={editing}
           selectedFolderId={selectedFolderId}
           gridColumns={config.gridColumns}

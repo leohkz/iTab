@@ -2,6 +2,7 @@ export interface Folder {
   id: string;
   name: string;
   color?: string;
+  spaceId?: string; // if set, folder only appears in this space
 }
 
 export interface AppShortcut {
