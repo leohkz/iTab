@@ -1,7 +1,113 @@
 import { X } from 'lucide-react';
 import { useState } from 'react';
-import type { Prompt } from '../types';
+import type { Prompt, PromptTag } from '../types';
 import type { TranslationKey } from '../i18n';
+
+// 12 preset colours for quick pick
+const PRESET_COLORS = [
+  '#6366f1', '#3b82f6', '#10b981', '#f59e0b',
+  '#ef4444', '#ec4899', '#8b5cf6', '#f97316',
+  '#14b8a6', '#84cc16', '#0ea5e9', '#a855f7',
+];
+
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Perceived luminance
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+function tagTextColor(bg: string) {
+  return hexToRgb(bg) > 128 ? '#1e293b' : '#ffffff';
+}
+
+type TagInputProps = {
+  tags: PromptTag[];
+  onChange: (tags: PromptTag[]) => void;
+  placeholder: string;
+};
+
+function TagInput({ tags, onChange, placeholder }: TagInputProps) {
+  const [inputVal, setInputVal] = useState('');
+  const [pickColor, setPickColor] = useState(PRESET_COLORS[0]);
+
+  const addTag = () => {
+    const label = inputVal.trim();
+    if (!label) return;
+    if (tags.some((t) => t.label === label)) { setInputVal(''); return; }
+    onChange([...tags, { label, color: pickColor }]);
+    setInputVal('');
+  };
+
+  const removeTag = (label: string) => onChange(tags.filter((t) => t.label !== label));
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Existing tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <span
+              key={tag.label}
+              className="flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black"
+              style={{ backgroundColor: tag.color, color: tagTextColor(tag.color) }}
+            >
+              {tag.label}
+              <button type="button" onClick={() => removeTag(tag.label)} className="opacity-70 hover:opacity-100">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input row */}
+      <div className="flex items-center gap-2">
+        <input
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400"
+        />
+        <button
+          type="button"
+          onClick={addTag}
+          className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-700"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Colour preset swatches */}
+      <div className="flex flex-wrap gap-1.5">
+        {PRESET_COLORS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setPickColor(c)}
+            className="h-5 w-5 rounded-full border-2 transition"
+            style={{
+              backgroundColor: c,
+              borderColor: pickColor === c ? '#0f172a' : 'transparent',
+              transform: pickColor === c ? 'scale(1.2)' : 'scale(1)',
+            }}
+            aria-label={c}
+          />
+        ))}
+        {/* Custom hex input */}
+        <input
+          type="color"
+          value={pickColor}
+          onChange={(e) => setPickColor(e.target.value)}
+          className="h-5 w-5 cursor-pointer rounded-full border-0 p-0"
+          title="Custom colour"
+        />
+      </div>
+    </div>
+  );
+}
 
 type PromptEditorProps = {
   open: boolean;
@@ -14,23 +120,26 @@ type PromptEditorProps = {
 export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditorProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [content, setContent] = useState(initial?.content ?? '');
-  const [tagsRaw, setTagsRaw] = useState((initial?.tags ?? []).join(', '));
+  const [tags, setTags] = useState<PromptTag[]>(initial?.tags ?? []);
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
 
   if (!open) return null;
 
   const handleSave = () => {
     if (!title.trim() || !content.trim()) return;
-    const tags = tagsRaw.split(',').map((s) => s.trim()).filter(Boolean);
     onSave({ title: title.trim(), content: content.trim(), tags, imageUrl: imageUrl.trim() || undefined });
   };
 
   return (
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm"
+      style={{ animation: 'fadeIn 0.18s ease' }}
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex w-full max-w-lg flex-col gap-4 rounded-[2rem] bg-white p-6 shadow-2xl">
+      <div
+        className="flex w-full max-w-lg flex-col gap-4 rounded-[2rem] bg-white p-6 shadow-2xl"
+        style={{ animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}
+      >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-black text-slate-800">
             {initial ? t('editPrompt') : t('newPrompt')}
@@ -40,7 +149,6 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
           </button>
         </div>
 
-        {/* Title */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptTitle')}</label>
           <input
@@ -52,7 +160,6 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
           />
         </div>
 
-        {/* Content */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptContent')}</label>
           <textarea
@@ -64,18 +171,11 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
           />
         </div>
 
-        {/* Tags */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptTags')}</label>
-          <input
-            value={tagsRaw}
-            onChange={(e) => setTagsRaw(e.target.value)}
-            placeholder="writing, coding, marketing"
-            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400"
-          />
+          <TagInput tags={tags} onChange={setTags} placeholder="coding, writing…" />
         </div>
 
-        {/* Image URL */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptImageUrl')}</label>
           <input

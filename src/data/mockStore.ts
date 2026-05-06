@@ -55,42 +55,60 @@ export const defaultPrompts: Prompt[] = [
   {
     id: 'p-1', title: 'Blog Post Writer',
     content: 'Write a detailed, engaging blog post about [TOPIC]. Include an attention-grabbing headline, introduction, 3-5 main sections with subheadings, and a conclusion with a call to action. Tone: [casual/professional]. Target audience: [AUDIENCE].',
-    tags: ['writing', 'content'],
+    tags: [
+      { label: 'writing', color: '#6366f1' },
+      { label: 'content', color: '#f59e0b' },
+    ],
     imageUrl: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=400&q=80',
     createdAt: 1714900000000,
   },
   {
     id: 'p-2', title: 'Code Reviewer',
     content: 'Review the following code for bugs, performance issues, and best practices. Provide specific suggestions with corrected code snippets where applicable.\n\n```\n[PASTE CODE HERE]\n```',
-    tags: ['coding', 'dev'],
+    tags: [
+      { label: 'coding', color: '#10b981' },
+      { label: 'dev', color: '#3b82f6' },
+    ],
     imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=80',
     createdAt: 1714900100000,
   },
   {
     id: 'p-3', title: 'Social Media Caption',
     content: 'Create 5 engaging social media captions for [PLATFORM] about [TOPIC]. Include relevant hashtags, emojis, and a clear call-to-action. Keep each caption under [CHARACTER LIMIT] characters.',
-    tags: ['content', 'social'],
+    tags: [
+      { label: 'content', color: '#f59e0b' },
+      { label: 'social', color: '#ec4899' },
+    ],
     imageUrl: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80',
     createdAt: 1714900200000,
   },
   {
     id: 'p-4', title: 'Meeting Summariser',
     content: 'Summarise the following meeting transcript into: 1) Key decisions made, 2) Action items with owners and deadlines, 3) Open questions. Format as bullet points.\n\n[PASTE TRANSCRIPT]',
-    tags: ['productivity', 'writing'],
+    tags: [
+      { label: 'productivity', color: '#8b5cf6' },
+      { label: 'writing', color: '#6366f1' },
+    ],
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&q=80',
     createdAt: 1714900300000,
   },
   {
     id: 'p-5', title: 'Product Description',
     content: 'Write a compelling product description for [PRODUCT NAME]. Highlight key benefits (not just features), address pain points, include social proof placeholder, and end with urgency/CTA. Length: [SHORT/MEDIUM/LONG].',
-    tags: ['writing', 'marketing'],
+    tags: [
+      { label: 'writing', color: '#6366f1' },
+      { label: 'marketing', color: '#f97316' },
+    ],
     imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
     createdAt: 1714900400000,
   },
   {
-    id: 'p-6', title: 'Explain Like I\'m 5',
-    content: 'Explain [CONCEPT] to a complete beginner using simple language, a real-world analogy, and a short example. Avoid jargon. End with one key takeaway.',
-    tags: ['learning', 'writing'],
+    id: 'p-6', title: "Explain Like I'm 5",
+    content: "Explain [CONCEPT] to a complete beginner using simple language, a real-world analogy, and a short example. Avoid jargon. End with one key takeaway.",
+    tags: [
+      { label: 'learning', color: '#14b8a6' },
+      { label: 'writing', color: '#6366f1' },
+    ],
     imageUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&q=80',
     createdAt: 1714900500000,
   },

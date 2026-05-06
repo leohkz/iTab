@@ -44,15 +44,19 @@ export interface WidgetState {
   pomodoroRunning: boolean;
 }
 
-// ── Prompt Library ──────────────────────────────────────────
+export interface PromptTag {
+  label: string;
+  color: string; // hex e.g. '#6366f1'
+}
+
 export interface Prompt {
   id: string;
   title: string;
   content: string;
-  tags: string[];
-  imageUrl?: string;   // 預覽圖片 URL
-  spaceId?: string;   // 可選綁定 Space
-  createdAt: number;  // timestamp
+  tags: PromptTag[];  // changed from string[] to PromptTag[]
+  imageUrl?: string;
+  spaceId?: string;
+  createdAt: number;
 }
 
 export interface AppConfig {
