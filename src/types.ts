@@ -1,72 +1,38 @@
-export interface Folder {
-  id: string;
-  name: string;
-  color?: string;
-  spaceId?: string;
-}
-
-export interface AppShortcut {
-  id: string;
-  name: string;
-  url: string;
-  folderId: string | null;
-  spaceId?: string;
-  iconType: 'api' | 'monogram' | 'custom';
-  iconValue: string;
-  iconColor?: string;
-}
-
-export interface Space {
-  id: string;
-  name: string;
-  accent: string;
-}
-
-export type SearchEngineId = string;
-
-export interface SearchEngine {
-  id: SearchEngineId;
-  name: string;
-  shortcut: string;
-  template: string;
-  enabled: boolean;
-  builtIn?: boolean;
-}
-
 export type Locale = 'en' | 'zh-Hant' | 'zh-Hans';
 
-export type ThemeName = 'sonoma' | 'ventura' | 'slate';
-
-// ── Todo list categories ──────────────────────────────────────────────
-export interface TodoList {
-  id: string;
-  name: string;
-  builtIn?: boolean; // true = cannot be deleted
+export interface WidgetMeta {
+  enabled: boolean;
+  minimised: boolean;
+  pinned: boolean;
+  expanded: boolean;
 }
 
-export const DEFAULT_TODO_LISTS: TodoList[] = [
-  { id: 'today',     name: 'Today',     builtIn: true },
-  { id: 'upcoming',  name: 'Upcoming',  builtIn: true },
-  { id: 'inbox',     name: 'Inbox',     builtIn: true },
-  { id: 'completed', name: 'Completed', builtIn: true },
-];
+export const DEFAULT_META: WidgetMeta = {
+  enabled: true,
+  minimised: false,
+  pinned: false,
+  expanded: false,
+};
 
-// ── Todo item ─────────────────────────────────────────────────────────
 export interface TodoItem {
   id: string;
   text: string;
   done: boolean;
+  dueDate?: string;
   listId: string;
-  dueDate?: string; // ISO date string, e.g. "2026-05-08" or "2026-05-08T14:30"
 }
 
-// ── Widget visibility / UI state ──────────────────────────────────────
-export interface WidgetMeta {
-  enabled: boolean;   // true = widget exists; false = completely hidden (no icon)
-  minimised: boolean; // true = collapsed to floating icon
-  pinned: boolean;    // true = stays expanded; false = hides on outside click
-  expanded: boolean;  // true = larger view
+export interface TodoList {
+  id: string;
+  name: string;
 }
+
+export const DEFAULT_TODO_LISTS: TodoList[] = [
+  { id: 'today',     name: 'Today' },
+  { id: 'upcoming',  name: 'Upcoming' },
+  { id: 'inbox',     name: 'Inbox' },
+  { id: 'completed', name: 'Completed' },
+];
 
 export interface WidgetState {
   notes: string;
@@ -74,8 +40,11 @@ export interface WidgetState {
   todoLists: TodoList[];
   activeTodoListId: string;
   pomodoroMinutes: number;
+  pomodoroBreakMinutes: number;
   pomodoroRemainingSeconds: number;
   pomodoroRunning: boolean;
+  pomodoroIsBreak: boolean;
+  pomodoroTask: string;
   // Per-widget UI state
   todoMeta: WidgetMeta;
   pomodoroMeta: WidgetMeta;
@@ -84,33 +53,63 @@ export interface WidgetState {
 
 export interface PromptTag {
   label: string;
-  color: string;
+  color?: string;
 }
 
 export interface Prompt {
   id: string;
   title: string;
   content: string;
-  tags: PromptTag[];
+  tags: string[];
   imageUrl?: string;
-  spaceId?: string;
   createdAt: number;
 }
 
+export interface AppShortcut {
+  id: string;
+  name: string;
+  url: string;
+  icon?: string;
+  iconColor?: string;
+  spaceId?: string;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  appIds: string[];
+  spaceId?: string;
+}
+
+export interface Space {
+  id: string;
+  name: string;
+  accent: string;
+}
+
+export interface SearchEngine {
+  id: string;
+  name: string;
+  url: string;
+  icon?: string;
+}
+
 export interface AppConfig {
+  spaces: Space[];
+  currentSpaceId: string;
   apps: AppShortcut[];
   folders: Folder[];
   pinnedIds: string[];
-  currentSpaceId: string;
+  searchEngines: SearchEngine[];
+  defaultEngineId: string;
   locale: Locale;
-  theme: ThemeName;
   glass: number;
   gridColumns: number;
   gridRows: number;
   showDock: boolean;
   showWidgets: boolean;
-  defaultEngine: SearchEngineId;
-  searchEngines: SearchEngine[];
+  wallpaper?: string;
+  theme: 'light' | 'dark' | 'system';
   widgets: WidgetState;
   prompts: Prompt[];
   experiments: {
