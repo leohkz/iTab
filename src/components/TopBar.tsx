@@ -1,6 +1,8 @@
 import { Search, Settings, Sun } from 'lucide-react';
 import type { Space } from '../types';
 import type { TranslationKey } from '../i18n';
+import type { WidgetState } from '../types';
+import { WidgetMiniIcons } from './Widgets';
 
 type TopBarProps = {
   spaces: Space[];
@@ -9,11 +11,13 @@ type TopBarProps = {
   syncStatus: string;
   glass: number;
   t: (key: TranslationKey) => string;
+  widgets: WidgetState;
   onSpaceChange: (spaceId: string) => void;
   onSearchClick: () => void;
   onSettingsClick: () => void;
   onToggleEditing: () => void;
   onToggleTheme: () => void;
+  onWidgetsChange: (w: WidgetState) => void;
 };
 
 export function TopBar({
@@ -22,15 +26,16 @@ export function TopBar({
   editing,
   glass: _glass,
   t,
+  widgets,
   onSpaceChange,
   onSearchClick,
   onSettingsClick,
   onToggleEditing,
   onToggleTheme,
+  onWidgetsChange,
 }: TopBarProps) {
   return (
     <header className="fixed inset-x-0 top-0 z-40">
-      {/* Top action row */}
       <div className="flex items-center justify-between px-5 pt-3 pb-2">
         {/* Space switcher */}
         <nav aria-label="Spaces" className="flex gap-1">
@@ -54,6 +59,9 @@ export function TopBar({
 
         {/* Right controls */}
         <div className="flex items-center gap-2">
+          {/* Widget mini icons appear here, before theme toggle */}
+          <WidgetMiniIcons widgets={widgets} glass={_glass} onChange={onWidgetsChange} />
+
           <button
             type="button"
             aria-label="Toggle theme"

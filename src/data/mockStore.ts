@@ -7,12 +7,8 @@ export const spaces = [
   { id: 'study',    name: 'Study',    accent: 'from-emerald-500 to-teal-400' },
 ];
 
-export const recentTabs = [
-  { id: 'rt1', name: 'GitHub',      url: 'https://github.com',      iconType: 'api' as const, iconValue: 'github.com',      iconColor: '', folderId: null },
-  { id: 'rt2', name: 'Linear',      url: 'https://linear.app',      iconType: 'api' as const, iconValue: 'linear.app',      iconColor: '', folderId: null },
-  { id: 'rt3', name: 'Figma',       url: 'https://figma.com',       iconType: 'api' as const, iconValue: 'figma.com',       iconColor: '', folderId: null },
-  { id: 'rt4', name: 'Perplexity',  url: 'https://perplexity.ai',   iconType: 'api' as const, iconValue: 'perplexity.ai',   iconColor: '', folderId: null },
-];
+// recentTabs is populated at runtime from browser history; empty here to avoid phantom dock items
+export const recentTabs: AppConfig['apps'] = [];
 
 const DEFAULT_META = { enabled: true, minimised: false, pinned: false, expanded: false };
 
@@ -40,12 +36,12 @@ export const defaultConfig: AppConfig = {
   ],
   defaultEngine: 'google',
   searchEngines: [
-    { id: 'google',      name: 'Google',      shortcut: 'g',  template: 'https://www.google.com/search?q={q}',          enabled: true, builtIn: true },
-    { id: 'bing',        name: 'Bing',        shortcut: 'b',  template: 'https://www.bing.com/search?q={q}',             enabled: true, builtIn: true },
-    { id: 'duckduckgo',  name: 'DuckDuckGo',  shortcut: 'd',  template: 'https://duckduckgo.com/?q={q}',                 enabled: true, builtIn: true },
-    { id: 'perplexity',  name: 'Perplexity',  shortcut: 'p',  template: 'https://www.perplexity.ai/search?q={q}',        enabled: true, builtIn: true },
+    { id: 'google',      name: 'Google',      shortcut: 'g',  template: 'https://www.google.com/search?q={q}',             enabled: true, builtIn: true },
+    { id: 'bing',        name: 'Bing',        shortcut: 'b',  template: 'https://www.bing.com/search?q={q}',                enabled: true, builtIn: true },
+    { id: 'duckduckgo',  name: 'DuckDuckGo',  shortcut: 'd',  template: 'https://duckduckgo.com/?q={q}',                    enabled: true, builtIn: true },
+    { id: 'perplexity',  name: 'Perplexity',  shortcut: 'p',  template: 'https://www.perplexity.ai/search?q={q}',           enabled: true, builtIn: true },
     { id: 'youtube',     name: 'YouTube',     shortcut: 'yt', template: 'https://www.youtube.com/results?search_query={q}', enabled: true, builtIn: true },
-    { id: 'maps',        name: 'Google Maps', shortcut: 'm',  template: 'https://www.google.com/maps/search/{q}',        enabled: true, builtIn: true },
+    { id: 'maps',        name: 'Google Maps', shortcut: 'm',  template: 'https://www.google.com/maps/search/{q}',           enabled: true, builtIn: true },
   ],
   widgets: {
     notes: '',

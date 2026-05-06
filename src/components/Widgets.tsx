@@ -13,6 +13,8 @@ type WidgetsProps = {
   glass: number;
   t: (key: TranslationKey) => string;
   onChange: (widgets: WidgetState) => void;
+  /** Slot for mini-icons rendered next to TopBar controls */
+  onMiniIconsChange?: (icons: React.ReactNode) => void;
 };
 
 // ── i18n labels ───────────────────────────────────────────────────────
@@ -28,11 +30,10 @@ const LABELS: Record<string, Record<Locale, string>> = {
   upcoming:     { en: 'Upcoming',  zh: '即將' },
   inbox:        { en: 'Inbox',     zh: '收件箱' },
   completed:    { en: 'Completed', zh: '已完成' },
-  newList:      { en: '+ New List', zh: '+ 新清單' },
-  noTasks:      { en: 'No tasks', zh: '暫無任務' },
+  noTasks:      { en: 'No tasks',  zh: '暫無任務' },
   addTask:      { en: '+ Add task…', zh: '+ 新增任務…' },
   listName:     { en: 'List name…', zh: '清單名稱…' },
-  setDate:      { en: 'Set date/time', zh: '設定日期時間' },
+  setDate:      { en: 'Set date', zh: '設定日期' },
   clearDate:    { en: 'Clear', zh: '清除' },
 };
 
@@ -49,7 +50,6 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Returns 'today' | 'upcoming' | 'other' based on dueDate */
 function dueDateSlot(dueDate?: string): 'today' | 'upcoming' | 'other' {
   if (!dueDate) return 'other';
   const d = dueDate.slice(0, 10);
@@ -57,6 +57,11 @@ function dueDateSlot(dueDate?: string): 'today' | 'upcoming' | 'other' {
   if (d === today) return 'today';
   if (d > today) return 'upcoming';
   return 'today'; // overdue → show in today
+}
+
+function formatDate(dueDate: string, locale: Locale): string {
+  const d = new Date(dueDate + 'T00:00');
+  return d.toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { month: 'short', day: 'numeric' });
 }
 
 // ── helpers ───────────────────────────────────────────────────────────
@@ -101,26 +106,89 @@ function PomodoroRing({ progress }: { progress: number }) {
   );
 }
 
-// ── Floating mini-icon for minimised widgets ──────────────────────────
+// ── Mini icon button (exported for TopBar slot) ────────────────────────
 type MiniIconProps = {
   icon: React.ReactNode;
   label: string;
-  glass: number;
   onClick: () => void;
 };
 
-function MiniIcon({ icon, label, glass: g, onClick }: MiniIconProps) {
+export function MiniIcon({ icon, label, onClick }: MiniIconProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`Expand ${label}`}
-      title={`Expand ${label}`}
-      className="flex h-9 w-9 items-center justify-center rounded-2xl border border-black/10 text-slate-700 shadow-md transition hover:scale-110 active:scale-95"
-      style={glassStyle(g)}
+      title={label}
+      className="grid h-8 w-8 place-items-center rounded-full text-white/70 transition hover:bg-white/18 hover:text-white"
     >
       {icon}
     </button>
+  );
+}
+
+// ── Apple-style date picker popover ─────────────────────────────────
+function DatePicker({
+  value, locale, onConfirm, onClear, onClose,
+}: {
+  value?: string;
+  locale: Locale;
+  onConfirm: (d: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState(value ?? todayStr());
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 top-full z-50 mt-1 w-56 rounded-2xl border border-white/30 shadow-2xl"
+      style={{
+        background: 'rgba(255,255,255,0.82)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+      }}
+    >
+      <div className="flex flex-col gap-3 p-4">
+        <p className="text-center text-xs font-black uppercase tracking-widest text-slate-500">
+          {lb('setDate', locale)}
+        </p>
+        <input
+          type="date"
+          value={selected}
+          min={todayStr()}
+          onChange={(e) => setSelected(e.target.value)}
+          className="w-full rounded-xl border border-black/10 bg-white/60 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400 focus:bg-white/80"
+        />
+        <div className="flex gap-2">
+          {value && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="flex-1 rounded-xl border border-black/10 py-1.5 text-xs font-bold text-slate-400 transition hover:bg-black/6 hover:text-slate-600"
+            >
+              {lb('clearDate', locale)}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => { onConfirm(selected); onClose(); }}
+            className="flex-1 rounded-xl bg-slate-800 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -138,7 +206,6 @@ type WidgetShellProps = {
 function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMetaChange }: WidgetShellProps) {
   const shellRef = useRef<HTMLElement>(null);
 
-  // Close on outside click when not pinned
   useEffect(() => {
     if (meta.pinned || meta.minimised) return;
     const handler = (e: MouseEvent) => {
@@ -163,29 +230,20 @@ function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMet
       ].join(' ')}
       style={glassStyle(g)}
     >
-      {/* Header */}
       <div className="mb-3 flex items-center gap-1.5">
         <span className="mr-1 text-slate-400">{icon}</span>
         <p className="flex-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500">{label}</p>
-
         {headerRight}
-
-        {/* Expand / collapse */}
         <button type="button" onClick={() => onMetaChange({ ...meta, expanded: !meta.expanded })} className={iconBtn} aria-label={meta.expanded ? 'Collapse' : 'Expand'}>
           {meta.expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
         </button>
-
-        {/* Pin */}
         <button type="button" onClick={() => onMetaChange({ ...meta, pinned: !meta.pinned })} className={[iconBtn, meta.pinned ? 'text-slate-800' : ''].join(' ')} aria-label={meta.pinned ? 'Unpin' : 'Pin'}>
           {meta.pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
         </button>
-
-        {/* Minimise */}
         <button type="button" onClick={() => onMetaChange({ ...meta, minimised: true })} className={iconBtn} aria-label="Minimise">
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
       </div>
-
       {children}
     </section>
   );
@@ -204,16 +262,12 @@ function TodoRow({
   onDelete: () => void;
   onDateChange: (d: string | undefined) => void;
 }) {
-  const [showDate, setShowDate] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
-  const dateDisplay = todo.dueDate
-    ? todo.dueDate.length > 10
-      ? new Date(todo.dueDate).toLocaleString(locale === 'zh' ? 'zh-TW' : 'en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : new Date(todo.dueDate + 'T00:00').toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { month: 'short', day: 'numeric' })
-    : null;
+  const dateDisplay = todo.dueDate ? formatDate(todo.dueDate, locale) : null;
 
   return (
-    <div className="group flex w-full flex-col gap-1 overflow-hidden rounded-xl bg-black/6 px-2 py-2">
+    <div className="group relative flex w-full flex-col gap-1 overflow-visible rounded-xl bg-black/6 px-2 py-2">
       <div className="flex w-full items-center gap-2">
         <input
           type="checkbox"
@@ -230,20 +284,24 @@ function TodoRow({
             (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800',
           ].join(' ')}
         />
-        {/* Calendar button */}
+        {/* Calendar button — always visible, slate-500 */}
         <button
           type="button"
-          onClick={() => setShowDate((v) => !v)}
-          className="shrink-0 text-slate-300 transition hover:text-slate-600 group-hover:text-slate-400"
+          onClick={() => setShowPicker((v) => !v)}
+          className={[
+            'shrink-0 transition',
+            todo.dueDate ? 'text-slate-600' : 'text-slate-400 hover:text-slate-600',
+          ].join(' ')}
           aria-label={lb('setDate', locale)}
           title={lb('setDate', locale)}
         >
           <CalendarDays className="h-3.5 w-3.5" />
         </button>
+        {/* Delete button — always visible, slate-500 */}
         <button
           type="button"
           onClick={onDelete}
-          className="shrink-0 text-slate-300 transition hover:text-red-400"
+          className="shrink-0 text-slate-500 transition hover:text-red-500"
           aria-label="Delete"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -251,29 +309,25 @@ function TodoRow({
       </div>
 
       {/* Date badge */}
-      {dateDisplay && !showDate && (
-        <span className="ml-5 text-[0.65rem] font-bold text-slate-400">{dateDisplay}</span>
+      {dateDisplay && !showPicker && (
+        <button
+          type="button"
+          onClick={() => setShowPicker(true)}
+          className="ml-5 w-fit rounded-full bg-black/8 px-2 py-0.5 text-[0.65rem] font-bold text-slate-500 transition hover:bg-black/12"
+        >
+          {dateDisplay}
+        </button>
       )}
 
-      {/* Date picker inline */}
-      {showDate && (
-        <div className="ml-5 flex items-center gap-2">
-          <input
-            type="datetime-local"
-            defaultValue={todo.dueDate ?? ''}
-            onChange={(e) => onDateChange(e.target.value || undefined)}
-            className="rounded-lg bg-black/8 px-2 py-0.5 text-xs font-bold text-slate-700 outline-none"
-          />
-          {todo.dueDate && (
-            <button
-              type="button"
-              onClick={() => { onDateChange(undefined); setShowDate(false); }}
-              className="text-xs font-bold text-slate-400 hover:text-red-400"
-            >
-              {lb('clearDate', locale)}
-            </button>
-          )}
-        </div>
+      {/* Apple-style date picker popover */}
+      {showPicker && (
+        <DatePicker
+          value={todo.dueDate}
+          locale={locale}
+          onConfirm={(d) => onDateChange(d)}
+          onClear={() => { onDateChange(undefined); setShowPicker(false); }}
+          onClose={() => setShowPicker(false)}
+        />
       )}
     </div>
   );
@@ -298,26 +352,14 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
   const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
   const setMeta = (m: WidgetMeta) => set({ todoMeta: m });
 
-  // ── computed lists for display ────────────────────────────────────
-  // "completed" is a virtual list that shows all done tasks
-  // "today" shows: tasks explicitly in today list + tasks with dueDate=today
-  // "upcoming" shows: tasks in upcoming list + tasks with dueDate in future
   const getDisplayTodos = (listId: string): TodoItem[] => {
-    if (listId === 'completed') {
-      return widgets.todos.filter((t) => t.done);
-    }
-    if (listId === 'today') {
-      return widgets.todos.filter((t) => !t.done && (
-        t.listId === 'today' ||
-        (t.dueDate && dueDateSlot(t.dueDate) === 'today' && t.listId !== 'upcoming')
-      ));
-    }
-    if (listId === 'upcoming') {
-      return widgets.todos.filter((t) => !t.done && (
-        t.listId === 'upcoming' ||
-        (t.dueDate && dueDateSlot(t.dueDate) === 'upcoming' && t.listId !== 'today')
-      ));
-    }
+    if (listId === 'completed') return widgets.todos.filter((t) => t.done);
+    if (listId === 'today') return widgets.todos.filter((t) => !t.done && (
+      t.listId === 'today' || (t.dueDate && dueDateSlot(t.dueDate) === 'today' && t.listId !== 'upcoming')
+    ));
+    if (listId === 'upcoming') return widgets.todos.filter((t) => !t.done && (
+      t.listId === 'upcoming' || (t.dueDate && dueDateSlot(t.dueDate) === 'upcoming' && t.listId !== 'today')
+    ));
     return widgets.todos.filter((t) => !t.done && t.listId === listId);
   };
 
@@ -326,14 +368,12 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
   const addTodo = (text: string) => {
     if (!text.trim()) return;
     const id = `todo-${Date.now().toString(36)}`;
-    // If user is on completed tab, add to inbox instead
     const targetList = activeId === 'completed' ? 'inbox' : activeId;
     set({ todos: [...widgets.todos, { id, text: text.trim(), done: false, listId: targetList }] });
   };
 
-  const toggleDone = (id: string) => {
+  const toggleDone = (id: string) =>
     set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, done: !t.done } : t) });
-  };
 
   const editText = (id: string, text: string) =>
     set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, text } : t) });
@@ -348,19 +388,13 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
     if (!newListInput.trim()) { setAddingList(false); return; }
     const id = `list-${Date.now().toString(36)}`;
     set({ todoLists: [...lists, { id, name: newListInput.trim() }], activeTodoListId: id });
-    setNewListInput('');
-    setAddingList(false);
+    setNewListInput(''); setAddingList(false);
   };
 
   const deleteList = (id: string) => {
     const remaining = lists.filter((l) => l.id !== id);
-    // Move tasks from deleted list to inbox
     const updatedTodos = widgets.todos.map((t) => t.listId === id ? { ...t, listId: 'inbox' } : t);
-    set({
-      todoLists: remaining,
-      todos: updatedTodos,
-      activeTodoListId: activeId === id ? (remaining[0]?.id ?? 'inbox') : activeId,
-    });
+    set({ todoLists: remaining, todos: updatedTodos, activeTodoListId: activeId === id ? (remaining[0]?.id ?? 'inbox') : activeId });
     setConfirmDeleteId(null);
   };
 
@@ -369,11 +403,10 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
     setEditingListId(null);
   };
 
-  const listLabel = (list: TodoList) =>
-    list.builtIn ? getBuiltInLabel(list.id, locale) : list.name;
+  const listLabel = (list: TodoList) => list.builtIn ? getBuiltInLabel(list.id, locale) : list.name;
 
-  // expanded: wider panel
-  const panelW = meta.expanded ? 'w-[28rem]' : 'w-72';
+  // expanded: much wider
+  const panelW = meta.expanded ? 'w-[40rem]' : 'w-72';
 
   return (
     <div className={panelW}>
@@ -386,8 +419,8 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
       >
         <div className={['flex gap-3', meta.expanded ? 'flex-row' : 'flex-col'].join(' ')}>
 
-          {/* Sidebar list selector */}
-          <div className={['flex shrink-0 flex-col gap-0.5', meta.expanded ? 'w-32' : 'flex-row flex-wrap gap-1'].join(' ')}>
+          {/* Sidebar */}
+          <div className={['flex shrink-0 flex-col gap-0.5', meta.expanded ? 'w-36' : 'flex-row flex-wrap gap-1'].join(' ')}>
             {lists.map((list) => (
               <div key={list.id} className="group/list flex items-center gap-1">
                 {editingListId === list.id ? (
@@ -408,38 +441,22 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                       onClick={() => set({ activeTodoListId: list.id })}
                       className={[
                         'flex-1 truncate rounded-lg px-2 py-1 text-left text-xs font-bold transition',
-                        activeId === list.id
-                          ? 'bg-slate-800 text-white'
-                          : 'text-slate-600 hover:bg-black/8',
+                        activeId === list.id ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-black/8',
                       ].join(' ')}
                     >
                       {listLabel(list)}
                     </button>
-
-                    {/* Delete button — show on hover for ALL non-builtIn lists */}
                     {!list.builtIn && (
                       confirmDeleteId === list.id ? (
                         <div className="flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => deleteList(list.id)}
-                            className="rounded px-1 text-[0.6rem] font-black text-red-500 hover:bg-red-50"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="rounded px-1 text-[0.6rem] font-black text-slate-400 hover:bg-black/8"
-                          >
-                            ✕
-                          </button>
+                          <button type="button" onClick={() => deleteList(list.id)} className="rounded px-1 text-[0.6rem] font-black text-red-500 hover:bg-red-50">✓</button>
+                          <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded px-1 text-[0.6rem] font-black text-slate-400 hover:bg-black/8">✕</button>
                         </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(list.id)}
-                          className="hidden shrink-0 text-slate-300 transition hover:text-red-400 group-hover/list:flex"
+                          className="hidden shrink-0 text-slate-400 transition hover:text-red-400 group-hover/list:flex"
                           aria-label={`Delete ${list.name}`}
                         >
                           <X className="h-3 w-3" />
@@ -450,8 +467,6 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                 )}
               </div>
             ))}
-
-            {/* + New List */}
             {addingList ? (
               <input
                 autoFocus
@@ -475,11 +490,10 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
             )}
           </div>
 
-          {/* Divider (expanded mode) */}
           {meta.expanded && <div className="w-px self-stretch bg-black/8" />}
 
-          {/* Todo items */}
-          <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+          {/* Tasks */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-visible">
             {activeTodos.length === 0 && (
               <p className="py-2 text-center text-xs text-slate-400">{lb('noTasks', locale)}</p>
             )}
@@ -495,8 +509,6 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                 onDateChange={(d) => setDueDate(todo.id, d)}
               />
             ))}
-
-            {/* New todo input — hidden on completed tab */}
             {activeId !== 'completed' && (
               <input
                 ref={newTodoRef}
@@ -525,7 +537,6 @@ type PomodoroWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: 
 function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
   const meta = safeMeta(widgets.pomodoroMeta);
   const set  = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
-
   const totalSeconds = widgets.pomodoroMinutes * 60;
   const remaining   = widgets.pomodoroRemainingSeconds;
   const progress    = totalSeconds > 0 ? remaining / totalSeconds : 0;
@@ -534,13 +545,7 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
 
   return (
     <div className="w-64">
-      <WidgetShell
-        label="Pomodoro"
-        icon={<Timer className="h-3.5 w-3.5" />}
-        meta={meta}
-        glass={glass}
-        onMetaChange={(m) => set({ pomodoroMeta: m })}
-      >
+      <WidgetShell label="Pomodoro" icon={<Timer className="h-3.5 w-3.5" />} meta={meta} glass={glass} onMetaChange={(m) => set({ pomodoroMeta: m })}>
         <div className="flex w-full flex-col items-center gap-3">
           <div className="relative">
             <PomodoroRing progress={progress} />
@@ -557,10 +562,7 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
               <input
                 type="number" min="1" max="90"
                 value={widgets.pomodoroMinutes}
-                onChange={(e) => {
-                  const m = Math.min(90, Math.max(1, Number(e.target.value) || 25));
-                  set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
-                }}
+                onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false }); }}
                 className="w-12 rounded-lg bg-black/8 px-2 py-1 text-sm font-black text-slate-800 outline-none"
                 data-testid="input-pomodoro-minutes"
               />
@@ -568,17 +570,11 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
             </div>
             <div className="flex gap-2">
               {isDone ? (
-                <button type="button"
-                  onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700"
-                  data-testid="button-pomodoro-reset" aria-label="Reset">
+                <button type="button" onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })} className="grid h-10 w-10 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700" data-testid="button-pomodoro-reset" aria-label="Reset">
                   <RotateCcw className="h-4 w-4" />
                 </button>
               ) : (
-                <button type="button"
-                  onClick={() => set({ pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60, pomodoroRunning: !widgets.pomodoroRunning })}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-black/8 text-slate-700 transition hover:bg-black/14"
-                  data-testid="button-pomodoro-toggle" aria-label={widgets.pomodoroRunning ? 'Pause' : 'Start'}>
+                <button type="button" onClick={() => set({ pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60, pomodoroRunning: !widgets.pomodoroRunning })} className="grid h-10 w-10 place-items-center rounded-full bg-black/8 text-slate-700 transition hover:bg-black/14" data-testid="button-pomodoro-toggle" aria-label={widgets.pomodoroRunning ? 'Pause' : 'Start'}>
                   {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </button>
               )}
@@ -600,25 +596,15 @@ function NotesWidget({ widgets, glass, onChange }: NotesWidgetProps) {
   return (
     <div className={meta.expanded ? 'w-80' : 'w-64'}>
       <WidgetShell
-        label="Quick Note"
-        icon={<FileText className="h-3.5 w-3.5" />}
-        meta={meta}
-        glass={glass}
-        headerRight={
-          <span className="mr-1 text-[0.65rem] font-bold text-slate-400" aria-live="polite">
-            {widgets.notes.length}
-          </span>
-        }
+        label="Quick Note" icon={<FileText className="h-3.5 w-3.5" />} meta={meta} glass={glass}
+        headerRight={<span className="mr-1 text-[0.65rem] font-bold text-slate-400" aria-live="polite">{widgets.notes.length}</span>}
         onMetaChange={(m) => set({ notesMeta: m })}
       >
         <textarea
           value={widgets.notes}
           onChange={(e) => set({ notes: e.target.value })}
           placeholder="Quick Note…"
-          className={[
-            'box-border w-full resize-none rounded-xl bg-black/6 p-3 text-sm font-bold leading-5 text-slate-800 outline-none placeholder:text-slate-400 focus:bg-black/10',
-            meta.expanded ? 'min-h-36' : 'min-h-20',
-          ].join(' ')}
+          className={['box-border w-full resize-none rounded-xl bg-black/6 p-3 text-sm font-bold leading-5 text-slate-800 outline-none placeholder:text-slate-400 focus:bg-black/10', meta.expanded ? 'min-h-36' : 'min-h-20'].join(' ')}
           data-testid="textarea-widget-note"
         />
       </WidgetShell>
@@ -632,35 +618,44 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
   const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
   const notesMeta    = safeMeta(widgets.notesMeta);
 
-  // Separate expanded widgets from minimised icons so they never overlap
-  const expandedWidgets = (
-    <aside
-      className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden"
-      aria-label="Widgets"
-    >
-      {todoMeta.enabled && !todoMeta.minimised && (
-        <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />
-      )}
-      {pomodoroMeta.enabled && !pomodoroMeta.minimised && (
-        <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />
-      )}
-      {notesMeta.enabled && !notesMeta.minimised && (
-        <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />
-      )}
-    </aside>
+  return (
+    <>
+      {/* Expanded widgets — top-right column */}
+      <aside className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden" aria-label="Widgets">
+        {todoMeta.enabled && !todoMeta.minimised && <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />}
+        {pomodoroMeta.enabled && !pomodoroMeta.minimised && <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />}
+        {notesMeta.enabled && !notesMeta.minimised && <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />}
+      </aside>
+    </>
   );
+}
 
-  // Minimised icons are anchored to the BOTTOM-right to avoid overlapping expanded widgets
-  const miniIcons = (
-    <div
-      className="fixed bottom-24 right-5 z-20 flex flex-col items-end gap-2 max-xl:hidden"
-      aria-label="Minimised widgets"
-    >
+// ── Mini icons bar (rendered inside TopBar's right controls) ──────────────
+export function WidgetMiniIcons({
+  widgets, glass, onChange,
+}: {
+  widgets: WidgetState;
+  glass: number;
+  onChange: (w: WidgetState) => void;
+}) {
+  const todoMeta     = safeMeta(widgets.todoMeta);
+  const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
+  const notesMeta    = safeMeta(widgets.notesMeta);
+
+  const hasMini = (todoMeta.enabled && todoMeta.minimised) ||
+                  (pomodoroMeta.enabled && pomodoroMeta.minimised) ||
+                  (notesMeta.enabled && notesMeta.minimised);
+
+  if (!hasMini) return null;
+
+  return (
+    <>
+      {/* Thin separator */}
+      <span className="mx-0.5 h-4 w-px bg-white/25" aria-hidden="true" />
       {todoMeta.enabled && todoMeta.minimised && (
         <MiniIcon
           icon={<CheckSquare className="h-4 w-4" />}
           label="To-Do"
-          glass={glass}
           onClick={() => onChange({ ...widgets, todoMeta: { ...todoMeta, minimised: false } })}
         />
       )}
@@ -668,7 +663,6 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
         <MiniIcon
           icon={<Timer className="h-4 w-4" />}
           label="Pomodoro"
-          glass={glass}
           onClick={() => onChange({ ...widgets, pomodoroMeta: { ...pomodoroMeta, minimised: false } })}
         />
       )}
@@ -676,17 +670,9 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
         <MiniIcon
           icon={<FileText className="h-4 w-4" />}
           label="Quick Note"
-          glass={glass}
           onClick={() => onChange({ ...widgets, notesMeta: { ...notesMeta, minimised: false } })}
         />
       )}
-    </div>
-  );
-
-  return (
-    <>
-      {expandedWidgets}
-      {miniIcons}
     </>
   );
 }
