@@ -44,6 +44,17 @@ export interface WidgetState {
   pomodoroRunning: boolean;
 }
 
+// ── Prompt Library ──────────────────────────────────────────
+export interface Prompt {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  imageUrl?: string;   // 預覽圖片 URL
+  spaceId?: string;   // 可選綁定 Space
+  createdAt: number;  // timestamp
+}
+
 export interface AppConfig {
   apps: AppShortcut[];
   folders: Folder[];
@@ -59,6 +70,7 @@ export interface AppConfig {
   defaultEngine: SearchEngineId;
   searchEngines: SearchEngine[];
   widgets: WidgetState;
+  prompts: Prompt[];
   experiments: {
     smartRecommendations: boolean;
     recentVisits: boolean;

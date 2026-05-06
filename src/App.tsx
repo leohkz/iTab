@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BookMarked } from 'lucide-react';
 import { AppGrid } from './components/AppGrid';
 import { Dock } from './components/Dock';
+import { PromptLibrary } from './components/PromptLibrary';
 import { SettingsModal } from './components/SettingsModal';
 import { ShortcutEditor } from './components/ShortcutEditor';
 import { SpotlightSearch } from './components/SpotlightSearch';
@@ -9,7 +11,7 @@ import { TopBar } from './components/TopBar';
 import { Widgets } from './components/Widgets';
 import { defaultConfig, recentTabs, spaces } from './data/mockStore';
 import { createTranslator } from './i18n';
-import type { AppConfig, AppShortcut } from './types';
+import type { AppConfig, AppShortcut, Prompt } from './types';
 
 type EditorState = {
   open: boolean;
@@ -37,6 +39,7 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
     folders: config.folders ?? fallback.folders,
     pinnedIds: config.pinnedIds ?? fallback.pinnedIds,
     searchEngines: config.searchEngines ?? fallback.searchEngines,
+    prompts: config.prompts ?? fallback.prompts,
     widgets,
     experiments: { ...fallback.experiments, ...(config.experiments ?? {}) },
   };
@@ -53,6 +56,7 @@ function NewTab() {
   const [editing, setEditing] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showPrompts, setShowPrompts] = useState(false);
   const [editor, setEditor] = useState<EditorState>({
     open: false, mode: 'add', appId: null, folderId: null,
   });
@@ -64,7 +68,6 @@ function NewTab() {
     [config.apps, config.pinnedIds],
   );
 
-  // Filter apps by current space: apps without spaceId belong to all spaces
   const currentSpaceApps = useMemo(
     () => config.apps.filter((app) => !app.spaceId || app.spaceId === config.currentSpaceId),
     [config.apps, config.currentSpaceId],
@@ -103,7 +106,7 @@ function NewTab() {
       const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
       if (isCommandK && config.experiments.keyboardShortcuts) { event.preventDefault(); setSearchOpen(true); }
       if (event.key === 'Escape') {
-        setSettingsOpen(false); setSearchOpen(false); setSelectedFolderId(null); setEditing(false);
+        setSettingsOpen(false); setSearchOpen(false); setSelectedFolderId(null); setEditing(false); setShowPrompts(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -138,17 +141,12 @@ function NewTab() {
       return;
     }
     const id = `${shortcut.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
-    // 新增 app 綁定到目前 Space
     updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: config.currentSpaceId }] });
     notify(t('addWebsite'));
   };
 
   const deleteApp = (appId: string) => {
-    updateConfig({
-      ...config,
-      apps: config.apps.filter((app) => app.id !== appId),
-      pinnedIds: config.pinnedIds.filter((id) => id !== appId),
-    });
+    updateConfig({ ...config, apps: config.apps.filter((app) => app.id !== appId), pinnedIds: config.pinnedIds.filter((id) => id !== appId) });
     notify(t('delete'));
   };
 
@@ -184,12 +182,8 @@ function NewTab() {
     notify('Moved to Home Screen');
   };
 
-  // 新增：把 app 移到指定 Space（或 undefined = 全域）
   const moveToSpace = (appId: string, spaceId: string | undefined) => {
-    updateConfig({
-      ...config,
-      apps: config.apps.map((app) => (app.id === appId ? { ...app, spaceId } : app)),
-    });
+    updateConfig({ ...config, apps: config.apps.map((app) => (app.id === appId ? { ...app, spaceId } : app)) });
     const spaceName = spaceId ? (spaces.find((s) => s.id === spaceId)?.name ?? spaceId) : 'All Spaces';
     notify(`Moved to ${spaceName}`);
   };
@@ -206,11 +200,24 @@ function NewTab() {
   };
 
   const deleteFolder = (folderId: string) => {
-    updateConfig({
-      ...config,
-      folders: config.folders.filter((f) => f.id !== folderId),
-      apps: config.apps.map((app) => (app.folderId === folderId ? { ...app, folderId: null } : app)),
-    });
+    updateConfig({ ...config, folders: config.folders.filter((f) => f.id !== folderId), apps: config.apps.map((app) => (app.folderId === folderId ? { ...app, folderId: null } : app)) });
+    notify(t('delete'));
+  };
+
+  // ── Prompt CRUD ────────────────────────────────────────────────────────────────
+  const addPrompt = (data: Omit<Prompt, 'id' | 'createdAt'>) => {
+    const id = `p-${Date.now().toString(36)}`;
+    updateConfig({ ...config, prompts: [...(config.prompts ?? []), { id, ...data, createdAt: Date.now() }] });
+    notify(t('newPrompt'));
+  };
+
+  const editPrompt = (id: string, data: Omit<Prompt, 'id' | 'createdAt'>) => {
+    updateConfig({ ...config, prompts: (config.prompts ?? []).map((p) => (p.id === id ? { ...p, ...data } : p)) });
+    notify(t('editPrompt'));
+  };
+
+  const deletePrompt = (id: string) => {
+    updateConfig({ ...config, prompts: (config.prompts ?? []).filter((p) => p.id !== id) });
     notify(t('delete'));
   };
 
@@ -256,10 +263,7 @@ function NewTab() {
         syncStatus=""
         glass={config.glass}
         t={t}
-        onSpaceChange={(spaceId) => {
-          setSelectedFolderId(null);
-          updateConfig({ ...config, currentSpaceId: spaceId });
-        }}
+        onSpaceChange={(spaceId) => { setSelectedFolderId(null); updateConfig({ ...config, currentSpaceId: spaceId }); }}
         onSearchClick={() => setSearchOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleEditing={() => setEditing((v) => !v)}
@@ -270,31 +274,63 @@ function NewTab() {
         }}
       />
 
-      <AppGrid
-        apps={currentSpaceApps}
-        folders={config.folders}
-        editing={editing}
-        selectedFolderId={selectedFolderId}
-        gridColumns={config.gridColumns}
-        gridRows={config.gridRows}
-        currentSpaceId={config.currentSpaceId}
-        spaces={spaces}
-        t={t}
-        onOpenFolder={setSelectedFolderId}
-        onCloseFolder={() => setSelectedFolderId(null)}
-        onStartEditing={() => setEditing(true)}
-        onStopEditing={() => setEditing(false)}
-        onDeleteApp={deleteApp}
-        onRenameApp={renameShortcut}
-        onAddShortcut={openShortcutEditor}
-        onAddFolder={addFolder}
-        onRenameFolder={renameFolder}
-        onDeleteFolder={deleteFolder}
-        onReorder={reorderItems}
-        onMoveToFolder={moveToFolder}
-        onMoveOutOfFolder={moveOutOfFolder}
-        onMoveToSpace={moveToSpace}
-      />
+      {/* ── Prompt Library 左側觸發按鈕 ── */}
+      <button
+        type="button"
+        onClick={() => setShowPrompts((v) => !v)}
+        aria-label={t('promptLibrary')}
+        className={[
+          'fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg backdrop-blur-md transition hover:text-white',
+          showPrompts ? 'bg-white/28' : 'bg-white/12 hover:bg-white/20',
+        ].join(' ')}
+      >
+        <BookMarked className="h-5 w-5" aria-hidden="true" />
+        <span
+          className="text-[0.6rem] font-black uppercase tracking-widest"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          {t('prompts')}
+        </span>
+      </button>
+
+      {/* App Grid 或 Prompt Library */}
+      {showPrompts ? (
+        <PromptLibrary
+          prompts={config.prompts ?? []}
+          glass={config.glass}
+          t={t}
+          onClose={() => setShowPrompts(false)}
+          onAdd={addPrompt}
+          onEdit={editPrompt}
+          onDelete={deletePrompt}
+        />
+      ) : (
+        <AppGrid
+          apps={currentSpaceApps}
+          folders={config.folders}
+          editing={editing}
+          selectedFolderId={selectedFolderId}
+          gridColumns={config.gridColumns}
+          gridRows={config.gridRows}
+          currentSpaceId={config.currentSpaceId}
+          spaces={spaces}
+          t={t}
+          onOpenFolder={setSelectedFolderId}
+          onCloseFolder={() => setSelectedFolderId(null)}
+          onStartEditing={() => setEditing(true)}
+          onStopEditing={() => setEditing(false)}
+          onDeleteApp={deleteApp}
+          onRenameApp={renameShortcut}
+          onAddShortcut={openShortcutEditor}
+          onAddFolder={addFolder}
+          onRenameFolder={renameFolder}
+          onDeleteFolder={deleteFolder}
+          onReorder={reorderItems}
+          onMoveToFolder={moveToFolder}
+          onMoveOutOfFolder={moveOutOfFolder}
+          onMoveToSpace={moveToSpace}
+        />
+      )}
 
       {config.showDock && (
         <Dock
@@ -308,7 +344,7 @@ function NewTab() {
         />
       )}
 
-      {config.showWidgets && (
+      {config.showWidgets && !showPrompts && (
         <Widgets
           widgets={config.widgets}
           glass={config.glass}
