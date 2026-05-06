@@ -31,11 +31,9 @@ const DEFAULT_META: WidgetMeta = { enabled: true, minimised: false, pinned: fals
 
 function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
   const fallback = cloneDefaultConfig();
-  // Cast to Partial<WidgetState> so TypeScript knows which fields may exist
   const raw = (config.widgets ?? {}) as Partial<WidgetState>;
   const fb  = fallback.widgets;
 
-  // Migrate todos: old entries may lack listId
   const todos = (raw.todos ?? fb.todos).map((t) => ({
     ...t,
     listId: t.listId ?? 'inbox',
@@ -278,6 +276,8 @@ function NewTab() {
         ? 'bg-[radial-gradient(circle_at_18%_18%,rgba(255,244,187,0.75),transparent_23%),linear-gradient(135deg,#1a8fb7_0%,#71b8d5_45%,#fed7aa_100%)]'
         : 'bg-[radial-gradient(circle_at_18%_18%,rgba(255,244,187,0.95),transparent_23%),radial-gradient(circle_at_80%_14%,rgba(158,223,245,0.9),transparent_26%),radial-gradient(circle_at_54%_70%,rgba(245,165,151,0.9),transparent_32%),linear-gradient(135deg,#496bcf_0%,#71b8d5_38%,#e8b79c_72%,#f7e3bc_100%)]';
 
+  const handleWidgetsChange = (widgets: WidgetState) => updateConfig({ ...config, widgets });
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
       <div className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
@@ -291,6 +291,7 @@ function NewTab() {
         syncStatus=""
         glass={config.glass}
         t={t}
+        widgets={config.widgets}
         onSpaceChange={(spaceId) => { setSelectedFolderId(null); updateConfig({ ...config, currentSpaceId: spaceId }); }}
         onSearchClick={() => setSearchOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -300,6 +301,7 @@ function NewTab() {
           const index = themes.indexOf(config.theme);
           updateConfig({ ...config, theme: themes[(index + 1) % themes.length] });
         }}
+        onWidgetsChange={handleWidgetsChange}
       />
 
       <button
@@ -374,7 +376,7 @@ function NewTab() {
         <Widgets
           widgets={config.widgets}
           glass={config.glass}
-          onChange={(widgets) => updateConfig({ ...config, widgets })}
+          onChange={handleWidgetsChange}
           t={t}
         />
       )}

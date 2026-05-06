@@ -1,7 +1,6 @@
 import { Search, Settings, Sun } from 'lucide-react';
-import type { Space } from '../types';
+import type { Space, WidgetState } from '../types';
 import type { TranslationKey } from '../i18n';
-import type { WidgetState } from '../types';
 import { WidgetMiniIcons } from './Widgets';
 
 type TopBarProps = {
@@ -59,8 +58,8 @@ export function TopBar({
 
         {/* Right controls */}
         <div className="flex items-center gap-2">
-          {/* Widget mini icons appear here, before theme toggle */}
-          <WidgetMiniIcons widgets={widgets} glass={_glass} onChange={onWidgetsChange} />
+          {/* Widget mini icons — appear when any widget is minimised */}
+          <WidgetMiniIcons widgets={widgets} onChange={onWidgetsChange} />
 
           <button
             type="button"

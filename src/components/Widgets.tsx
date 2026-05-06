@@ -13,11 +13,9 @@ type WidgetsProps = {
   glass: number;
   t: (key: TranslationKey) => string;
   onChange: (widgets: WidgetState) => void;
-  /** Slot for mini-icons rendered next to TopBar controls */
-  onMiniIconsChange?: (icons: React.ReactNode) => void;
 };
 
-// ── i18n labels ───────────────────────────────────────────────────────
+// ── i18n labels ──────────────────────────────────────────────────────
 type Locale = 'en' | 'zh';
 
 function detectLocale(): Locale {
@@ -64,7 +62,7 @@ function formatDate(dueDate: string, locale: Locale): string {
   return d.toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { month: 'short', day: 'numeric' });
 }
 
-// ── helpers ───────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────
 function defaultMeta(): WidgetMeta {
   return { enabled: true, minimised: false, pinned: false, expanded: false };
 }
@@ -106,7 +104,7 @@ function PomodoroRing({ progress }: { progress: number }) {
   );
 }
 
-// ── Mini icon button (exported for TopBar slot) ────────────────────────
+// ── Mini icon button ──────────────────────────────────────────────────
 type MiniIconProps = {
   icon: React.ReactNode;
   label: string;
@@ -127,7 +125,7 @@ export function MiniIcon({ icon, label, onClick }: MiniIconProps) {
   );
 }
 
-// ── Apple-style date picker popover ─────────────────────────────────
+// ── Apple-style date picker popover ──────────────────────────────────
 function DatePicker({
   value, locale, onConfirm, onClear, onClose,
 }: {
@@ -284,7 +282,6 @@ function TodoRow({
             (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800',
           ].join(' ')}
         />
-        {/* Calendar button — always visible, slate-500 */}
         <button
           type="button"
           onClick={() => setShowPicker((v) => !v)}
@@ -297,7 +294,6 @@ function TodoRow({
         >
           <CalendarDays className="h-3.5 w-3.5" />
         </button>
-        {/* Delete button — always visible, slate-500 */}
         <button
           type="button"
           onClick={onDelete}
@@ -308,7 +304,6 @@ function TodoRow({
         </button>
       </div>
 
-      {/* Date badge */}
       {dateDisplay && !showPicker && (
         <button
           type="button"
@@ -319,7 +314,6 @@ function TodoRow({
         </button>
       )}
 
-      {/* Apple-style date picker popover */}
       {showPicker && (
         <DatePicker
           value={todo.dueDate}
@@ -405,7 +399,6 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
 
   const listLabel = (list: TodoList) => list.builtIn ? getBuiltInLabel(list.id, locale) : list.name;
 
-  // expanded: much wider
   const panelW = meta.expanded ? 'w-[40rem]' : 'w-72';
 
   return (
@@ -619,23 +612,19 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
   const notesMeta    = safeMeta(widgets.notesMeta);
 
   return (
-    <>
-      {/* Expanded widgets — top-right column */}
-      <aside className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden" aria-label="Widgets">
-        {todoMeta.enabled && !todoMeta.minimised && <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />}
-        {pomodoroMeta.enabled && !pomodoroMeta.minimised && <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />}
-        {notesMeta.enabled && !notesMeta.minimised && <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />}
-      </aside>
-    </>
+    <aside className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden" aria-label="Widgets">
+      {todoMeta.enabled && !todoMeta.minimised && <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />}
+      {pomodoroMeta.enabled && !pomodoroMeta.minimised && <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />}
+      {notesMeta.enabled && !notesMeta.minimised && <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />}
+    </aside>
   );
 }
 
-// ── Mini icons bar (rendered inside TopBar's right controls) ──────────────
+// ── Mini icons bar (rendered inside TopBar's right controls) ──────────
 export function WidgetMiniIcons({
-  widgets, glass, onChange,
+  widgets, onChange,
 }: {
   widgets: WidgetState;
-  glass: number;
   onChange: (w: WidgetState) => void;
 }) {
   const todoMeta     = safeMeta(widgets.todoMeta);
@@ -650,7 +639,6 @@ export function WidgetMiniIcons({
 
   return (
     <>
-      {/* Thin separator */}
       <span className="mx-0.5 h-4 w-px bg-white/25" aria-hidden="true" />
       {todoMeta.enabled && todoMeta.minimised && (
         <MiniIcon
