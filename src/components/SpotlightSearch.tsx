@@ -21,7 +21,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
   const [engineId, setEngineId] = useState<SearchEngineId>(defaultEngine);
-  const enabledEngines = engines.filter((engine) => engine.enabled);
+  const enabledEngines = engines.filter((e) => e.enabled);
 
   useEffect(() => {
     if (open) {
@@ -33,14 +33,12 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
 
   const normalized = query.trim().toLowerCase();
   const engineMatch = enabledEngines.find((item) => normalized.startsWith(`${item.shortcut} `));
-  const activeEngine = engineMatch ?? enabledEngines.find((engine) => engine.id === engineId) ?? enabledEngines[0];
+  const activeEngine = engineMatch ?? enabledEngines.find((e) => e.id === engineId) ?? enabledEngines[0];
   const cleanQuery = engineMatch ? query.trim().slice(engineMatch.shortcut.length + 1).trim() : query.trim();
 
   const appResults = useMemo(() => {
     if (!normalized) return apps.slice(0, 6);
-    return apps
-      .filter((app) => app.name.toLowerCase().includes(normalized) || app.url.toLowerCase().includes(normalized))
-      .slice(0, 6);
+    return apps.filter((a) => a.name.toLowerCase().includes(normalized) || a.url.toLowerCase().includes(normalized)).slice(0, 6);
   }, [apps, normalized]);
 
   if (!open) return null;
@@ -55,110 +53,78 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
     <div
       className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-950/60 px-4 pt-[12vh] backdrop-blur-md"
       role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Spotlight search"
+        role="dialog" aria-modal="true" aria-label="Spotlight search"
         className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden rounded-[1.7rem] border border-white/20 bg-white shadow-[0_32px_90px_rgba(15,23,42,0.6)]"
-        style={{ backgroundColor: '#ffffff' }}
         data-testid="modal-spotlight"
       >
-        {/* Search input row */}
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-5 py-4">
-          <Search className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
+          <Search className="h-5 w-5 shrink-0 text-slate-400" />
           <input
-            ref={inputRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') onClose();
-              if (event.key === 'Enter') submitSearch();
-            }}
+            ref={inputRef} value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter') submitSearch(); }}
             placeholder={t('searchPlaceholder')}
             className="min-w-0 flex-1 bg-white text-lg font-bold tracking-[-0.04em] text-slate-950 placeholder:text-slate-400 focus:outline-none"
             data-testid="input-spotlight"
           />
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('cancel')}
+          <button type="button" onClick={onClose} aria-label={t('cancel')}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition duration-200 hover:bg-slate-200"
-            data-testid="button-close-spotlight"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
+            data-testid="button-close-spotlight">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Body */}
         <div className="grid gap-4 bg-white p-4">
-          {/* Search engines */}
+          {/* Search engines — flex-wrap prevents overflow */}
           <div>
             <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('searchEngines')}</p>
-            <div className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
+            <div className="flex flex-wrap gap-2">
               {enabledEngines.map((item) => (
                 <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setEngineId(item.id);
-                    onEngineChange(item.id);
-                  }}
+                  key={item.id} type="button"
+                  onClick={() => { setEngineId(item.id); onEngineChange(item.id); }}
                   className={[
-                    'flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-black transition duration-200',
-                    activeEngine?.id === item.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                    'flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-black transition duration-200',
+                    activeEngine?.id === item.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
                   ].join(' ')}
                   data-testid={`button-engine-${item.id}`}
                 >
                   {item.name}
-                  <span className={['rounded-md px-1.5 py-0.5 text-[0.65rem] uppercase', activeEngine?.id === item.id ? 'bg-white/18 text-white/80' : 'bg-slate-200 text-slate-500'].join(' ')}>{item.shortcut}</span>
+                  <span className={['rounded-md px-1.5 py-0.5 text-[0.65rem] uppercase', activeEngine?.id === item.id ? 'bg-white/20 text-white/80' : 'bg-slate-200 text-slate-500'].join(' ')}>{item.shortcut}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* App results */}
           <div>
             <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
             <div className="grid gap-1">
               {appResults.map((app) => (
-                <a
-                  key={app.id}
-                  href={app.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={onClose}
+                <a key={app.id} href={app.url} target="_blank" rel="noreferrer" onClick={onClose}
                   className="flex items-center justify-between rounded-xl px-3 py-2 text-slate-800 transition duration-200 hover:bg-slate-100"
-                  data-testid={`spotlight-result-${app.id}`}
-                >
+                  data-testid={`spotlight-result-${app.id}`}>
                   <span>
                     <span className="block text-sm font-black text-slate-900">{app.name}</span>
                     <span className="block text-xs font-semibold text-slate-400">{app.url}</span>
                   </span>
-                  <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
                 </a>
               ))}
-
               {cleanQuery && activeEngine ? (
-                <button
-                  type="button"
-                  onClick={submitSearch}
+                <button type="button" onClick={submitSearch}
                   className="mt-1 flex items-center justify-between rounded-xl bg-slate-900 px-3 py-3 text-left text-white transition duration-200 hover:bg-slate-800"
-                  data-testid="button-submit-search"
-                >
+                  data-testid="button-submit-search">
                   <span className="flex items-center gap-3">
-                    <Globe2 className="h-5 w-5" aria-hidden="true" />
+                    <Globe2 className="h-5 w-5" />
                     <span>
                       <span className="block text-sm font-black">{t('searchWith').replace('{engine}', activeEngine.name)}</span>
                       <span className="block text-xs font-semibold text-white/60">{cleanQuery}</span>
                     </span>
                   </span>
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               ) : null}
             </div>
