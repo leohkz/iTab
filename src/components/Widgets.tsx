@@ -27,7 +27,7 @@ function detectLocale(): Locale {
 const LABELS: Record<string, Record<Locale, string>> = {
   today:     { en: 'Today',     zh: '今日' },
   upcoming:  { en: 'Upcoming',  zh: '即將' },
-  inbox:     { en: 'Inbox',     zh: '收件笱' },
+  inbox:     { en: 'Inbox',     zh: '收件匣' },
   completed: { en: 'Completed', zh: '已完成' },
   noTasks:   { en: 'No tasks',  zh: '暫無任務' },
   addTask:   { en: '+ Add task…', zh: '+ 新增任務…' },
@@ -98,7 +98,6 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   const STROKE = 10;
   const GAP_DEG = 120;
   const ARC_DEG = 360 - GAP_DEG; // 240°
-  // Rotated 90° clockwise: startDeg 150 → 240
   const startDeg = 240;
   const endDeg = startDeg + ARC_DEG;
 
@@ -164,7 +163,6 @@ function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }
   const STROKE = 16;
   const GAP_DEG = 120;
   const ARC_DEG = 360 - GAP_DEG;
-  // Rotated 90° clockwise: startDeg 150 → 240
   const startDeg = 240;
   const endDeg   = startDeg + ARC_DEG;
 
@@ -671,8 +669,12 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
     set({ pomodoroIsBreak: toBreak, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: false });
   };
 
-  // Current mode minutes for single input
   const currentMins = isBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes;
+
+  const handleSoundOpen = () => {
+    setSoundState({ ...soundState, open: true });
+    setShowSound(true);
+  };
 
   return (
     <>
@@ -720,7 +722,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
             <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '☀️ 休息完成，繼續加油！' : '☀️ Break done, keep going!'}</p>
           )}
 
-          {/* Action buttons — Sound moved to bottom */}
           <div className="flex items-center gap-3 flex-wrap justify-center">
             {!isDone && (
               <button onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">
@@ -738,7 +739,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
             </button>
           </div>
 
-          {/* Single timer setting — shows current mode only */}
           <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3 backdrop-blur">
             <span className="text-xs font-black text-white/50 uppercase tracking-wider">
               {isBreak ? (locale === 'zh' ? '休息時間' : 'Break') : (locale === 'zh' ? '專注時間' : 'Focus')}
@@ -758,7 +758,7 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
 
           {/* Sound button at bottom */}
           <button
-            onClick={() => setSoundState({ ...soundState, open: true }) || setShowSound(true)}
+            onClick={handleSoundOpen}
             className={['flex items-center gap-2 rounded-full px-6 py-3 text-sm font-black backdrop-blur transition', showSound ? 'bg-white/30 text-white' : 'bg-white/14 text-white/80 hover:bg-white/22'].join(' ')}
           >
             <Music className="h-4 w-4" />
@@ -767,7 +767,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
         </div>
       </div>
 
-      {/* Sound modal rendered at root level */}
       {showSound && (
         <FocusSoundPanel
           state={soundState}
