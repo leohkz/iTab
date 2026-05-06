@@ -44,6 +44,9 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, t, onC
     onClose();
   };
 
+  // Shared input class — explicit text-slate-950 ensures readable text on any bg
+  const inputClass = 'mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold text-slate-950 placeholder:text-slate-400 outline-none focus:border-slate-950/30';
+
   return (
     <div
       className="fixed inset-0 z-[65] grid place-items-center bg-slate-950/35 px-4 backdrop-blur-md"
@@ -79,21 +82,20 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, t, onC
           {t('name')}
           <input
             value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold outline-none focus:border-slate-950/30"
+            onChange={(e) => setName(e.target.value)}
+            className={inputClass}
             placeholder="Claude"
             data-testid="input-shortcut-name"
           />
         </label>
+
         <label className="mt-4 block text-sm font-black text-slate-700">
           {t('url')}
           <input
             value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') submit();
-            }}
-            className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold outline-none focus:border-slate-950/30"
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            className={inputClass}
             placeholder="https://claude.ai"
             data-testid="input-shortcut-url"
           />
@@ -103,8 +105,8 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, t, onC
           {t('customIconUrl')}
           <input
             value={iconValue}
-            onChange={(event) => setIconValue(event.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold outline-none focus:border-slate-950/30"
+            onChange={(e) => setIconValue(e.target.value)}
+            className={inputClass}
             placeholder="https://example.com/icon.png"
             data-testid="input-shortcut-icon"
           />
@@ -119,7 +121,7 @@ export function ShortcutEditor({ open, mode, initialApp, folderId = null, t, onC
             <input
               type="color"
               value={iconColor || '#7dd3fc'}
-              onChange={(event) => setIconColor(event.target.value)}
+              onChange={(e) => setIconColor(e.target.value)}
               className="h-10 w-16 rounded-xl border border-slate-950/10 bg-white p-1"
               data-testid="input-shortcut-icon-color"
             />

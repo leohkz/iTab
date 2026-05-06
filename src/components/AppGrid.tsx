@@ -1,4 +1,4 @@
-import { FolderPlus, Grip, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FolderPlus, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut, Folder, Space } from '../types';
@@ -51,12 +51,7 @@ function FolderPreview({ apps }: { apps: AppShortcut[] }) {
 }
 
 function AppEditControls({
-  app,
-  spaces,
-  currentSpaceId,
-  onDelete,
-  onRename,
-  onMoveToSpace,
+  app, spaces, currentSpaceId, onDelete, onRename, onMoveToSpace,
 }: {
   app: AppShortcut;
   spaces: Space[];
@@ -70,35 +65,29 @@ function AppEditControls({
   return (
     <>
       <button
-        type="button"
-        aria-label="Delete shortcut"
+        type="button" aria-label="Delete shortcut"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
         className="absolute -left-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
         data-testid="button-delete-shortcut"
       >
-        <Minus className="h-4 w-4" aria-hidden="true" />
+        <Minus className="h-4 w-4" />
       </button>
       <button
-        type="button"
-        aria-label="Edit shortcut"
+        type="button" aria-label="Edit shortcut"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
         className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
         data-testid="button-rename-shortcut"
       >
-        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+        <Pencil className="h-3.5 w-3.5" />
       </button>
-
-      {/* Space badge — 點擊展開 Space 選單 */}
       <button
-        type="button"
-        aria-label="Move to space"
+        type="button" aria-label="Move to space"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSpaceMenuOpen((v) => !v); }}
         className="absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-black text-slate-700 shadow backdrop-blur-sm"
         data-testid="button-space-badge"
       >
         {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '✦ All'}
       </button>
-
       {spaceMenuOpen && (
         <div
           className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl"
@@ -114,8 +103,7 @@ function AppEditControls({
             </button>
             {spaces.map((space) => (
               <button
-                key={space.id}
-                type="button"
+                key={space.id} type="button"
                 className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-100', space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
                 onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}
               >
@@ -132,10 +120,7 @@ function AppEditControls({
 
 function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string }) {
   const [value, setValue] = useState(name);
-  const handleSave = () => {
-    if (!value.trim()) return;
-    onSave(value.trim());
-  };
+  const handleSave = () => { if (!value.trim()) return; onSave(value.trim()); };
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm"
@@ -144,8 +129,7 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSa
       <div className="w-72 rounded-2xl bg-white p-6 shadow-2xl">
         <p className="mb-3 text-sm font-black text-slate-700">{t('renameFolder')}</p>
         <input
-          autoFocus
-          value={value}
+          autoFocus value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onCancel(); }}
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-400"
@@ -230,8 +214,7 @@ export function AppGrid({
             if (item.kind === 'folder') {
               return (
                 <button
-                  key={item.id}
-                  type="button"
+                  key={item.id} type="button"
                   draggable={editing}
                   onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                   onDragOver={(e) => e.preventDefault()}
@@ -243,25 +226,23 @@ export function AppGrid({
                 >
                   {editing && (
                     <>
+                      {/* Delete — top left */}
                       <button
-                        type="button"
-                        aria-label="Delete folder"
+                        type="button" aria-label="Delete folder"
                         onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
                         className="absolute -left-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
                       >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
+                      {/* Rename — top right */}
                       <button
-                        type="button"
-                        aria-label="Rename folder"
+                        type="button" aria-label="Rename folder"
                         onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
                         className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
                       >
-                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                        <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <span className="absolute left-[calc(50%-14px)] top-0 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/30 text-white shadow-lg">
-                        <Grip className="h-3.5 w-3.5" aria-hidden="true" />
-                      </span>
+                      {/* Grip icon removed — drag works on the whole cell */}
                     </>
                   )}
                   <span className={editing ? 'animate-jiggle' : ''}>
@@ -278,8 +259,7 @@ export function AppGrid({
               <a
                 key={item.id}
                 href={editing ? undefined : item.app.url}
-                target="_blank"
-                rel="noreferrer"
+                target="_blank" rel="noreferrer"
                 draggable={editing}
                 onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                 onDragOver={(e) => e.preventDefault()}
@@ -291,9 +271,7 @@ export function AppGrid({
               >
                 {editing && (
                   <AppEditControls
-                    app={item.app}
-                    spaces={spaces}
-                    currentSpaceId={currentSpaceId}
+                    app={item.app} spaces={spaces} currentSpaceId={currentSpaceId}
                     onDelete={() => onDeleteApp(item.app.id)}
                     onRename={() => onRenameApp(item.app.id)}
                     onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
@@ -318,7 +296,7 @@ export function AppGrid({
                 data-testid="button-add-grid-shortcut"
               >
                 <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                  <Plus className="h-7 w-7" aria-hidden="true" />
+                  <Plus className="h-7 w-7" />
                 </span>
                 <span className="text-sm font-bold text-white">{t('add')}</span>
               </button>
@@ -329,7 +307,7 @@ export function AppGrid({
                 data-testid="button-add-folder"
               >
                 <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                  <FolderPlus className="h-7 w-7" aria-hidden="true" />
+                  <FolderPlus className="h-7 w-7" />
                 </span>
                 <span className="text-sm font-bold text-white">{t('newFolder')}</span>
               </button>
@@ -348,9 +326,7 @@ export function AppGrid({
           onDrop={(e) => { e.stopPropagation(); if (draggedId) onMoveOutOfFolder(draggedId); setDraggedId(null); }}
         >
           <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${selectedFolder.name} folder`}
+            role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
             className="w-[min(34rem,calc(100vw-2rem))] rounded-[2.4rem] border border-white/35 bg-white/38 p-6 text-white shadow-[0_30px_90px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-2xl"
             data-testid="modal-folder"
             onPointerDown={(e) => e.stopPropagation()}
@@ -364,10 +340,8 @@ export function AppGrid({
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (
                 <a
-                  key={app.id}
-                  href={editing ? undefined : app.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  key={app.id} href={editing ? undefined : app.url}
+                  target="_blank" rel="noreferrer"
                   draggable={editing}
                   onDragStart={(e) => { setDraggedId(app.id); e.dataTransfer.setData('text/plain', app.id); }}
                   onClick={(e) => { if (editing) e.preventDefault(); }}
@@ -376,9 +350,7 @@ export function AppGrid({
                 >
                   {editing && (
                     <AppEditControls
-                      app={app}
-                      spaces={spaces}
-                      currentSpaceId={currentSpaceId}
+                      app={app} spaces={spaces} currentSpaceId={currentSpaceId}
                       onDelete={() => onDeleteApp(app.id)}
                       onRename={() => onRenameApp(app.id)}
                       onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
@@ -398,7 +370,7 @@ export function AppGrid({
                   data-testid="button-add-folder-shortcut"
                 >
                   <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                    <Plus className="h-7 w-7" aria-hidden="true" />
+                    <Plus className="h-7 w-7" />
                   </span>
                   <span className="text-xs font-bold text-white">{t('add')}</span>
                 </button>
@@ -410,8 +382,7 @@ export function AppGrid({
 
       {renamingFolder && (
         <FolderRenameOverlay
-          name={renamingFolder.name}
-          t={t}
+          name={renamingFolder.name} t={t}
           onSave={(name) => { onRenameFolder(renamingFolder.id, name); setRenamingFolderId(null); }}
           onCancel={() => setRenamingFolderId(null)}
         />
