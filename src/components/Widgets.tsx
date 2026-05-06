@@ -27,7 +27,7 @@ function detectLocale(): Locale {
 const LABELS: Record<string, Record<Locale, string>> = {
   today:     { en: 'Today',     zh: '今日' },
   upcoming:  { en: 'Upcoming',  zh: '即將' },
-  inbox:     { en: 'Inbox',     zh: '收件箱' },
+  inbox:     { en: 'Inbox',     zh: '收件笱' },
   completed: { en: 'Completed', zh: '已完成' },
   noTasks:   { en: 'No tasks',  zh: '暫無任務' },
   addTask:   { en: '+ Add task…', zh: '+ 新增任務…' },
@@ -84,8 +84,9 @@ function glassStyle(glass: number) {
   };
 }
 
-// ── Pomodoro gauge dial (replaces small ring in widget) ───────────────
-// Open-bottom arc, 240° sweep, same style as Focus Mode overlay
+// ── Pomodoro gauge dial (widget, open-bottom arc 240°) ──────────────────
+// Fix: clip the SVG container to SIZE×SIZE so the arc doesn't overflow into
+// the minute-input row below it.
 function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   progress: number;
   isBreak: boolean;
@@ -97,20 +98,20 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   const cy = SIZE / 2;
   const R = 62;
   const STROKE = 10;
-  const GAP_DEG = 120;
-  const ARC_DEG = 360 - GAP_DEG; // 240°
-  const startDeg = 150;
-  const endDeg = startDeg + ARC_DEG;
+  const GAP_DEG = 120;   // degrees hidden at the bottom
+  const ARC_DEG = 240;   // 360 - 120
+  const startDeg = 150;  // bottom-left (150° from 12-o'clock)
+  const endDeg = startDeg + ARC_DEG; // 390° == 30°
 
   const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
   const polarToXY = (deg: number, r: number) => ({
     x: cx + r * Math.cos(degToRad(deg)),
     y: cy + r * Math.sin(degToRad(deg)),
   });
-  const arcPath = (startD: number, endD: number, r: number, large: boolean) => {
-    const s = polarToXY(startD, r);
-    const e = polarToXY(endD, r);
-    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`;
+  const arcPath = (s: number, e: number, r: number, large: boolean) => {
+    const sp = polarToXY(s, r);
+    const ep = polarToXY(e, r);
+    return `M ${sp.x} ${sp.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${ep.x} ${ep.y}`;
   };
 
   const trackPath = arcPath(startDeg, endDeg, R, true);
@@ -119,9 +120,17 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   const progressPath = progress > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
   const activeColor = isBreak ? '#34d399' : '#0f172a';
 
+  // The visible area we want: top half + a bit below centre (cuts the gap cleanly).
+  // HEIGHT = SIZE * 0.78 hides the bottom open gap.
+  const HEIGHT = Math.round(SIZE * 0.78);
+
   return (
-    <div className="relative" style={{ width: SIZE, height: Math.round(SIZE * 0.82) }}>
-      <svg width={SIZE} height={SIZE} style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }} aria-hidden="true">
+    <div style={{ position: 'relative', width: SIZE, height: HEIGHT, overflow: 'hidden' }}>
+      <svg
+        width={SIZE} height={SIZE}
+        style={{ position: 'absolute', top: 0, left: 0 }}
+        aria-hidden="true"
+      >
         <path d={trackPath} fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth={STROKE} strokeLinecap="round" />
         {progressPath && (
           <path
@@ -131,18 +140,26 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
           />
         )}
       </svg>
-      {/* Centre label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pb-4">
+      {/* Timer label centred inside the arc */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        paddingBottom: 8,
+      }}>
         {isDone
-          ? <span className="text-2xl">✅</span>
-          : <span className="text-lg font-black tabular-nums text-slate-800" data-testid="text-pomodoro-timer">{timerLabel}</span>
+          ? <span style={{ fontSize: '1.5rem' }}>✅</span>
+          : <span
+              style={{ fontSize: '1.125rem', fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#1e293b' }}
+              data-testid="text-pomodoro-timer"
+            >{timerLabel}</span>
         }
       </div>
     </div>
   );
 }
 
-// ── Car gauge dial (for Focus Mode overlay) ──────────────────────────
+// ── Car gauge dial (Focus Mode overlay — unchanged) ────────────────────
 function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }) {
   const SIZE = 260;
   const cx = SIZE / 2;
@@ -337,17 +354,13 @@ function TodoRow({
       {/* Single row: checkbox | text | [date label] | 📅 icon | 🗑 icon */}
       <div className="flex w-full items-center gap-2">
         <input type="checkbox" checked={todo.done} onChange={onToggle} className="shrink-0 accent-slate-700" />
-        <span
-          className={['flex-1 min-w-0 text-sm font-bold truncate', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
-        >
-          <input
-            value={todo.text}
-            onChange={(e) => onEdit(e.target.value)}
-            style={{ minWidth: 0 }}
-            className={['w-full bg-transparent outline-none', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
-          />
-        </span>
-        {/* Date label — shown left of calendar icon */}
+        <input
+          value={todo.text}
+          onChange={(e) => onEdit(e.target.value)}
+          style={{ minWidth: 0 }}
+          className={['w-full flex-1 bg-transparent text-sm font-bold outline-none', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
+        />
+        {/* Date label — shown left of calendar icon in the same row */}
         {dateDisplay && !showPicker && (
           <button
             type="button"
@@ -560,7 +573,7 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
             </button>
           </div>
 
-          {/* Gauge dial replaces small ring */}
+          {/* Gauge dial with proper clipping */}
           <PomodoroGaugeDial
             progress={progress}
             isBreak={isBreak}
@@ -618,7 +631,7 @@ function NotesWidget({ widgets, glass, onChange }: NotesWidgetProps) {
   );
 }
 
-// ── Focus Mode Overlay (car gauge style) ─────────────────────────────
+// ── Focus Mode Overlay ───────────────────────────────────────────────────
 type FocusModeOverlayProps = {
   widgets: WidgetState;
   onChange: (w: WidgetState) => void;
@@ -675,13 +688,11 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
   return (
     <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center ${backgroundClass}`}>
       <div className="absolute inset-0" style={{ backdropFilter: 'blur(3px)', background: 'rgba(0,0,0,0.45)' }} />
-
       <div className="relative z-10 flex flex-col items-center gap-6 select-none w-full max-w-sm px-6">
         <div className="text-center">
           <p className="text-7xl font-black text-white tracking-tight leading-none" style={{ textShadow: '0 2px 24px rgba(0,0,0,0.4)' }}>{timeStr}</p>
           <p className="mt-2 text-base font-bold text-white/75 tracking-wide">{dateStr}</p>
         </div>
-
         <div className="relative flex items-center justify-center" style={{ width: 260, height: 220 }}>
           <div style={{ overflow: 'hidden', width: 260, height: 220 }}>
             <GaugeDial progress={progress} isBreak={isBreak} />
@@ -707,7 +718,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
             </button>
           </div>
         </div>
-
         {justFinishedFocus && (
           <div className="flex flex-col items-center gap-2">
             <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '🎉 專注完成！要休息一下嗎？' : '🎉 Focus done! Take a break?'}</p>
@@ -719,7 +729,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
         {justFinishedBreak && (
           <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '☀️ 休息完成，繼續加油！' : '☀️ Break done, keep going!'}</p>
         )}
-
         <div className="flex items-center gap-3 flex-wrap justify-center">
           {!isDone && (
             <button onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">
@@ -734,70 +743,4 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
           )}
           <div className="relative">
             <button onClick={() => setShowSound(v => !v)} className={['flex items-center gap-2 rounded-full px-5 py-3 text-sm font-black backdrop-blur transition', showSound ? 'bg-white/30 text-white' : 'bg-white/14 text-white/80 hover:bg-white/22'].join(' ')}>
-              🎵 {locale === 'zh' ? '聲音' : 'Sound'}
-            </button>
-            {showSound && (
-              <div ref={soundRef} className="absolute bottom-full mb-3 right-0 z-50 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(24px)', minWidth: 300 }}>
-                <FocusSoundPanel state={soundState} onChange={setSoundState} onClose={() => setShowSound(false)} />
-              </div>
-            )}
-          </div>
-          <button onClick={() => set({ focusModeActive: false, pomodoroRunning: false })} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white/65 backdrop-blur transition hover:bg-white/20 hover:text-white">
-            <X className="h-4 w-4" />{locale === 'zh' ? '退出' : 'Exit'}
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl bg-white/10 px-5 py-3 backdrop-blur">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white/50 uppercase tracking-wider">{locale === 'zh' ? '專注' : 'Focus'}</span>
-            <input type="number" min="1" max="90" value={widgets.pomodoroMinutes} onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); set({ pomodoroMinutes: m, ...(!isBreak ? { pomodoroRemainingSeconds: m * 60, pomodoroRunning: false } : {}) }); }} className="w-12 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center" />
-            <span className="text-xs font-bold text-white/50">{locale === 'zh' ? '分' : 'min'}</span>
-          </div>
-          <div className="w-px h-6 bg-white/20" />
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white/50 uppercase tracking-wider">{locale === 'zh' ? '休息' : 'Break'}</span>
-            <input type="number" min="1" max="60" value={widgets.pomodoroBreakMinutes ?? 5} onChange={(e) => { const m = Math.min(60, Math.max(1, Number(e.target.value) || 5)); set({ pomodoroBreakMinutes: m, ...(isBreak ? { pomodoroRemainingSeconds: m * 60, pomodoroRunning: false } : {}) }); }} className="w-12 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center" />
-            <span className="text-xs font-bold text-white/50">{locale === 'zh' ? '分' : 'min'}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Root Widgets panel ────────────────────────────────────────────────
-export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
-  const todoMeta     = safeMeta(widgets.todoMeta);
-  const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
-  const notesMeta    = safeMeta(widgets.notesMeta);
-
-  return (
-    <aside className="fixed right-5 top-24 z-20 flex flex-col items-end gap-3 max-xl:hidden" aria-label="Widgets">
-      {todoMeta.enabled && !todoMeta.minimised && <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />}
-      {pomodoroMeta.enabled && !pomodoroMeta.minimised && <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />}
-      {notesMeta.enabled && !notesMeta.minimised && <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />}
-    </aside>
-  );
-}
-
-// ── Mini icons bar ────────────────────────────────────────────────────
-export function WidgetMiniIcons({ widgets, onChange }: { widgets: WidgetState; onChange: (w: WidgetState) => void }) {
-  const todoMeta     = safeMeta(widgets.todoMeta);
-  const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
-  const notesMeta    = safeMeta(widgets.notesMeta);
-
-  const hasMini = (todoMeta.enabled && todoMeta.minimised) ||
-                  (pomodoroMeta.enabled && pomodoroMeta.minimised) ||
-                  (notesMeta.enabled && notesMeta.minimised);
-
-  if (!hasMini) return null;
-
-  return (
-    <>
-      <span className="mx-0.5 h-4 w-px bg-white/25" aria-hidden="true" />
-      {todoMeta.enabled && todoMeta.minimised && <MiniIcon icon={<CheckSquare className="h-4 w-4" />} label="To-Do" onClick={() => onChange({ ...widgets, todoMeta: { ...todoMeta, minimised: false } })} />}
-      {pomodoroMeta.enabled && pomodoroMeta.minimised && <MiniIcon icon={<Timer className="h-4 w-4" />} label="Pomodoro" onClick={() => onChange({ ...widgets, pomodoroMeta: { ...pomodoroMeta, minimised: false } })} />}
-      {notesMeta.enabled && notesMeta.minimised && <MiniIcon icon={<FileText className="h-4 w-4" />} label="Quick Note" onClick={() => onChange({ ...widgets, notesMeta: { ...notesMeta, minimised: false } })} />}
-    </>
-  );
-}
+              🎵 {locale === 'zh
