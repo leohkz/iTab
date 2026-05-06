@@ -11,7 +11,7 @@ import { TopBar } from './components/TopBar';
 import { Widgets } from './components/Widgets';
 import { defaultConfig, recentTabs, spaces } from './data/mockStore';
 import { createTranslator } from './i18n';
-import type { AppConfig, AppShortcut, Prompt, WidgetMeta } from './types';
+import type { AppConfig, AppShortcut, Prompt, WidgetMeta, WidgetState } from './types';
 import { DEFAULT_TODO_LISTS } from './types';
 
 type EditorState = {
@@ -31,16 +31,17 @@ const DEFAULT_META: WidgetMeta = { enabled: true, minimised: false, pinned: fals
 
 function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
   const fallback = cloneDefaultConfig();
-  const raw = config.widgets ?? {};
+  // Cast to Partial<WidgetState> so TypeScript knows which fields may exist
+  const raw = (config.widgets ?? {}) as Partial<WidgetState>;
   const fb  = fallback.widgets;
 
   // Migrate todos: old entries may lack listId
-  const todos = (raw.todos ?? fb.todos).map((t: { id: string; text: string; done: boolean; listId?: string }) => ({
+  const todos = (raw.todos ?? fb.todos).map((t) => ({
     ...t,
     listId: t.listId ?? 'inbox',
   }));
 
-  const widgets = {
+  const widgets: WidgetState = {
     ...fb,
     ...raw,
     todos,

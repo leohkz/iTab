@@ -1,5 +1,5 @@
 import {
-  CheckSquare, ChevronDown, ChevronUp, FileText,
+  CheckSquare, ChevronDown, FileText,
   Maximize2, Minimize2, Pause, Pin, PinOff, Play,
   Plus, RotateCcw, Timer, Trash2, X,
 } from 'lucide-react';
@@ -26,6 +26,16 @@ function safeMeta(m: WidgetMeta | undefined): WidgetMeta {
 
 function safeList(l: TodoList[] | undefined) {
   return (l && l.length > 0) ? l : [...DEFAULT_TODO_LISTS];
+}
+
+function glassStyle(glass: number) {
+  const alpha = Math.min(0.72, Math.max(0.55, glass / 120));
+  const blur  = Math.round(8 + glass / 9);
+  return {
+    backgroundColor: `rgba(255,255,255,${alpha})`,
+    backdropFilter: `blur(${blur}px)`,
+    WebkitBackdropFilter: `blur(${blur}px)`,
+  };
 }
 
 // ── Pomodoro ring ─────────────────────────────────────────────────────
@@ -55,9 +65,7 @@ type MiniIconProps = {
   onClick: () => void;
 };
 
-function MiniIcon({ icon, label, glass, onClick }: MiniIconProps) {
-  const alpha = Math.min(0.72, Math.max(0.55, glass / 120));
-  const blur  = Math.round(8 + glass / 9);
+function MiniIcon({ icon, label, glass: g, onClick }: MiniIconProps) {
   return (
     <button
       type="button"
@@ -65,11 +73,7 @@ function MiniIcon({ icon, label, glass, onClick }: MiniIconProps) {
       aria-label={`Expand ${label}`}
       title={`Expand ${label}`}
       className="flex h-9 w-9 items-center justify-center rounded-2xl border border-black/10 text-slate-700 shadow-md transition hover:scale-110 active:scale-95"
-      style={{
-        backgroundColor: `rgba(255,255,255,${alpha})`,
-        backdropFilter: `blur(${blur}px)`,
-        WebkitBackdropFilter: `blur(${blur}px)`,
-      }}
+      style={glassStyle(g)}
     >
       {icon}
     </button>
@@ -87,15 +91,8 @@ type WidgetShellProps = {
   onMetaChange: (m: WidgetMeta) => void;
 };
 
-function WidgetShell({ label, icon, meta, glass, headerRight, children, onMetaChange }: WidgetShellProps) {
+function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMetaChange }: WidgetShellProps) {
   const shellRef = useRef<HTMLElement>(null);
-  const alpha = Math.min(0.72, Math.max(0.55, glass / 120));
-  const blur  = Math.round(8 + glass / 9);
-  const glassStyle = {
-    backgroundColor: `rgba(255,255,255,${alpha})`,
-    backdropFilter: `blur(${blur}px)`,
-    WebkitBackdropFilter: `blur(${blur}px)`,
-  };
 
   // Close on outside click when not pinned
   useEffect(() => {
@@ -120,7 +117,7 @@ function WidgetShell({ label, icon, meta, glass, headerRight, children, onMetaCh
         'transition-all duration-200',
         meta.expanded ? 'p-5' : 'p-4',
       ].join(' ')}
-      style={glassStyle}
+      style={glassStyle(g)}
     >
       {/* Header */}
       <div className="mb-3 flex items-center gap-1.5">
@@ -205,10 +202,8 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
     setEditingListId(null);
   };
 
-  const expandedWidth = meta.expanded ? 'w-80' : 'w-64';
-
   return (
-    <div className={expandedWidth}>
+    <div className={meta.expanded ? 'w-80' : 'w-64'}>
       <WidgetShell
         label="To-Do"
         icon={<CheckSquare className="h-3.5 w-3.5" />}
@@ -352,7 +347,7 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
   const remaining   = widgets.pomodoroRemainingSeconds;
   const progress    = totalSeconds > 0 ? remaining / totalSeconds : 0;
   const isDone      = remaining === 0;
-  const timerLabel  = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '0')}`;
+  const timerLabel  = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '00')}`;
 
   return (
     <div className="w-64">
@@ -454,9 +449,6 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
   const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
   const notesMeta    = safeMeta(widgets.notesMeta);
 
-  const alpha = Math.min(0.72, Math.max(0.55, glass / 120));
-  const blur  = Math.round(8 + glass / 9);
-
   return (
     <>
       {/* ── Expanded widgets column ───────────────── */}
@@ -476,8 +468,10 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
       </aside>
 
       {/* ── Minimised icons column ────────────────── */}
-      <div className="fixed right-5 top-24 z-20 flex flex-col items-end gap-2 max-xl:hidden"
-        style={{ pointerEvents: 'none' }}>
+      <div
+        className="fixed right-5 top-24 z-20 flex flex-col items-end gap-2 max-xl:hidden"
+        style={{ pointerEvents: 'none' }}
+      >
         <div className="flex flex-col gap-2" style={{ pointerEvents: 'auto' }}>
           {todoMeta.enabled && todoMeta.minimised && (
             <MiniIcon
