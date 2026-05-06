@@ -2,7 +2,7 @@ export interface Folder {
   id: string;
   name: string;
   color?: string;
-  spaceId?: string; // if set, folder only appears in this space
+  spaceId?: string;
 }
 
 export interface AppShortcut {
@@ -37,24 +37,52 @@ export type Locale = 'en' | 'zh-Hant' | 'zh-Hans';
 
 export type ThemeName = 'sonoma' | 'ventura' | 'slate';
 
+// ── Todo list categories ──────────────────────────────────────────────
+export interface TodoList {
+  id: string;
+  name: string;
+  builtIn?: boolean; // true = cannot be deleted
+}
+
+export const DEFAULT_TODO_LISTS: TodoList[] = [
+  { id: 'today',     name: 'Today',     builtIn: true },
+  { id: 'upcoming',  name: 'Upcoming',  builtIn: true },
+  { id: 'inbox',     name: 'Inbox',     builtIn: true },
+  { id: 'completed', name: 'Completed', builtIn: true },
+];
+
+// ── Widget visibility / UI state ──────────────────────────────────────
+export interface WidgetMeta {
+  enabled: boolean;   // true = widget exists; false = completely hidden (no icon)
+  minimised: boolean; // true = collapsed to floating icon
+  pinned: boolean;    // true = stays expanded; false = hides on outside click
+  expanded: boolean;  // true = larger view
+}
+
 export interface WidgetState {
   notes: string;
-  todos: Array<{ id: string; text: string; done: boolean }>;
+  todos: Array<{ id: string; text: string; done: boolean; listId: string }>;
+  todoLists: TodoList[];
+  activeTodoListId: string;
   pomodoroMinutes: number;
   pomodoroRemainingSeconds: number;
   pomodoroRunning: boolean;
+  // Per-widget UI state
+  todoMeta: WidgetMeta;
+  pomodoroMeta: WidgetMeta;
+  notesMeta: WidgetMeta;
 }
 
 export interface PromptTag {
   label: string;
-  color: string; // hex e.g. '#6366f1'
+  color: string;
 }
 
 export interface Prompt {
   id: string;
   title: string;
   content: string;
-  tags: PromptTag[];  // changed from string[] to PromptTag[]
+  tags: PromptTag[];
   imageUrl?: string;
   spaceId?: string;
   createdAt: number;
