@@ -21,26 +21,32 @@ function tagTextColor(bg: string) {
 
 type TagInputProps = {
   tags: PromptTag[];
+  existingTags: PromptTag[];   // all tags from library for quick-pick
   onChange: (tags: PromptTag[]) => void;
-  placeholder: string;
 };
 
-function TagInput({ tags, onChange, placeholder }: TagInputProps) {
+function TagInput({ tags, existingTags, onChange }: TagInputProps) {
   const [inputVal, setInputVal] = useState('');
   const [pickColor, setPickColor] = useState(PRESET_COLORS[0]);
 
-  const addTag = () => {
-    const label = inputVal.trim();
-    if (!label) return;
-    if (tags.some((t) => t.label === label)) { setInputVal(''); return; }
-    onChange([...tags, { label, color: pickColor }]);
+  const hasLabel = (label: string) => tags.some((t) => t.label === label);
+
+  const addTag = (label = inputVal, color = pickColor) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;                      // guard: skip empty labels
+    if (hasLabel(trimmed)) { setInputVal(''); return; }
+    onChange([...tags, { label: trimmed, color }]);
     setInputVal('');
   };
 
   const removeTag = (label: string) => onChange(tags.filter((t) => t.label !== label));
 
+  // Existing tags not yet added to this prompt
+  const quickPick = existingTags.filter((t) => t.label.trim() && !hasLabel(t.label));
+
   return (
     <div className="flex flex-col gap-2">
+      {/* Current tags on this prompt */}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
@@ -57,18 +63,47 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
           ))}
         </div>
       )}
+
+      {/* Quick-pick existing tags */}
+      {quickPick.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {quickPick.map((tag) => (
+            <button
+              key={tag.label}
+              type="button"
+              onClick={() => addTag(tag.label, tag.color)}
+              className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-black transition hover:opacity-80"
+              style={{
+                backgroundColor: `${tag.color}1a`,
+                borderColor: `${tag.color}88`,
+                color: tag.color,
+              }}
+            >
+              + {tag.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* New tag input row */}
       <div className="flex items-center gap-2">
         <input
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-          placeholder={placeholder}
+          placeholder="輸入新 tag…"
           className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400"
         />
-        <button type="button" onClick={addTag} className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-700">
+        <button
+          type="button"
+          onClick={() => addTag()}
+          className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-700"
+        >
           +
         </button>
       </div>
+
+      {/* Colour swatches for new tag */}
       <div className="flex flex-wrap gap-1.5">
         {PRESET_COLORS.map((c) => (
           <button
@@ -93,23 +128,32 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
   );
 }
 
-// ── Inner form — always mounted when open=true, key forces remount on different prompt ──
+// ── Inner form ──
 type FormProps = {
   initial: Prompt | null;
+  existingTags: PromptTag[];
   t: (key: TranslationKey) => string;
   onSave: (p: Omit<Prompt, 'id' | 'createdAt'>) => void;
   onClose: () => void;
 };
 
-function PromptEditorForm({ initial, t, onSave, onClose }: FormProps) {
+function PromptEditorForm({ initial, existingTags, t, onSave, onClose }: FormProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [content, setContent] = useState(initial?.content ?? '');
-  const [tags, setTags] = useState<PromptTag[]>(initial?.tags ?? []);
+  const [tags, setTags] = useState<PromptTag[]>(
+    // filter out any legacy empty-label tags
+    (initial?.tags ?? []).filter((tag) => tag.label.trim()),
+  );
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
 
   const handleSave = () => {
     if (!title.trim() || !content.trim()) return;
-    onSave({ title: title.trim(), content: content.trim(), tags, imageUrl: imageUrl.trim() || undefined });
+    onSave({
+      title: title.trim(),
+      content: content.trim(),
+      tags: tags.filter((t) => t.label.trim()),  // extra safety
+      imageUrl: imageUrl.trim() || undefined,
+    });
   };
 
   return (
@@ -119,8 +163,8 @@ function PromptEditorForm({ initial, t, onSave, onClose }: FormProps) {
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="flex w-full max-w-lg flex-col gap-4 rounded-[2rem] bg-white p-6 shadow-2xl"
-        style={{ animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}
+        className="flex w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl"
+        style={{ maxHeight: 'calc(100dvh - 3rem)', animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-black text-slate-800">
@@ -151,7 +195,7 @@ function PromptEditorForm({ initial, t, onSave, onClose }: FormProps) {
 
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptTags')}</label>
-          <TagInput tags={tags} onChange={setTags} placeholder="coding, writing…" />
+          <TagInput tags={tags} existingTags={existingTags} onChange={setTags} />
         </div>
 
         <div className="flex flex-col gap-1">
@@ -185,17 +229,26 @@ function PromptEditorForm({ initial, t, onSave, onClose }: FormProps) {
   );
 }
 
-// ── Public wrapper — early return BEFORE any hooks ──
+// ── Public wrapper ──
 export type PromptEditorProps = {
   open: boolean;
   initial: Prompt | null;
+  existingTags: PromptTag[];
   t: (key: TranslationKey) => string;
   onSave: (p: Omit<Prompt, 'id' | 'createdAt'>) => void;
   onClose: () => void;
 };
 
-export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditorProps) {
+export function PromptEditor({ open, initial, existingTags, t, onSave, onClose }: PromptEditorProps) {
   if (!open) return null;
-  // key forces full remount when switching between prompts, resetting all state
-  return <PromptEditorForm key={initial?.id ?? 'new'} initial={initial} t={t} onSave={onSave} onClose={onClose} />;
+  return (
+    <PromptEditorForm
+      key={initial?.id ?? 'new'}
+      initial={initial}
+      existingTags={existingTags}
+      t={t}
+      onSave={onSave}
+      onClose={onClose}
+    />
+  );
 }

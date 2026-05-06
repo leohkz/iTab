@@ -4,7 +4,6 @@ import type { Prompt, PromptTag } from '../types';
 import type { TranslationKey } from '../i18n';
 import { PromptEditor } from './PromptEditor';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 function hexLuminance(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -15,7 +14,6 @@ function tagTextColor(bg: string) {
   return hexLuminance(bg) > 128 ? '#1e293b' : '#ffffff';
 }
 
-// ── Delete confirm dialog ────────────────────────────────────────────────────
 function DeleteConfirm({ title, t, onConfirm, onCancel }: {
   title: string;
   t: (k: TranslationKey) => string;
@@ -47,8 +45,8 @@ function DeleteConfirm({ title, t, onConfirm, onCancel }: {
   );
 }
 
-// ── Tag pill ─────────────────────────────────────────────────────────────────
 function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; onClick: () => void }) {
+  if (!tag.label.trim()) return null;  // guard: never render empty tag pills
   return (
     <button
       type="button"
@@ -68,7 +66,6 @@ function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; on
   );
 }
 
-// ── Prompt Card ──────────────────────────────────────────────────────────────
 function PromptCard({
   prompt, t, onEdit, onDeleteRequest,
 }: {
@@ -91,7 +88,6 @@ function PromptCard({
       className="group relative flex flex-col overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(15,23,42,0.16)]"
       style={{ animation: 'fadeInUp 0.28s ease both' }}
     >
-      {/* Image */}
       {prompt.imageUrl ? (
         <img src={prompt.imageUrl} alt={prompt.title} className="h-32 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : (
@@ -100,14 +96,11 @@ function PromptCard({
         </div>
       )}
 
-      {/* Body */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="text-sm font-black leading-tight text-slate-900">{prompt.title}</h3>
-
-        {/* Tags */}
-        {prompt.tags.length > 0 && (
+        {prompt.tags.filter((tag) => tag.label.trim()).length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {prompt.tags.map((tag) => (
+            {prompt.tags.filter((tag) => tag.label.trim()).map((tag) => (
               <span
                 key={tag.label}
                 className="rounded-full px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide"
@@ -118,12 +111,9 @@ function PromptCard({
             ))}
           </div>
         )}
-
-        {/* Content preview */}
         <p className="line-clamp-3 text-xs font-medium leading-relaxed text-slate-700">{prompt.content}</p>
       </div>
 
-      {/* Action bar */}
       <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5">
         <div className="flex gap-1">
           <button
@@ -153,7 +143,6 @@ function PromptCard({
   );
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
 type PromptLibraryProps = {
   prompts: Prompt[];
   glass: number;
@@ -171,9 +160,14 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // All unique non-empty tags across all prompts
   const allTags = useMemo(() => {
     const map = new Map<string, PromptTag>();
-    prompts.forEach((p) => p.tags.forEach((tag) => { if (!map.has(tag.label)) map.set(tag.label, tag); }));
+    prompts.forEach((p) =>
+      p.tags
+        .filter((tag) => tag.label.trim())
+        .forEach((tag) => { if (!map.has(tag.label)) map.set(tag.label, tag); }),
+    );
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [prompts]);
 
@@ -197,14 +191,12 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
 
   return (
     <>
-      {/* ── Overlay backdrop ── */}
       <div
         className="fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-md"
         style={{ animation: 'fadeIn 0.2s ease' }}
         onClick={onClose}
       />
 
-      {/* ── Panel ── */}
       <div
         className="fixed inset-x-4 bottom-4 top-20 z-[61] flex flex-col overflow-hidden rounded-[2rem] border border-white/25 bg-white/95 shadow-[0_24px_80px_rgba(15,23,42,0.35)] backdrop-blur-2xl"
         style={{ animation: 'slideUp 0.28s cubic-bezier(0.34,1.3,0.64,1)' }}
@@ -245,7 +237,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
             />
             {search && <button type="button" onClick={() => setSearch('')} className="shrink-0 text-slate-400 hover:text-slate-700"><X className="h-3.5 w-3.5" /></button>}
           </div>
-
           <button
             type="button"
             onClick={() => setActiveTag(null)}
@@ -253,11 +244,9 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
           >
             {t('allTags')}
           </button>
-
           {allTags.map((tag) => (
             <TagPill
-              key={tag.label}
-              tag={tag}
+              key={tag.label} tag={tag}
               active={activeTag === tag.label}
               onClick={() => setActiveTag(activeTag === tag.label ? null : tag.label)}
             />
@@ -289,21 +278,19 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
         </div>
       </div>
 
-      {/* Delete confirm */}
       {deletingPrompt && (
         <DeleteConfirm
-          title={deletingPrompt.title}
-          t={t}
+          title={deletingPrompt.title} t={t}
           onConfirm={() => { onDelete(deletingId!); setDeletingId(null); }}
           onCancel={() => setDeletingId(null)}
         />
       )}
 
-      {/* Editor */}
       {editorOpen && (
         <PromptEditor
           open={editorOpen}
           initial={editingPrompt}
+          existingTags={allTags}   // pass all library tags for quick-pick
           t={t}
           onSave={(data) => {
             if (editingPrompt) onEdit(editingPrompt.id, data); else onAdd(data);
