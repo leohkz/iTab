@@ -41,8 +41,13 @@ export interface WidgetState {
   todoLists: TodoList[];
   activeTodoListId: string;
   pomodoroMinutes: number;
+  pomodoroBreakMinutes: number;
   pomodoroRemainingSeconds: number;
   pomodoroRunning: boolean;
+  pomodoroIsBreak: boolean;
+  pomodoroTask: string;
+  focusModeActive: boolean;
+  focusSoundState?: Record<string, unknown>;
   // Per-widget UI state
   todoMeta: WidgetMeta;
   pomodoroMeta: WidgetMeta;

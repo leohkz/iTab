@@ -8,7 +8,7 @@ import { ShortcutEditor } from './components/ShortcutEditor';
 import { SpotlightSearch } from './components/SpotlightSearch';
 import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
-import { Widgets } from './components/Widgets';
+import { Widgets, FocusModeOverlay } from './components/Widgets';
 import { defaultConfig, recentTabs, spaces } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, WidgetMeta, WidgetState } from './types';
@@ -48,6 +48,7 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
     todoMeta:         { ...DEFAULT_META, ...(raw.todoMeta     ?? {}) },
     pomodoroMeta:     { ...DEFAULT_META, ...(raw.pomodoroMeta ?? {}) },
     notesMeta:        { ...DEFAULT_META, ...(raw.notesMeta    ?? {}) },
+    focusModeActive:  raw.focusModeActive ?? false,
   };
 
   if (!widgets.pomodoroRemainingSeconds) {
@@ -133,12 +134,17 @@ function NewTab() {
       const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
       if (isCommandK && config.experiments.keyboardShortcuts) { event.preventDefault(); setSearchOpen(true); }
       if (event.key === 'Escape') {
+        if (config.widgets.focusModeActive) {
+          updateConfig({ ...config, widgets: { ...config.widgets, focusModeActive: false } });
+          return;
+        }
         setSettingsOpen(false); setSearchOpen(false); setSelectedFolderId(null); setEditing(false); setShowPrompts(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [config.experiments.keyboardShortcuts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.experiments.keyboardShortcuts, config.widgets.focusModeActive]);
 
   useEffect(() => {
     if (!config.widgets.pomodoroRunning) return;
@@ -326,7 +332,7 @@ function NewTab() {
         <PromptLibrary
           prompts={config.prompts ?? []}
           glass={config.glass}
-          t={t}
+          t={t as (key: string) => string}
           onClose={() => setShowPrompts(false)}
           onAdd={addPrompt}
           onEdit={editPrompt}
@@ -381,6 +387,14 @@ function NewTab() {
         />
       )}
 
+      {config.widgets.focusModeActive && (
+        <FocusModeOverlay
+          widgets={config.widgets}
+          onChange={handleWidgetsChange}
+          backgroundClass={themeClass}
+        />
+      )}
+
       {settingsOpen && (
         <SettingsModal
           open={settingsOpen}
@@ -400,7 +414,7 @@ function NewTab() {
           open={searchOpen}
           apps={currentSpaceApps}
           engines={config.searchEngines}
-          defaultEngine={config.defaultEngine}
+          defaultEngine={config.defaultEngine ?? 'google'}
           t={t}
           onClose={() => setSearchOpen(false)}
           onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}

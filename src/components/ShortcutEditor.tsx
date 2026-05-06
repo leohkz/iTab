@@ -1,140 +1,97 @@
-import { Plus, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Globe } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { AppShortcut } from '../types';
 import type { TranslationKey } from '../i18n';
 
 type ShortcutEditorProps = {
   open: boolean;
   mode: 'add' | 'edit';
-  initialApp?: AppShortcut | null;
-  folderId?: string | null;
+  initialApp: AppShortcut | null;
+  folderId: string | null;
   t: (key: TranslationKey) => string;
-  onClose: () => void;
   onSave: (shortcut: Pick<AppShortcut, 'name' | 'url' | 'folderId' | 'iconType' | 'iconValue' | 'iconColor'>) => void;
+  onClose: () => void;
 };
 
-export function ShortcutEditor({ open, mode, initialApp, folderId = null, t, onClose, onSave }: ShortcutEditorProps) {
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [iconValue, setIconValue] = useState('');
-  const [iconColor, setIconColor] = useState('');
+export function ShortcutEditor({ open, mode, initialApp, folderId, t, onSave, onClose }: ShortcutEditorProps) {
+  const [name, setName]         = useState(initialApp?.name ?? '');
+  const [url, setUrl]           = useState(initialApp?.url ?? '');
+  const [iconValue, setIconValue] = useState(initialApp?.iconType === 'custom' ? (initialApp.iconValue ?? '') : '');
+  const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setName(initialApp?.name ?? '');
       setUrl(initialApp?.url ?? '');
-      setIconValue(initialApp?.iconType === 'custom' ? initialApp.iconValue : '');
-      setIconColor(initialApp?.iconColor ?? '');
+      setIconValue(initialApp?.iconType === 'custom' ? (initialApp.iconValue ?? '') : '');
+      setTimeout(() => nameRef.current?.focus(), 50);
     }
-  }, [initialApp, open]);
+  }, [open, initialApp]);
 
   if (!open) return null;
 
-  const submit = () => {
-    const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
+  const handleSave = () => {
     if (!name.trim() || !url.trim()) return;
+    const normalized = url.startsWith('http') ? url : `https://${url}`;
     onSave({
       name: name.trim(),
-      url: normalizedUrl,
+      url: normalized,
       folderId: initialApp?.folderId ?? folderId,
-      iconType: iconValue.trim() ? 'custom' : 'api',
-      iconValue: iconValue.trim() || normalizedUrl,
-      iconColor: iconColor || undefined,
+      iconType: iconValue ? 'custom' : 'api',
+      iconValue: iconValue || new URL(normalized).hostname,
+      iconColor: initialApp?.iconColor ?? '',
     });
-    onClose();
   };
-
-  const inputClass = 'mt-2 h-11 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-bold text-white placeholder:text-white/40 outline-none focus:border-white/35 focus:bg-white/15 transition';
 
   return (
     <div
-      className="fixed inset-0 z-[65] grid place-items-center bg-slate-950/50 px-4 backdrop-blur-md"
-      role="presentation"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={mode === 'add' ? t('addWebsite') : t('editWebsite')}
-        className="w-[min(30rem,calc(100vw-2rem))] rounded-[1.55rem] border border-white/20 bg-slate-900/88 p-5 text-white shadow-[0_24px_80px_rgba(15,23,42,0.55)] backdrop-blur-2xl"
-        data-testid="modal-shortcut-editor"
+      <div
+        className="flex w-full max-w-sm flex-col gap-4 rounded-3xl p-6 shadow-2xl"
+        style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(24px)' }}
       >
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-white/50">{t('shortcut')}</p>
-            <h2 className="mt-1 text-xl font-black tracking-[-0.05em] text-white">
-              {mode === 'add' ? t('addWebsite') : t('editWebsite')}
-            </h2>
-          </div>
+        <div className="flex items-center gap-3">
+          <Globe className="h-5 w-5 text-slate-400" />
+          <h2 className="text-base font-black text-slate-800">
+            {mode === 'add' ? t('addWebsite') : t('editWebsite')}
+          </h2>
+        </div>
+        <div className="flex flex-col gap-3">
+          <input
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name"
+            className="rounded-xl bg-black/6 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:bg-black/10"
+          />
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://"
+            className="rounded-xl bg-black/6 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:bg-black/10"
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+          />
+          <input
+            value={iconValue}
+            onChange={(e) => setIconValue(e.target.value)}
+            placeholder="Custom icon URL (optional)"
+            className="rounded-xl bg-black/6 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:bg-black/10"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-black/10 px-4 py-2 text-sm font-bold text-slate-500 transition hover:bg-black/6">{t('cancel')}</button>
           <button
-            type="button" onClick={onClose} aria-label={t('cancel')}
-            className="grid h-9 w-9 place-items-center rounded-full bg-white/12 text-white/70 hover:bg-white/20 transition"
-            data-testid="button-close-shortcut-editor"
+            type="button" onClick={handleSave}
+            disabled={!name.trim() || !url.trim()}
+            className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700 disabled:opacity-40"
           >
-            <X className="h-4 w-4" />
+            {t('save')}
           </button>
         </div>
-
-        {/* Name */}
-        <label className="block text-sm font-black text-white">
-          {t('name')}
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            className={inputClass} placeholder="Claude"
-            data-testid="input-shortcut-name" />
-        </label>
-
-        {/* URL */}
-        <label className="mt-4 block text-sm font-black text-white">
-          {t('url')}
-          <input value={url} onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-            className={inputClass} placeholder="https://claude.ai"
-            data-testid="input-shortcut-url" />
-        </label>
-
-        {/* Custom icon URL */}
-        <label className="mt-4 block text-sm font-black text-white">
-          {t('customIconUrl')}
-          <input value={iconValue} onChange={(e) => setIconValue(e.target.value)}
-            className={inputClass} placeholder="https://example.com/icon.png"
-            data-testid="input-shortcut-icon" />
-        </label>
-
-        {/* Icon colour */}
-        <label className="mt-4 flex items-center justify-between gap-4 text-sm font-black text-white">
-          <span>
-            {t('iconColor')}
-            <span className="mt-1 block text-xs font-semibold text-white/50">{t('iconColorDesc')}</span>
-          </span>
-          <span className="flex items-center gap-2">
-            <input
-              type="color"
-              value={iconColor || '#7dd3fc'}
-              onChange={(e) => setIconColor(e.target.value)}
-              className="h-10 w-16 cursor-pointer rounded-xl border border-white/15 bg-white/10 p-1"
-              data-testid="input-shortcut-icon-color"
-            />
-            <button
-              type="button" onClick={() => setIconColor('')}
-              className="h-10 rounded-xl bg-white/12 px-3 text-xs font-black text-white hover:bg-white/20 transition"
-              data-testid="button-auto-icon-color"
-            >
-              Auto
-            </button>
-          </span>
-        </label>
-
-        {/* Save */}
-        <button
-          type="button" onClick={submit}
-          className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-black text-slate-950 transition duration-200 hover:bg-white/90 active:scale-[0.99]"
-          data-testid="button-save-shortcut"
-        >
-          <Plus className="h-4 w-4" />
-          {mode === 'add' ? t('addToGrid') : t('saveChanges')}
-        </button>
-      </section>
+      </div>
     </div>
   );
 }

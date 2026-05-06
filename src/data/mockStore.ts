@@ -7,7 +7,6 @@ export const spaces = [
   { id: 'study',    name: 'Study',    accent: 'from-emerald-500 to-teal-400' },
 ];
 
-// recentTabs is populated at runtime from browser history; empty here to avoid phantom dock items
 export const recentTabs: AppConfig['apps'] = [];
 
 const DEFAULT_META = { enabled: true, minimised: false, pinned: false, expanded: false };
@@ -53,8 +52,12 @@ export const defaultConfig: AppConfig = {
     todoLists: [...DEFAULT_TODO_LISTS],
     activeTodoListId: 'today',
     pomodoroMinutes: 25,
+    pomodoroBreakMinutes: 5,
     pomodoroRemainingSeconds: 1500,
     pomodoroRunning: false,
+    pomodoroIsBreak: false,
+    pomodoroTask: '',
+    focusModeActive: false,
     todoMeta:     { ...DEFAULT_META },
     pomodoroMeta: { ...DEFAULT_META },
     notesMeta:    { ...DEFAULT_META },

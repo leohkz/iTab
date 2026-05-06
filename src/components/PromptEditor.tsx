@@ -7,16 +7,6 @@ type Props = {
   onClose: () => void;
 };
 
-function tagTextColor(bg?: string): string {
-  if (!bg) return '#334155';
-  const hex = bg.replace('#', '');
-  if (hex.length < 6) return '#334155';
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128 ? '#1e293b' : '#f8fafc';
-}
-
 const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
   '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -27,12 +17,9 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
   const [title, setTitle]       = useState(initial?.title ?? '');
   const [content, setContent]   = useState(initial?.content ?? '');
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
-  // tags stored as plain strings (matching Prompt.tags: string[])
-  const [tags, setTags] = useState<string[]>(
-    initial?.tags ?? []
-  );
-  const [tagInput, setTagInput]   = useState('');
-  const [tagColor, setTagColor]   = useState(PRESET_COLORS[0]);
+  const [tags, setTags]         = useState<string[]>(initial?.tags ?? []);
+  const [tagInput, setTagInput] = useState('');
+  const [tagColor, setTagColor] = useState(PRESET_COLORS[0]);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { titleRef.current?.focus(); }, []);
@@ -70,8 +57,6 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
         <h2 className="text-base font-black text-slate-800">
           {initial ? '編輯 Prompt' : '新增 Prompt'}
         </h2>
-
-        {/* Title */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">標題</label>
           <input
@@ -82,8 +67,6 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
             className="rounded-xl bg-black/6 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:bg-black/10"
           />
         </div>
-
-        {/* Content */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">內容</label>
           <textarea
@@ -94,8 +77,6 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
             className="resize-none rounded-xl bg-black/6 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:bg-black/10"
           />
         </div>
-
-        {/* Image URL */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">預覽圖片網址（選填）</label>
           <input
@@ -105,8 +86,6 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
             className="rounded-xl bg-black/6 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:bg-black/10"
           />
         </div>
-
-        {/* Tags */}
         <div className="flex flex-col gap-2">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">標籤</label>
           <div className="flex flex-wrap gap-1.5">
@@ -125,9 +104,7 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
             <div className="flex gap-1">
               {PRESET_COLORS.map((c) => (
                 <button
-                  key={c}
-                  type="button"
-                  onClick={() => setTagColor(c)}
+                  key={c} type="button" onClick={() => setTagColor(c)}
                   className={['h-5 w-5 rounded-full transition', tagColor === c ? 'ring-2 ring-offset-1 ring-slate-400 scale-110' : ''].join(' ')}
                   style={{ background: c }}
                 />
@@ -140,33 +117,12 @@ export function PromptEditor({ initial, onSave, onClose }: Props) {
               placeholder="新增標籤…"
               className="flex-1 rounded-xl bg-black/6 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:bg-black/10"
             />
-            <button
-              type="button"
-              onClick={addTag}
-              className="rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700"
-            >
-              新增
-            </button>
+            <button type="button" onClick={addTag} className="rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">新增</button>
           </div>
         </div>
-
-        {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-black/10 px-4 py-2 text-sm font-bold text-slate-500 transition hover:bg-black/6"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!title.trim()}
-            className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700 disabled:opacity-40"
-          >
-            儲存
-          </button>
+          <button type="button" onClick={onClose} className="rounded-xl border border-black/10 px-4 py-2 text-sm font-bold text-slate-500 transition hover:bg-black/6">取消</button>
+          <button type="button" onClick={handleSave} disabled={!title.trim()} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700 disabled:opacity-40">儲存</button>
         </div>
       </div>
     </div>
