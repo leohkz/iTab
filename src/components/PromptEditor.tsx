@@ -3,23 +3,20 @@ import { useState } from 'react';
 import type { Prompt, PromptTag } from '../types';
 import type { TranslationKey } from '../i18n';
 
-// 12 preset colours for quick pick
 const PRESET_COLORS = [
   '#6366f1', '#3b82f6', '#10b981', '#f59e0b',
   '#ef4444', '#ec4899', '#8b5cf6', '#f97316',
   '#14b8a6', '#84cc16', '#0ea5e9', '#a855f7',
 ];
 
-function hexToRgb(hex: string) {
+function hexLuminance(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  // Perceived luminance
   return (r * 299 + g * 587 + b * 114) / 1000;
 }
-
 function tagTextColor(bg: string) {
-  return hexToRgb(bg) > 128 ? '#1e293b' : '#ffffff';
+  return hexLuminance(bg) > 128 ? '#1e293b' : '#ffffff';
 }
 
 type TagInputProps = {
@@ -44,7 +41,6 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Existing tags */}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
@@ -61,8 +57,6 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
           ))}
         </div>
       )}
-
-      {/* Input row */}
       <div className="flex items-center gap-2">
         <input
           value={inputVal}
@@ -71,22 +65,14 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
           placeholder={placeholder}
           className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400"
         />
-        <button
-          type="button"
-          onClick={addTag}
-          className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-700"
-        >
+        <button type="button" onClick={addTag} className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-700">
           +
         </button>
       </div>
-
-      {/* Colour preset swatches */}
       <div className="flex flex-wrap gap-1.5">
         {PRESET_COLORS.map((c) => (
           <button
-            key={c}
-            type="button"
-            onClick={() => setPickColor(c)}
+            key={c} type="button" onClick={() => setPickColor(c)}
             className="h-5 w-5 rounded-full border-2 transition"
             style={{
               backgroundColor: c,
@@ -96,10 +82,8 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
             aria-label={c}
           />
         ))}
-        {/* Custom hex input */}
         <input
-          type="color"
-          value={pickColor}
+          type="color" value={pickColor}
           onChange={(e) => setPickColor(e.target.value)}
           className="h-5 w-5 cursor-pointer rounded-full border-0 p-0"
           title="Custom colour"
@@ -109,21 +93,19 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
   );
 }
 
-type PromptEditorProps = {
-  open: boolean;
+// ── Inner form — always mounted when open=true, key forces remount on different prompt ──
+type FormProps = {
   initial: Prompt | null;
   t: (key: TranslationKey) => string;
   onSave: (p: Omit<Prompt, 'id' | 'createdAt'>) => void;
   onClose: () => void;
 };
 
-export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditorProps) {
+function PromptEditorForm({ initial, t, onSave, onClose }: FormProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [content, setContent] = useState(initial?.content ?? '');
   const [tags, setTags] = useState<PromptTag[]>(initial?.tags ?? []);
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
-
-  if (!open) return null;
 
   const handleSave = () => {
     if (!title.trim() || !content.trim()) return;
@@ -152,9 +134,7 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptTitle')}</label>
           <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Blog Post Writer"
             className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400"
           />
@@ -163,10 +143,8 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptContent')}</label>
           <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={6}
-            placeholder="Write your prompt here…"
+            value={content} onChange={(e) => setContent(e.target.value)}
+            rows={6} placeholder="Write your prompt here…"
             className="resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold leading-relaxed text-slate-800 outline-none focus:border-slate-400"
           />
         </div>
@@ -179,13 +157,14 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptImageUrl')}</label>
           <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
+            value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://…"
             className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400"
           />
           {imageUrl && (
-            <img src={imageUrl} alt="preview" className="mt-1 h-24 w-full rounded-xl object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <img src={imageUrl} alt="preview" className="mt-1 h-24 w-full rounded-xl object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
           )}
         </div>
 
@@ -194,8 +173,7 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
             {t('cancel')}
           </button>
           <button
-            type="button"
-            onClick={handleSave}
+            type="button" onClick={handleSave}
             disabled={!title.trim() || !content.trim()}
             className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-black text-white hover:bg-slate-700 disabled:opacity-40"
           >
@@ -205,4 +183,19 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
       </div>
     </div>
   );
+}
+
+// ── Public wrapper — early return BEFORE any hooks ──
+export type PromptEditorProps = {
+  open: boolean;
+  initial: Prompt | null;
+  t: (key: TranslationKey) => string;
+  onSave: (p: Omit<Prompt, 'id' | 'createdAt'>) => void;
+  onClose: () => void;
+};
+
+export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditorProps) {
+  if (!open) return null;
+  // key forces full remount when switching between prompts, resetting all state
+  return <PromptEditorForm key={initial?.id ?? 'new'} initial={initial} t={t} onSave={onSave} onClose={onClose} />;
 }
