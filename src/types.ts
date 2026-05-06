@@ -25,13 +25,14 @@ export interface TodoItem {
 export interface TodoList {
   id: string;
   name: string;
+  builtIn?: boolean;
 }
 
 export const DEFAULT_TODO_LISTS: TodoList[] = [
-  { id: 'today',     name: 'Today' },
-  { id: 'upcoming',  name: 'Upcoming' },
-  { id: 'inbox',     name: 'Inbox' },
-  { id: 'completed', name: 'Completed' },
+  { id: 'today',     name: 'Today',     builtIn: true },
+  { id: 'upcoming',  name: 'Upcoming',  builtIn: true },
+  { id: 'inbox',     name: 'Inbox',     builtIn: true },
+  { id: 'completed', name: 'Completed', builtIn: true },
 ];
 
 export interface WidgetState {
@@ -47,6 +48,8 @@ export interface WidgetState {
   pomodoroTask: string;
   // Focus Mode
   focusModeActive: boolean;
+  // Focus Sound state (stored inline)
+  focusSoundState?: Record<string, unknown>;
   // Per-widget UI state
   todoMeta: WidgetMeta;
   pomodoroMeta: WidgetMeta;
@@ -71,6 +74,9 @@ export interface AppShortcut {
   id: string;
   name: string;
   url: string;
+  folderId?: string | null;
+  iconType?: string;
+  iconValue?: string;
   icon?: string;
   iconColor?: string;
   spaceId?: string;
@@ -92,18 +98,27 @@ export interface Space {
 export interface SearchEngine {
   id: string;
   name: string;
-  url: string;
+  url?: string;
+  // Extended fields used throughout the codebase
+  shortcut?: string;
+  template?: string;
+  enabled?: boolean;
+  builtIn?: boolean;
   icon?: string;
 }
 
+export type SearchEngineId = string;
+export type ThemeName = 'sonoma' | 'ventura' | 'slate';
+
 export interface AppConfig {
-  spaces: Space[];
+  spaces?: Space[];
   currentSpaceId: string;
   apps: AppShortcut[];
   folders: Folder[];
   pinnedIds: string[];
   searchEngines: SearchEngine[];
-  defaultEngineId: string;
+  defaultEngineId?: string;
+  defaultEngine?: string;
   locale: Locale;
   glass: number;
   gridColumns: number;
@@ -111,7 +126,7 @@ export interface AppConfig {
   showDock: boolean;
   showWidgets: boolean;
   wallpaper?: string;
-  theme: 'light' | 'dark' | 'system';
+  theme: ThemeName | 'light' | 'dark' | 'system';
   widgets: WidgetState;
   prompts: Prompt[];
   experiments: {
