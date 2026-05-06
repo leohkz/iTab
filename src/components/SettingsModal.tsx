@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Download, Globe, Monitor, Moon, Plus, RotateCcw, Sun, Trash2, Upload, X } from 'lucide-react';
+import { ChevronRight, Download, Globe, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import type { AppConfig, SearchEngine } from '../types';
 import type { TranslationKey } from '../i18n';
@@ -103,7 +103,6 @@ export function SettingsModal({ open, config, t, onClose, onConfigChange, onExpo
           {section === 'appearance' && (
             <>
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-500">{t('appearance')}</h3>
-              {/* Theme */}
               <div className="flex flex-col gap-2 rounded-2xl bg-black/4 p-4">
                 <p className="text-xs font-black uppercase tracking-wider text-slate-500">{t('theme')}</p>
                 <div className="flex gap-2">
@@ -114,7 +113,6 @@ export function SettingsModal({ open, config, t, onClose, onConfigChange, onExpo
                   ))}
                 </div>
               </div>
-              {/* Glass */}
               <div className="flex flex-col gap-2 rounded-2xl bg-black/4 p-4">
                 <p className="text-xs font-black uppercase tracking-wider text-slate-500">{t('glassIntensity')}</p>
                 <input type="range" min="30" max="95" value={config.glass} onChange={(e) => update({ glass: Number(e.target.value) })} className="w-full accent-slate-700" />
@@ -151,7 +149,6 @@ export function SettingsModal({ open, config, t, onClose, onConfigChange, onExpo
             <>
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-500">{t('searchEngines')}</h3>
               <div className="flex flex-col gap-2">
-                {/* Default engine selector */}
                 <div className="flex items-center gap-3 rounded-2xl bg-black/4 p-4">
                   <Globe className="h-4 w-4 shrink-0 text-slate-400" />
                   <p className="flex-1 text-sm font-bold text-slate-700">{t('defaultEngine')}</p>
@@ -164,7 +161,6 @@ export function SettingsModal({ open, config, t, onClose, onConfigChange, onExpo
                   </select>
                 </div>
 
-                {/* Engine list */}
                 {config.searchEngines.map((engine) => (
                   <div key={engine.id} className="flex items-center gap-3 rounded-2xl bg-black/4 p-4">
                     <Toggle
@@ -182,7 +178,6 @@ export function SettingsModal({ open, config, t, onClose, onConfigChange, onExpo
                   </div>
                 ))}
 
-                {/* Add engine */}
                 <div className="flex flex-col gap-2 rounded-2xl bg-black/4 p-4">
                   <p className="text-xs font-black uppercase tracking-wider text-slate-500">{t('addEngine')}</p>
                   <input value={newEngine.name} onChange={(e) => setNewEngine({ ...newEngine, name: e.target.value })} placeholder="Name" className="rounded-xl bg-white px-3 py-2 text-sm font-bold outline-none" />

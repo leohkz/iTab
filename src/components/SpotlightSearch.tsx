@@ -1,13 +1,14 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { AppShortcut, SearchEngine, SearchEngineId } from '../types';
+import type { TranslationKey } from '../i18n';
 
 type SpotlightSearchProps = {
   open: boolean;
   apps: AppShortcut[];
   engines: SearchEngine[];
   defaultEngine: SearchEngineId;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
   onClose: () => void;
   onEngineChange: (engineId: string) => void;
 };
@@ -61,7 +62,6 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
         className="flex w-full max-w-xl flex-col overflow-hidden rounded-3xl shadow-2xl"
         style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)' }}
       >
-        {/* Search input */}
         <div className="flex items-center gap-3 px-5 py-4">
           <Search className="h-5 w-5 shrink-0 text-slate-400" />
           <input
@@ -80,7 +80,6 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
           </button>
         </div>
 
-        {/* Engine tabs */}
         <div className="flex gap-1.5 overflow-x-auto border-t border-black/6 px-5 py-2.5 scrollbar-hide">
           {enabledEngines.map((item) => (
             <button
@@ -100,7 +99,6 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
           ))}
         </div>
 
-        {/* App results */}
         {appResults.length > 0 && (
           <div className="border-t border-black/6 px-3 py-2">
             {appResults.map((app) => (
@@ -125,7 +123,6 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
           </div>
         )}
 
-        {/* Search CTA */}
         {cleanQuery && (
           <div className="border-t border-black/6 px-3 py-2">
             <button
@@ -135,7 +132,7 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
             >
               <Search className="h-5 w-5 shrink-0 text-slate-400" />
               <p className="text-sm font-bold text-slate-600">
-                {t('search')} &ldquo;{cleanQuery}&rdquo; {searchWith ? `· ${searchWith.name}` : ''}
+                {t('search')} &ldquo;{cleanQuery}&rdquo; {searchWith ? `\u00b7 ${searchWith.name}` : ''}
               </p>
             </button>
           </div>
