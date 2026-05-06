@@ -84,101 +84,109 @@ function glassStyle(glass: number) {
   };
 }
 
-// ── Pomodoro ring (small, for widget) ────────────────────────────────
-function PomodoroRing({ progress }: { progress: number }) {
-  const r = 28;
-  const circ = 2 * Math.PI * r;
-  return (
-    <svg width="72" height="72" className="-rotate-90" aria-hidden="true">
-      <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="5" />
-      <circle
-        cx="36" cy="36" r={r} fill="none"
-        stroke="#0f172a" strokeWidth="5"
-        strokeDasharray={circ}
-        strokeDashoffset={circ * (1 - progress)}
-        strokeLinecap="round"
-        style={{ transition: 'stroke-dashoffset 1s linear' }}
-      />
-    </svg>
-  );
-}
-
-// ── Car gauge dial (for Focus Mode) ──────────────────────────────────
-// The gauge spans 240° (like a car speedometer), starting from 150° (bottom-left)
-// Bottom 120° are cut away, leaving an open-bottom arc.
-function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }) {
-  const SIZE = 260;
+// ── Pomodoro gauge dial (replaces small ring in widget) ───────────────
+// Open-bottom arc, 240° sweep, same style as Focus Mode overlay
+function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
+  progress: number;
+  isBreak: boolean;
+  timerLabel: string;
+  isDone: boolean;
+}) {
+  const SIZE = 160;
   const cx = SIZE / 2;
   const cy = SIZE / 2;
-  const R = 108; // radius
-  const STROKE = 16;
-  const GAP_DEG = 120; // degrees cut from the bottom
+  const R = 62;
+  const STROKE = 10;
+  const GAP_DEG = 120;
   const ARC_DEG = 360 - GAP_DEG; // 240°
+  const startDeg = 150;
+  const endDeg = startDeg + ARC_DEG;
 
-  // Convert degrees to radians, 0° = top (12 o'clock), clockwise
   const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
-
-  // Arc starts at (180 + GAP_DEG/2)° = 240°, ends at (360 - GAP_DEG/2 + 360)° but modulo = 300° going clockwise = start+240
-  const startDeg = 150; // 150° from top = bottom-left
-  const endDeg   = 150 + ARC_DEG; // 390° = 30° (bottom-right)
-
   const polarToXY = (deg: number, r: number) => ({
     x: cx + r * Math.cos(degToRad(deg)),
     y: cy + r * Math.sin(degToRad(deg)),
   });
-
   const arcPath = (startD: number, endD: number, r: number, large: boolean) => {
     const s = polarToXY(startD, r);
     const e = polarToXY(endD, r);
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`;
   };
 
-  // Track arc (full 240°)
   const trackPath = arcPath(startDeg, endDeg, R, true);
-
-  // Progress arc (0 → progress fraction of 240°)
   const progressDeg = startDeg + ARC_DEG * progress;
   const progressLarge = ARC_DEG * progress > 180;
-  const progressPath = progress > 0
-    ? arcPath(startDeg, progressDeg, R, progressLarge)
-    : null;
+  const progressPath = progress > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
+  const activeColor = isBreak ? '#34d399' : '#0f172a';
 
+  return (
+    <div className="relative" style={{ width: SIZE, height: Math.round(SIZE * 0.82) }}>
+      <svg width={SIZE} height={SIZE} style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }} aria-hidden="true">
+        <path d={trackPath} fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth={STROKE} strokeLinecap="round" />
+        {progressPath && (
+          <path
+            d={progressPath} fill="none"
+            stroke={activeColor} strokeWidth={STROKE} strokeLinecap="round"
+            style={{ transition: 'all 1s linear' }}
+          />
+        )}
+      </svg>
+      {/* Centre label */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pb-4">
+        {isDone
+          ? <span className="text-2xl">✅</span>
+          : <span className="text-lg font-black tabular-nums text-slate-800" data-testid="text-pomodoro-timer">{timerLabel}</span>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ── Car gauge dial (for Focus Mode overlay) ──────────────────────────
+function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }) {
+  const SIZE = 260;
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+  const R = 108;
+  const STROKE = 16;
+  const GAP_DEG = 120;
+  const ARC_DEG = 360 - GAP_DEG;
+  const startDeg = 150;
+  const endDeg   = startDeg + ARC_DEG;
+
+  const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
+  const polarToXY = (deg: number, r: number) => ({
+    x: cx + r * Math.cos(degToRad(deg)),
+    y: cy + r * Math.sin(degToRad(deg)),
+  });
+  const arcPath = (startD: number, endD: number, r: number, large: boolean) => {
+    const s = polarToXY(startD, r);
+    const e = polarToXY(endD, r);
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`;
+  };
+
+  const trackPath = arcPath(startDeg, endDeg, R, true);
+  const progressDeg = startDeg + ARC_DEG * progress;
+  const progressLarge = ARC_DEG * progress > 180;
+  const progressPath = progress > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
   const activeColor = isBreak ? '#34d399' : '#ffffff';
 
   return (
     <svg width={SIZE} height={SIZE} style={{ overflow: 'visible' }} aria-hidden="true">
-      {/* Track */}
-      <path
-        d={trackPath}
-        fill="none"
-        stroke="rgba(255,255,255,0.14)"
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-      />
-      {/* Progress */}
+      <path d={trackPath} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth={STROKE} strokeLinecap="round" />
       {progressPath && (
         <path
-          d={progressPath}
-          fill="none"
-          stroke={activeColor}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
+          d={progressPath} fill="none"
+          stroke={activeColor} strokeWidth={STROKE} strokeLinecap="round"
           style={{ transition: 'all 1s linear', filter: `drop-shadow(0 0 6px ${activeColor}88)` }}
         />
       )}
-      {/* Tick marks at start and end */}
       {[startDeg, endDeg].map((deg, i) => {
         const inner = polarToXY(deg, R - STROKE / 2 - 2);
         const outer = polarToXY(deg, R + STROKE / 2 + 2);
         return (
-          <line
-            key={i}
-            x1={inner.x} y1={inner.y}
-            x2={outer.x} y2={outer.y}
-            stroke="rgba(255,255,255,0.3)"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+          <line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
+            stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" />
         );
       })}
     </svg>
@@ -226,7 +234,7 @@ function DatePicker({
   return (
     <div
       ref={ref}
-      className="absolute left-0 top-full z-50 mt-1 w-56 rounded-2xl border border-white/30 shadow-2xl"
+      className="absolute right-0 top-full z-50 mt-1 w-56 rounded-2xl border border-white/30 shadow-2xl"
       style={{ background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
     >
       <div className="flex flex-col gap-3 p-4">
@@ -326,28 +334,49 @@ function TodoRow({
 
   return (
     <div className="group relative flex w-full flex-col gap-1 overflow-visible rounded-xl bg-black/6 px-2 py-2">
+      {/* Single row: checkbox | text | [date label] | 📅 icon | 🗑 icon */}
       <div className="flex w-full items-center gap-2">
         <input type="checkbox" checked={todo.done} onChange={onToggle} className="shrink-0 accent-slate-700" />
-        <input
-          value={todo.text}
-          onChange={(e) => onEdit(e.target.value)}
-          style={{ minWidth: 0 }}
-          className={['w-full flex-1 bg-transparent text-sm font-bold outline-none', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
-        />
-        <button type="button" onClick={() => setShowPicker((v) => !v)} className={['shrink-0 transition', todo.dueDate ? 'text-slate-600' : 'text-slate-400 hover:text-slate-600'].join(' ')} aria-label={lb('setDate', locale)} title={lb('setDate', locale)}>
+        <span
+          className={['flex-1 min-w-0 text-sm font-bold truncate', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
+        >
+          <input
+            value={todo.text}
+            onChange={(e) => onEdit(e.target.value)}
+            style={{ minWidth: 0 }}
+            className={['w-full bg-transparent outline-none', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
+          />
+        </span>
+        {/* Date label — shown left of calendar icon */}
+        {dateDisplay && !showPicker && (
+          <button
+            type="button"
+            onClick={() => setShowPicker(true)}
+            className="shrink-0 rounded-full bg-black/8 px-2 py-0.5 text-[0.65rem] font-bold text-slate-500 transition hover:bg-black/12 whitespace-nowrap"
+          >
+            {dateDisplay}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowPicker((v) => !v)}
+          className={['shrink-0 transition', todo.dueDate ? 'text-slate-600' : 'text-slate-400 hover:text-slate-600'].join(' ')}
+          aria-label={lb('setDate', locale)}
+          title={lb('setDate', locale)}
+        >
           <CalendarDays className="h-3.5 w-3.5" />
         </button>
         <button type="button" onClick={onDelete} className="shrink-0 text-slate-500 transition hover:text-red-500" aria-label="Delete">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      {dateDisplay && !showPicker && (
-        <button type="button" onClick={() => setShowPicker(true)} className="ml-5 w-fit rounded-full bg-black/8 px-2 py-0.5 text-[0.65rem] font-bold text-slate-500 transition hover:bg-black/12">
-          {dateDisplay}
-        </button>
-      )}
       {showPicker && (
-        <DatePicker value={todo.dueDate} locale={locale} onConfirm={(d) => onDateChange(d)} onClear={() => { onDateChange(undefined); setShowPicker(false); }} onClose={() => setShowPicker(false)} />
+        <DatePicker
+          value={todo.dueDate} locale={locale}
+          onConfirm={(d) => onDateChange(d)}
+          onClear={() => { onDateChange(undefined); setShowPicker(false); }}
+          onClose={() => setShowPicker(false)}
+        />
       )}
     </div>
   );
@@ -473,7 +502,7 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
   );
 }
 
-// ── Pomodoro widget (no sound button — sound is inside Focus Mode) ───
+// ── Pomodoro widget ───────────────────────────────────────────────────
 type PomodoroWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: WidgetState) => void };
 
 function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
@@ -531,15 +560,13 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
             </button>
           </div>
 
-          <div className="relative">
-            <PomodoroRing progress={progress} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {isDone
-                ? <span className="text-lg">✅</span>
-                : <span className="text-sm font-black tabular-nums text-slate-800" data-testid="text-pomodoro-timer">{timerLabel}</span>
-              }
-            </div>
-          </div>
+          {/* Gauge dial replaces small ring */}
+          <PomodoroGaugeDial
+            progress={progress}
+            isBreak={isBreak}
+            timerLabel={timerLabel}
+            isDone={isDone}
+          />
 
           <div className="flex w-full items-center gap-2">
             <Timer className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
@@ -612,7 +639,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
 
   const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
 
-  // Sound
   const soundState: FocusSoundState = (widgets as any).focusSoundState ?? defaultFocusSoundState();
   const setSoundState = (s: FocusSoundState) => set({ ...(widgets as any), focusSoundState: s } as any);
   const [showSound, setShowSound] = useState(false);
@@ -624,7 +650,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
     return () => document.removeEventListener('mousedown', h);
   }, [showSound]);
 
-  // Clock
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -634,7 +659,6 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
   const timeStr = now.toLocaleTimeString(locale === 'zh' ? 'zh-TW' : 'en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
   const dateStr = now.toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  // After focus ends, offer break
   const justFinishedFocus = isDone && !isBreak;
   const justFinishedBreak = isDone && isBreak;
 
@@ -650,25 +674,18 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
 
   return (
     <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center ${backgroundClass}`}>
-      {/* Dark overlay */}
       <div className="absolute inset-0" style={{ backdropFilter: 'blur(3px)', background: 'rgba(0,0,0,0.45)' }} />
 
       <div className="relative z-10 flex flex-col items-center gap-6 select-none w-full max-w-sm px-6">
-
-        {/* ── Clock ── */}
         <div className="text-center">
           <p className="text-7xl font-black text-white tracking-tight leading-none" style={{ textShadow: '0 2px 24px rgba(0,0,0,0.4)' }}>{timeStr}</p>
           <p className="mt-2 text-base font-bold text-white/75 tracking-wide">{dateStr}</p>
         </div>
 
-        {/* ── Gauge dial ── */}
         <div className="relative flex items-center justify-center" style={{ width: 260, height: 220 }}>
-          {/* overflow bottom hidden so the open gap looks clean */}
           <div style={{ overflow: 'hidden', width: 260, height: 220 }}>
             <GaugeDial progress={progress} isBreak={isBreak} />
           </div>
-
-          {/* Centre label */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pb-6">
             <p className="text-xs font-black uppercase tracking-[0.25em] mb-1" style={{ color: isBreak ? '#34d399' : 'rgba(255,255,255,0.55)' }}>
               {isBreak ? (locale === 'zh' ? '休息' : 'BREAK') : (locale === 'zh' ? '專注' : 'FOCUS')}
@@ -681,34 +698,20 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
               </p>
             )}
           </div>
-
-          {/* Focus / Break toggle — bottom of gauge */}
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => switchMode(false)}
-              className={['rounded-full px-4 py-1.5 text-xs font-black transition', !isBreak ? 'bg-white text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}
-            >
+            <button type="button" onClick={() => switchMode(false)} className={['rounded-full px-4 py-1.5 text-xs font-black transition', !isBreak ? 'bg-white text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}>
               {locale === 'zh' ? '專注' : 'Focus'}
             </button>
-            <button
-              type="button"
-              onClick={() => switchMode(true)}
-              className={['rounded-full px-4 py-1.5 text-xs font-black transition', isBreak ? 'bg-emerald-400 text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}
-            >
+            <button type="button" onClick={() => switchMode(true)} className={['rounded-full px-4 py-1.5 text-xs font-black transition', isBreak ? 'bg-emerald-400 text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}>
               {locale === 'zh' ? '休息' : 'Break'}
             </button>
           </div>
         </div>
 
-        {/* ── After focus ends: prompt to start break ── */}
         {justFinishedFocus && (
           <div className="flex flex-col items-center gap-2">
             <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '🎉 專注完成！要休息一下嗎？' : '🎉 Focus done! Take a break?'}</p>
-            <button
-              onClick={startBreak}
-              className="rounded-full bg-emerald-400 px-8 py-2.5 text-sm font-black text-slate-900 shadow-lg transition hover:bg-emerald-300"
-            >
+            <button onClick={startBreak} className="rounded-full bg-emerald-400 px-8 py-2.5 text-sm font-black text-slate-900 shadow-lg transition hover:bg-emerald-300">
               {locale === 'zh' ? `休息 ${widgets.pomodoroBreakMinutes ?? 5} 分鐘` : `Break ${widgets.pomodoroBreakMinutes ?? 5} min`}
             </button>
           </div>
@@ -717,76 +720,43 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
           <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '☀️ 休息完成，繼續加油！' : '☀️ Break done, keep going!'}</p>
         )}
 
-        {/* ── Controls ── */}
         <div className="flex items-center gap-3 flex-wrap justify-center">
           {!isDone && (
-            <button
-              onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })}
-              className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32"
-            >
+            <button onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">
               {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {widgets.pomodoroRunning
-                ? (locale === 'zh' ? '暫停' : 'Pause')
-                : (locale === 'zh' ? '繼續' : 'Resume')}
+              {widgets.pomodoroRunning ? (locale === 'zh' ? '暫停' : 'Pause') : (locale === 'zh' ? '繼續' : 'Resume')}
             </button>
           )}
           {isDone && (
-            <button
-              onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false, pomodoroIsBreak: false })}
-              className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32"
-            >
+            <button onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false, pomodoroIsBreak: false })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">
               <RotateCcw className="h-4 w-4" />{locale === 'zh' ? '重置' : 'Reset'}
             </button>
           )}
-
-          {/* Sound picker */}
           <div className="relative">
-            <button
-              onClick={() => setShowSound(v => !v)}
-              className={['flex items-center gap-2 rounded-full px-5 py-3 text-sm font-black backdrop-blur transition', showSound ? 'bg-white/30 text-white' : 'bg-white/14 text-white/80 hover:bg-white/22'].join(' ')}
-            >
+            <button onClick={() => setShowSound(v => !v)} className={['flex items-center gap-2 rounded-full px-5 py-3 text-sm font-black backdrop-blur transition', showSound ? 'bg-white/30 text-white' : 'bg-white/14 text-white/80 hover:bg-white/22'].join(' ')}>
               🎵 {locale === 'zh' ? '聲音' : 'Sound'}
             </button>
             {showSound && (
-              <div
-                ref={soundRef}
-                className="absolute bottom-full mb-3 right-0 z-50 rounded-2xl shadow-2xl overflow-hidden"
-                style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(24px)', minWidth: 300 }}
-              >
+              <div ref={soundRef} className="absolute bottom-full mb-3 right-0 z-50 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(24px)', minWidth: 300 }}>
                 <FocusSoundPanel state={soundState} onChange={setSoundState} onClose={() => setShowSound(false)} />
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => set({ focusModeActive: false, pomodoroRunning: false })}
-            className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white/65 backdrop-blur transition hover:bg-white/20 hover:text-white"
-          >
+          <button onClick={() => set({ focusModeActive: false, pomodoroRunning: false })} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white/65 backdrop-blur transition hover:bg-white/20 hover:text-white">
             <X className="h-4 w-4" />{locale === 'zh' ? '退出' : 'Exit'}
           </button>
         </div>
 
-        {/* ── Time settings ── */}
         <div className="flex items-center gap-4 rounded-2xl bg-white/10 px-5 py-3 backdrop-blur">
           <div className="flex items-center gap-2">
             <span className="text-xs font-black text-white/50 uppercase tracking-wider">{locale === 'zh' ? '專注' : 'Focus'}</span>
-            <input
-              type="number" min="1" max="90"
-              value={widgets.pomodoroMinutes}
-              onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); set({ pomodoroMinutes: m, ...(!isBreak ? { pomodoroRemainingSeconds: m * 60, pomodoroRunning: false } : {}) }); }}
-              className="w-12 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center"
-            />
+            <input type="number" min="1" max="90" value={widgets.pomodoroMinutes} onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); set({ pomodoroMinutes: m, ...(!isBreak ? { pomodoroRemainingSeconds: m * 60, pomodoroRunning: false } : {}) }); }} className="w-12 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center" />
             <span className="text-xs font-bold text-white/50">{locale === 'zh' ? '分' : 'min'}</span>
           </div>
           <div className="w-px h-6 bg-white/20" />
           <div className="flex items-center gap-2">
             <span className="text-xs font-black text-white/50 uppercase tracking-wider">{locale === 'zh' ? '休息' : 'Break'}</span>
-            <input
-              type="number" min="1" max="60"
-              value={widgets.pomodoroBreakMinutes ?? 5}
-              onChange={(e) => { const m = Math.min(60, Math.max(1, Number(e.target.value) || 5)); set({ pomodoroBreakMinutes: m, ...(isBreak ? { pomodoroRemainingSeconds: m * 60, pomodoroRunning: false } : {}) }); }}
-              className="w-12 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center"
-            />
+            <input type="number" min="1" max="60" value={widgets.pomodoroBreakMinutes ?? 5} onChange={(e) => { const m = Math.min(60, Math.max(1, Number(e.target.value) || 5)); set({ pomodoroBreakMinutes: m, ...(isBreak ? { pomodoroRemainingSeconds: m * 60, pomodoroRunning: false } : {}) }); }} className="w-12 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center" />
             <span className="text-xs font-bold text-white/50">{locale === 'zh' ? '分' : 'min'}</span>
           </div>
         </div>
@@ -802,7 +772,7 @@ export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
   const notesMeta    = safeMeta(widgets.notesMeta);
 
   return (
-    <aside className="fixed right-5 top-24 z-20 flex flex-col gap-3 max-xl:hidden" aria-label="Widgets">
+    <aside className="fixed right-5 top-24 z-20 flex flex-col items-end gap-3 max-xl:hidden" aria-label="Widgets">
       {todoMeta.enabled && !todoMeta.minimised && <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />}
       {pomodoroMeta.enabled && !pomodoroMeta.minimised && <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />}
       {notesMeta.enabled && !notesMeta.minimised && <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />}
