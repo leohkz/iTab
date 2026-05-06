@@ -56,14 +56,14 @@ export interface WidgetState {
 
 export interface PromptTag {
   label: string;
-  color?: string;
+  color: string;
 }
 
 export interface Prompt {
   id: string;
   title: string;
   content: string;
-  tags: string[];
+  tags: PromptTag[];
   imageUrl?: string;
   createdAt: number;
 }

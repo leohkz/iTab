@@ -53,12 +53,13 @@ function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; on
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ring-2 transition"
+      className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black transition"
       style={{
         backgroundColor: active ? tag.color : `${tag.color}33`,
         color: active ? tagTextColor(tag.color) : tag.color,
-        ringColor: active ? tag.color : 'transparent',
         border: `1.5px solid ${tag.color}`,
+        outline: active ? `2px solid ${tag.color}` : 'none',
+        outlineOffset: '1px',
       }}
     >
       <Tag className="h-2.5 w-2.5" />
@@ -249,7 +250,7 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
           <button
             type="button"
             onClick={() => setActiveTag(null)}
-            className={['rounded-full border-1.5 px-3 py-1 text-xs font-black transition', activeTag === null ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'].join(' ')}
+            className={['rounded-full px-3 py-1 text-xs font-black transition', activeTag === null ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'].join(' ')}
           >
             {t('allTags')}
           </button>
