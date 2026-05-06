@@ -11,7 +11,8 @@ import { TopBar } from './components/TopBar';
 import { Widgets } from './components/Widgets';
 import { defaultConfig, recentTabs, spaces } from './data/mockStore';
 import { createTranslator } from './i18n';
-import type { AppConfig, AppShortcut, Prompt } from './types';
+import type { AppConfig, AppShortcut, Prompt, WidgetMeta } from './types';
+import { DEFAULT_TODO_LISTS } from './types';
 
 type EditorState = {
   open: boolean;
@@ -26,20 +27,42 @@ function cloneDefaultConfig(): AppConfig {
   return JSON.parse(JSON.stringify(defaultConfig)) as AppConfig;
 }
 
+const DEFAULT_META: WidgetMeta = { enabled: true, minimised: false, pinned: false, expanded: false };
+
 function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
   const fallback = cloneDefaultConfig();
-  const widgets = { ...fallback.widgets, ...(config.widgets ?? {}) };
+  const raw = config.widgets ?? {};
+  const fb  = fallback.widgets;
+
+  // Migrate todos: old entries may lack listId
+  const todos = (raw.todos ?? fb.todos).map((t: { id: string; text: string; done: boolean; listId?: string }) => ({
+    ...t,
+    listId: t.listId ?? 'inbox',
+  }));
+
+  const widgets = {
+    ...fb,
+    ...raw,
+    todos,
+    todoLists:        (raw.todoLists && raw.todoLists.length > 0) ? raw.todoLists : [...DEFAULT_TODO_LISTS],
+    activeTodoListId: raw.activeTodoListId ?? 'today',
+    todoMeta:         { ...DEFAULT_META, ...(raw.todoMeta     ?? {}) },
+    pomodoroMeta:     { ...DEFAULT_META, ...(raw.pomodoroMeta ?? {}) },
+    notesMeta:        { ...DEFAULT_META, ...(raw.notesMeta    ?? {}) },
+  };
+
   if (!widgets.pomodoroRemainingSeconds) {
     widgets.pomodoroRemainingSeconds = widgets.pomodoroMinutes * 60;
   }
+
   return {
     ...fallback,
     ...config,
-    apps: config.apps ?? fallback.apps,
-    folders: config.folders ?? fallback.folders,
-    pinnedIds: config.pinnedIds ?? fallback.pinnedIds,
+    apps:          config.apps          ?? fallback.apps,
+    folders:       config.folders       ?? fallback.folders,
+    pinnedIds:     config.pinnedIds     ?? fallback.pinnedIds,
     searchEngines: config.searchEngines ?? fallback.searchEngines,
-    prompts: config.prompts ?? fallback.prompts,
+    prompts:       config.prompts       ?? fallback.prompts,
     widgets,
     experiments: { ...fallback.experiments, ...(config.experiments ?? {}) },
   };
@@ -73,7 +96,6 @@ function NewTab() {
     [config.apps, config.currentSpaceId],
   );
 
-  // Folders are space-scoped: show only folders that belong to the current space (or have no spaceId)
   const currentSpaceFolders = useMemo(
     () => config.folders.filter((f) => !f.spaceId || f.spaceId === config.currentSpaceId),
     [config.folders, config.currentSpaceId],
@@ -196,7 +218,6 @@ function NewTab() {
 
   const addFolder = () => {
     const id = `folder-${Date.now().toString(36)}`;
-    // Bind folder to the current space so it only shows here
     updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder'), spaceId: config.currentSpaceId }] });
     notify(t('newFolder'));
   };
