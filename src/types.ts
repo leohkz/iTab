@@ -99,7 +99,7 @@ export interface SearchEngine {
   url?: string;
   shortcut?: string;
   template?: string;
-  enabled?: boolean;
+  enabled: boolean;       // non-optional: always required, defaults to true at data layer
   builtIn?: boolean;
   icon?: string;
 }

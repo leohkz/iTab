@@ -14,7 +14,8 @@ type SpotlightSearchProps = {
 };
 
 function buildSearchUrl(engine: SearchEngine, query: string) {
-  return engine.template.replaceAll('{q}', encodeURIComponent(query));
+  // template is optional in type; fall back to a plain URL search if missing
+  return (engine.template ?? '{q}').replaceAll('{q}', encodeURIComponent(query));
 }
 
 export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose, onEngineChange }: SpotlightSearchProps) {
@@ -32,9 +33,10 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
   }, [defaultEngine, open]);
 
   const normalized = query.trim().toLowerCase();
-  const engineMatch = enabledEngines.find((item) => normalized.startsWith(`${item.shortcut} `));
+  // shortcut is optional — only match if the engine actually has one
+  const engineMatch = enabledEngines.find((item) => item.shortcut && normalized.startsWith(`${item.shortcut} `));
   const activeEngine = engineMatch ?? enabledEngines.find((e) => e.id === engineId) ?? enabledEngines[0];
-  const cleanQuery = engineMatch ? query.trim().slice(engineMatch.shortcut.length + 1).trim() : query.trim();
+  const cleanQuery = engineMatch ? query.trim().slice((engineMatch.shortcut ?? '').length + 1).trim() : query.trim();
 
   const appResults = useMemo(() => {
     if (!normalized) return apps.slice(0, 6);
@@ -93,7 +95,9 @@ export function SpotlightSearch({ open, apps, engines, defaultEngine, t, onClose
                   data-testid={`button-engine-${item.id}`}
                 >
                   {item.name}
-                  <span className={['rounded-md px-1.5 py-0.5 text-[0.65rem] uppercase', activeEngine?.id === item.id ? 'bg-white/20 text-white/80' : 'bg-slate-200 text-slate-500'].join(' ')}>{item.shortcut}</span>
+                  {item.shortcut && (
+                    <span className={['rounded-md px-1.5 py-0.5 text-[0.65rem] uppercase', activeEngine?.id === item.id ? 'bg-white/20 text-white/80' : 'bg-slate-200 text-slate-500'].join(' ')}>{item.shortcut}</span>
+                  )}
                 </button>
               ))}
             </div>
