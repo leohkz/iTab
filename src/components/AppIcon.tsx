@@ -7,9 +7,10 @@ type AppIconProps = {
   size?: 'grid' | 'dock' | 'mini';
 };
 
+// All sizes share the same corner-radius ratio (~30% of width = Apple iOS icon style)
 const sizeClasses = {
   grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
-  dock: 'h-full w-full rounded-[13px]',
+  dock: 'h-full w-full rounded-[1.35rem]',   // same radius as grid
   mini: 'h-6 w-6 rounded-[0.48rem]',
 };
 
@@ -56,7 +57,6 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
           onError={() => setFailed(true)}
         />
       ) : (
-        // Monogram: colour lives only inside this inner span, outer bg stays white
         <span
           className={[
             'flex h-full w-full items-center justify-center font-black tracking-[-0.04em] text-white',

@@ -34,6 +34,89 @@ type GridItem =
   | { kind: 'app'; id: string; app: AppShortcut }
   | { kind: 'folder'; id: string; folder: Folder; apps: AppShortcut[] };
 
+// Apple-style glass badge used in grid edit mode
+// iconSizePx = rendered pixel size of the icon (4.5rem = 72px)
+const ICON_PX = 72; // grid icon = h-[4.5rem] at 16px base
+const BADGE_PX = Math.round(ICON_PX * 0.28); // ~20px
+const BADGE_OFFSET = -Math.round(BADGE_PX * 0.3); // slightly outside corner
+
+const glassBadgeBase: React.CSSProperties = {
+  position: 'absolute',
+  zIndex: 10,
+  width: BADGE_PX,
+  height: BADGE_PX,
+  borderRadius: '50%',
+  display: 'grid',
+  placeItems: 'center',
+  cursor: 'pointer',
+  background: 'rgba(255,255,255,0.72)',
+  backdropFilter: 'blur(14px) saturate(1.8)',
+  WebkitBackdropFilter: 'blur(14px) saturate(1.8)',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.85)',
+  border: '1px solid rgba(255,255,255,0.55)',
+};
+
+const removeBadgeStyle: React.CSSProperties = {
+  ...glassBadgeBase,
+  top: BADGE_OFFSET,
+  left: BADGE_OFFSET,
+};
+
+const editBadgeStyle: React.CSSProperties = {
+  ...glassBadgeBase,
+  top: BADGE_OFFSET,
+  right: BADGE_OFFSET,
+};
+
+const iconSize = BADGE_PX * 0.48;
+
+// Apple-style glass confirm sheet
+function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center px-6"
+      style={{ animation: 'fadeIn 0.15s ease' }}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      {/* Dim overlay */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-xs overflow-hidden rounded-[1.6rem]"
+        style={{
+          background: 'rgba(255,255,255,0.84)',
+          backdropFilter: 'blur(40px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+          border: '1px solid rgba(255,255,255,0.6)',
+          animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 pt-5 pb-4 text-center">
+          <p className="text-[0.93rem] font-black text-slate-900">{title}</p>
+          <p className="mt-1 text-xs text-slate-500 line-clamp-2">{message}</p>
+        </div>
+        <div className="flex border-t border-slate-200/80">
+          <button type="button" onClick={onCancel}
+            className="flex-1 py-3.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100/60">
+            Cancel
+          </button>
+          <span className="w-px bg-slate-200/80" />
+          <button type="button" onClick={onConfirm}
+            className="flex-1 py-3.5 text-sm font-black text-red-500 transition hover:bg-red-50/60">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   const previewApps = apps.slice(0, 4);
   return (
@@ -64,47 +147,63 @@ function AppEditControls({
 
   return (
     <>
+      {/* Remove badge — top-left */}
       <button
         type="button" aria-label="Delete shortcut"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-        className="absolute -left-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
+        style={removeBadgeStyle}
         data-testid="button-delete-shortcut"
       >
-        <Minus className="h-4 w-4" />
+        <Minus style={{ width: iconSize, height: iconSize, color: '#ef4444', strokeWidth: 3 }} />
       </button>
+
+      {/* Edit badge — top-right */}
       <button
         type="button" aria-label="Edit shortcut"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-        className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
+        style={editBadgeStyle}
         data-testid="button-rename-shortcut"
       >
-        <Pencil className="h-3.5 w-3.5" />
+        <Pencil style={{ width: iconSize * 0.9, height: iconSize * 0.9, color: '#334155', strokeWidth: 2 }} />
       </button>
+
+      {/* Space badge — bottom centre */}
       <button
         type="button" aria-label="Move to space"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSpaceMenuOpen((v) => !v); }}
-        className="absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-black text-slate-700 shadow backdrop-blur-sm"
+        className="absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 rounded-full px-2 py-0.5 text-[0.6rem] font-black text-slate-700 shadow"
+        style={{
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.55)',
+        }}
         data-testid="button-space-badge"
       >
         {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '✦ All'}
       </button>
+
       {spaceMenuOpen && (
         <div
-          className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl"
+          className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-2xl shadow-2xl"
+          style={{
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(24px) saturate(1.8)',
+            WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+            border: '1px solid rgba(255,255,255,0.55)',
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="min-w-[9rem] py-1 text-xs font-black text-slate-800">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-100"
+            <button type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50"
               onClick={(e) => { e.stopPropagation(); onMoveToSpace(undefined); setSpaceMenuOpen(false); }}
             >
               <span className="text-slate-400">✦</span> All Spaces
             </button>
             {spaces.map((space) => (
-              <button
-                key={space.id} type="button"
-                className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-100', space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
+              <button key={space.id} type="button"
+                className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50', space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
                 onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}
               >
                 <span className={`h-2 w-2 rounded-full bg-gradient-to-br ${space.accent}`} />
@@ -152,9 +251,11 @@ export function AppGrid({
 }: AppGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
   const selectedFolderApps = selectedFolder ? apps.filter((a) => a.folderId === selectedFolder.id) : [];
   const renamingFolder = folders.find((f) => f.id === renamingFolderId) ?? null;
+  const deletingApp = apps.find((a) => a.id === deletingAppId) ?? null;
   const mainRef = useRef<HTMLElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -179,7 +280,6 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
-  // Shared cell wrapper: not clickable itself, just positions children
   const cellClass = [
     'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
     editing ? 'cursor-grab' : '',
@@ -213,7 +313,6 @@ export function AppGrid({
           {items.map((item) => {
             if (item.kind === 'folder') {
               return (
-                // Cell: full grid slot, not clickable itself
                 <div
                   key={item.id}
                   className={[...cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
@@ -226,23 +325,20 @@ export function AppGrid({
                 >
                   {editing && (
                     <>
-                      <button
-                        type="button" aria-label="Delete folder"
+                      <button type="button" aria-label="Delete folder"
                         onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
-                        className="absolute -left-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
+                        style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 style={{ width: iconSize, height: iconSize, color: '#ef4444', strokeWidth: 2.5 }} />
                       </button>
-                      <button
-                        type="button" aria-label="Rename folder"
+                      <button type="button" aria-label="Rename folder"
                         onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
-                        className="absolute -right-1 -top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
+                        style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil style={{ width: iconSize * 0.9, height: iconSize * 0.9, color: '#334155', strokeWidth: 2 }} />
                       </button>
                     </>
                   )}
-                  {/* Clickable area: icon + label only */}
                   <button
                     type="button"
                     onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
@@ -260,7 +356,6 @@ export function AppGrid({
             }
 
             return (
-              // Cell: full grid slot for drag/drop and edit controls, not clickable itself
               <div
                 key={item.id}
                 className={[...cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
@@ -274,12 +369,11 @@ export function AppGrid({
                 {editing && (
                   <AppEditControls
                     app={item.app} spaces={spaces} currentSpaceId={currentSpaceId}
-                    onDelete={() => onDeleteApp(item.app.id)}
+                    onDelete={() => setDeletingAppId(item.app.id)}
                     onRename={() => onRenameApp(item.app.id)}
                     onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
                   />
                 )}
-                {/* Clickable area: icon + label only */}
                 <a
                   href={editing ? undefined : item.app.url}
                   target="_blank" rel="noreferrer"
@@ -299,8 +393,7 @@ export function AppGrid({
 
           {editing && (
             <>
-              <button
-                type="button"
+              <button type="button"
                 onClick={(e) => { e.stopPropagation(); onAddShortcut(null); }}
                 className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 data-testid="button-add-grid-shortcut"
@@ -310,8 +403,7 @@ export function AppGrid({
                 </span>
                 <span className="text-sm font-bold text-white">{t('add')}</span>
               </button>
-              <button
-                type="button"
+              <button type="button"
                 onClick={(e) => { e.stopPropagation(); onAddFolder(); }}
                 className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 data-testid="button-add-folder"
@@ -359,7 +451,7 @@ export function AppGrid({
                   {editing && (
                     <AppEditControls
                       app={app} spaces={spaces} currentSpaceId={currentSpaceId}
-                      onDelete={() => onDeleteApp(app.id)}
+                      onDelete={() => setDeletingAppId(app.id)}
                       onRename={() => onRenameApp(app.id)}
                       onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
                     />
@@ -378,8 +470,7 @@ export function AppGrid({
                 </div>
               ))}
               {editing && (
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => onAddShortcut(selectedFolder.id)}
                   className="flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12"
                   data-testid="button-add-folder-shortcut"
@@ -400,6 +491,15 @@ export function AppGrid({
           name={renamingFolder.name} t={t}
           onSave={(name) => { onRenameFolder(renamingFolder.id, name); setRenamingFolderId(null); }}
           onCancel={() => setRenamingFolderId(null)}
+        />
+      )}
+
+      {deletingApp && (
+        <DeleteConfirmSheet
+          title="Delete Shortcut?"
+          message={`“${deletingApp.name}” will be removed from your home screen.`}
+          onConfirm={() => { onDeleteApp(deletingAppId!); setDeletingAppId(null); }}
+          onCancel={() => setDeletingAppId(null)}
         />
       )}
     </main>

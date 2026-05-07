@@ -5,7 +5,7 @@ import type { AppShortcut } from '../types';
 
 const BASE = 52;
 const MAX = 82;
-const SPREAD = 130; // px radius within which magnification applies
+const SPREAD = 130;
 
 type DockProps = {
   pinnedApps: AppShortcut[];
@@ -17,24 +17,64 @@ type DockProps = {
   onRenameApp: (appId: string) => void;
 };
 
-// Wrapper that clips to the same radius as AppIcon "dock" size
-// Must match sizeClasses.dock in AppIcon.tsx (rounded-[13px])
-const ICON_WRAPPER: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  height: '100%',
-  borderRadius: '13px',
-  overflow: 'hidden',
-  isolation: 'isolate',
-};
+// Badge size = ~22% of icon, min 18px
+function badgeSize(iconSize: number) {
+  return Math.max(18, Math.round(iconSize * 0.28));
+}
+
+// Apple-style glass confirm dialog for Dock
+function DockDeleteConfirm({ name, onConfirm, onCancel }: {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-end justify-center pb-40"
+      style={{ animation: 'fadeIn 0.15s ease' }}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        className="mx-4 w-full max-w-xs overflow-hidden rounded-[1.6rem] shadow-2xl"
+        style={{
+          background: 'rgba(255,255,255,0.82)',
+          backdropFilter: 'blur(40px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+          animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+          border: '1px solid rgba(255,255,255,0.55)',
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 text-center">
+          <p className="text-[0.93rem] font-black text-slate-900">Remove from Dock?</p>
+          <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">&ldquo;{name}&rdquo;</p>
+        </div>
+        <div className="flex border-t border-slate-200/70">
+          <button
+            type="button" onClick={onCancel}
+            className="flex-1 py-3 text-sm font-semibold text-slate-700 transition hover:bg-white/60"
+          >
+            Cancel
+          </button>
+          <span className="w-px bg-slate-200/70" />
+          <button
+            type="button" onClick={onConfirm}
+            className="flex-1 py-3 text-sm font-black text-red-500 transition hover:bg-red-50/60"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
   const dockRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [mouseX, setMouseX] = useState<number | null>(null);
   const [sizes, setSizes] = useState<number[]>([]);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const allApps = [
     ...pinnedApps.map((app) => ({ app, isRecent: false })),
@@ -42,24 +82,16 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
   ];
 
   useLayoutEffect(() => {
-    if (editing || mouseX === null) {
-      setSizes(allApps.map(() => BASE));
-      return;
-    }
+    if (editing || mouseX === null) { setSizes(allApps.map(() => BASE)); return; }
     const next = itemRefs.current.map((el) => {
       if (!el) return BASE;
       const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const dist = Math.abs(mouseX - centerX);
+      const dist = Math.abs(mouseX - (rect.left + rect.width / 2));
       if (dist >= SPREAD) return BASE;
-      const ratio = 1 - dist / SPREAD;
-      return Math.round(BASE + (MAX - BASE) * ratio);
+      return Math.round(BASE + (MAX - BASE) * (1 - dist / SPREAD));
     });
     setSizes(next);
   }, [mouseX, editing, allApps.length]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLUListElement>) => setMouseX(e.clientX);
-  const handleMouseLeave = () => { setMouseX(null); setSizes(allApps.map(() => BASE)); };
 
   const dockAlpha = Math.min(0.45, Math.max(0.10, glass / 250));
   const dockBlur  = Math.round(6 + glass / 10);
@@ -69,9 +101,36 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
     WebkitBackdropFilter: `blur(${dockBlur}px)`,
   };
 
+  const confirmApp = allApps.find((a) => a.app.id === confirmId)?.app ?? null;
+
   const renderItem = (app: AppShortcut, isRecent: boolean, index: number) => {
     const size = sizes[index] ?? BASE;
     const marginTop = BASE - size;
+    const bSize = badgeSize(size);
+    const offset = Math.round(bSize * -0.28);
+
+    // icon wrapper: clipped to same radius as AppIcon dock (rounded-[1.35rem] = 21.6px at 72px)
+    const wrapRadius = Math.round(size * 0.3);
+    const iconWrapper: React.CSSProperties = {
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: '100%', height: '100%',
+      borderRadius: wrapRadius,
+      overflow: 'hidden', isolation: 'isolate',
+    };
+
+    // Apple-glass badge base style
+    const badgeBase: React.CSSProperties = {
+      position: 'absolute', zIndex: 20,
+      width: bSize, height: bSize,
+      borderRadius: '50%',
+      display: 'grid', placeItems: 'center',
+      cursor: 'pointer',
+      background: 'rgba(255,255,255,0.75)',
+      backdropFilter: 'blur(12px) saturate(1.6)',
+      WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8)',
+      border: '1px solid rgba(255,255,255,0.6)',
+    };
 
     return (
       <li
@@ -82,40 +141,37 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
         data-testid={isRecent ? `dock-recent-${app.id}` : `dock-pinned-${app.id}`}
       >
         {editing ? (
-          <span
-            className="app-link animate-jiggle"
-            draggable
+          <span className="app-link animate-jiggle" draggable
             onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
             aria-label={app.name}
           >
-            <span style={ICON_WRAPPER}>
+            <span style={iconWrapper}>
               <AppIcon app={app} size="dock" />
             </span>
+
+            {/* Remove badge — top-left */}
             <button
               type="button"
               aria-label={`Remove ${app.name} from dock`}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onUnpinApp(app.id); }}
-              className="absolute -left-1 -top-1 z-20 grid h-6 w-6 place-items-center rounded-full bg-slate-950 text-white shadow-lg"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmId(app.id); }}
+              style={{ ...badgeBase, top: offset, left: offset }}
             >
-              <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+              <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
             </button>
+
+            {/* Edit badge — top-right */}
             <button
               type="button"
               aria-label={`Edit ${app.name}`}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRenameApp(app.id); }}
-              className="absolute -right-1 -top-1 z-20 grid h-6 w-6 place-items-center rounded-full bg-white/92 text-slate-950 shadow-lg"
+              style={{ ...badgeBase, top: offset, right: offset }}
             >
-              <Pencil className="h-3 w-3" aria-hidden="true" />
+              <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
             </button>
           </span>
         ) : (
-          <a
-            href={app.url}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${app.name}`}
-          >
-            <span style={ICON_WRAPPER}>
+          <a href={app.url} target="_blank" rel="noreferrer" aria-label={`Open ${app.name}`}>
+            <span style={iconWrapper}>
               <AppIcon app={app} size="dock" />
             </span>
           </a>
@@ -127,31 +183,38 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
   };
 
   return (
-    <div className="dock-root" aria-label="Dock">
-      <nav
-        className={['dock', editing ? 'dock--editing' : ''].join(' ')}
-        style={dockStyle}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          const appId = e.dataTransfer.getData('text/plain');
-          if (appId) onDropApp(appId);
-        }}
-        data-testid="dock-drop-target"
-      >
-        <ul
-          ref={dockRef}
-          onMouseMove={editing ? undefined : handleMouseMove}
-          onMouseLeave={editing ? undefined : handleMouseLeave}
+    <>
+      <div className="dock-root" aria-label="Dock">
+        <nav
+          className={['dock', editing ? 'dock--editing' : ''].join(' ')}
+          style={dockStyle}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { const appId = e.dataTransfer.getData('text/plain'); if (appId) onDropApp(appId); }}
+          data-testid="dock-drop-target"
         >
-          {pinnedApps.map((app, i) => renderItem(app, false, i))}
-          {recentTabs.length > 0 && (
-            <>
-              <li aria-hidden="true"><span className="dock-separator" /></li>
-              {recentTabs.map((app, i) => renderItem(app, true, pinnedApps.length + i))}
-            </>
-          )}
-        </ul>
-      </nav>
-    </div>
+          <ul
+            ref={dockRef}
+            onMouseMove={editing ? undefined : (e) => setMouseX(e.clientX)}
+            onMouseLeave={editing ? undefined : () => { setMouseX(null); setSizes(allApps.map(() => BASE)); }}
+          >
+            {pinnedApps.map((app, i) => renderItem(app, false, i))}
+            {recentTabs.length > 0 && (
+              <>
+                <li aria-hidden="true"><span className="dock-separator" /></li>
+                {recentTabs.map((app, i) => renderItem(app, true, pinnedApps.length + i))}
+              </>
+            )}
+          </ul>
+        </nav>
+      </div>
+
+      {confirmApp && (
+        <DockDeleteConfirm
+          name={confirmApp.name}
+          onConfirm={() => { onUnpinApp(confirmId!); setConfirmId(null); }}
+          onCancel={() => setConfirmId(null)}
+        />
+      )}
+    </>
   );
 }
