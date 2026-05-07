@@ -179,6 +179,12 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
+  // Shared cell wrapper: not clickable itself, just positions children
+  const cellClass = [
+    'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
+    editing ? 'cursor-grab' : '',
+  ];
+
   return (
     <main
       ref={mainRef}
@@ -205,28 +211,21 @@ export function AppGrid({
           style={{ gridTemplateColumns, maxWidth: `${gridColumns * 7.5}rem`, minHeight: `${gridRows * 7.4}rem` }}
         >
           {items.map((item) => {
-            const commonClass = [
-              'group relative flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]',
-              editing ? 'cursor-grab' : '',
-              draggedId === item.id ? 'opacity-45' : '',
-            ].join(' ');
-
             if (item.kind === 'folder') {
               return (
-                <button
-                  key={item.id} type="button"
+                // Cell: full grid slot, not clickable itself
+                <div
+                  key={item.id}
+                  className={[...cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
                   draggable={editing}
                   onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.stopPropagation(); if (draggedId && draggedId !== item.id) onMoveToFolder(draggedId, item.folder.id); setDraggedId(null); }}
                   onPointerDown={(e) => setLongPress(e.currentTarget)}
-                  onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
-                  className={commonClass}
                   data-testid={`button-folder-${item.folder.id}`}
                 >
                   {editing && (
                     <>
-                      {/* Delete — top left */}
                       <button
                         type="button" aria-label="Delete folder"
                         onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
@@ -234,7 +233,6 @@ export function AppGrid({
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                      {/* Rename — top right */}
                       <button
                         type="button" aria-label="Rename folder"
                         onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
@@ -242,31 +240,35 @@ export function AppGrid({
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      {/* Grip icon removed — drag works on the whole cell */}
                     </>
                   )}
-                  <span className={editing ? 'animate-jiggle' : ''}>
-                    <FolderPreview apps={item.apps} />
-                  </span>
-                  <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
-                    {item.folder.name}
-                  </span>
-                </button>
+                  {/* Clickable area: icon + label only */}
+                  <button
+                    type="button"
+                    onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
+                    className="flex flex-col items-center gap-2 rounded-[1.6rem] transition duration-200 hover:bg-white/12 active:scale-[0.98] p-2"
+                  >
+                    <span className={editing ? 'animate-jiggle' : ''}>
+                      <FolderPreview apps={item.apps} />
+                    </span>
+                    <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+                      {item.folder.name}
+                    </span>
+                  </button>
+                </div>
               );
             }
 
             return (
-              <a
+              // Cell: full grid slot for drag/drop and edit controls, not clickable itself
+              <div
                 key={item.id}
-                href={editing ? undefined : item.app.url}
-                target="_blank" rel="noreferrer"
+                className={[...cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
                 draggable={editing}
                 onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.stopPropagation(); if (draggedId && draggedId !== item.id) onReorder(draggedId, item.id); setDraggedId(null); }}
                 onPointerDown={(e) => setLongPress(e.currentTarget)}
-                onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
-                className={commonClass}
                 data-testid={`link-app-${item.app.id}`}
               >
                 {editing && (
@@ -277,13 +279,21 @@ export function AppGrid({
                     onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
                   />
                 )}
-                <span className={editing ? 'animate-jiggle' : ''}>
-                  <AppIcon app={item.app} size="grid" />
-                </span>
-                <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
-                  {item.app.name}
-                </span>
-              </a>
+                {/* Clickable area: icon + label only */}
+                <a
+                  href={editing ? undefined : item.app.url}
+                  target="_blank" rel="noreferrer"
+                  onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
+                  className="flex flex-col items-center gap-2 rounded-[1.6rem] transition duration-200 hover:bg-white/12 active:scale-[0.98] p-2"
+                >
+                  <span className={editing ? 'animate-jiggle' : ''}>
+                    <AppIcon app={item.app} size="grid" />
+                  </span>
+                  <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+                    {item.app.name}
+                  </span>
+                </a>
+              </div>
             );
           })}
 
@@ -292,7 +302,7 @@ export function AppGrid({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onAddShortcut(null); }}
-                className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+                className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 data-testid="button-add-grid-shortcut"
               >
                 <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
@@ -303,7 +313,7 @@ export function AppGrid({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onAddFolder(); }}
-                className="flex min-h-[7.6rem] flex-col items-center justify-start gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+                className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 data-testid="button-add-folder"
               >
                 <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
@@ -339,13 +349,11 @@ export function AppGrid({
             </div>
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (
-                <a
-                  key={app.id} href={editing ? undefined : app.url}
-                  target="_blank" rel="noreferrer"
+                <div
+                  key={app.id}
+                  className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
                   draggable={editing}
                   onDragStart={(e) => { setDraggedId(app.id); e.dataTransfer.setData('text/plain', app.id); }}
-                  onClick={(e) => { if (editing) e.preventDefault(); }}
-                  className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12', editing ? 'cursor-grab' : ''].join(' ')}
                   data-testid={`folder-app-${app.id}`}
                 >
                   {editing && (
@@ -356,11 +364,18 @@ export function AppGrid({
                       onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
                     />
                   )}
-                  <span className={editing ? 'animate-jiggle' : ''}>
-                    <AppIcon app={app} size="grid" />
-                  </span>
-                  <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
-                </a>
+                  <a
+                    href={editing ? undefined : app.url}
+                    target="_blank" rel="noreferrer"
+                    onClick={(e) => { if (editing) e.preventDefault(); }}
+                    className="flex flex-col items-center gap-2 rounded-[1.4rem] transition duration-200 hover:bg-white/12 p-1"
+                  >
+                    <span className={editing ? 'animate-jiggle' : ''}>
+                      <AppIcon app={app} size="grid" />
+                    </span>
+                    <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
+                  </a>
+                </div>
               ))}
               {editing && (
                 <button

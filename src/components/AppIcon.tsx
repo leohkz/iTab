@@ -19,7 +19,6 @@ const monogramSizes = {
   mini: 'text-[0.62rem]',
 };
 
-// favicon fills 60% of slot — prevents icon looking too large in dock
 const faviconSizes = {
   grid: 'h-[62%] w-[62%]',
   dock: 'h-[60%] w-[60%]',
@@ -37,22 +36,42 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
   const iconSource = app.iconType === 'custom' ? app.iconValue : getFaviconUrl(app.iconValue || app.url);
   const accent = app.iconColor ?? autoAccent(app.url || app.name);
 
-  return (
-    <span
-      className={[
-        'relative flex shrink-0 items-center justify-center overflow-hidden border border-white/40 bg-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_18px_40px_rgba(17,24,39,0.22)]',
-        sizeClasses[size],
-      ].join(' ')}
-      style={{
+  // Dock icons are fully opaque — no glass/transparency
+  const isDock = size === 'dock';
+
+  const baseClass = [
+    'relative flex shrink-0 items-center justify-center overflow-hidden',
+    isDock
+      ? 'shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_4px_12px_rgba(17,24,39,0.3)]'
+      : 'border border-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_18px_40px_rgba(17,24,39,0.22)]',
+    sizeClasses[size],
+  ].join(' ');
+
+  const bgStyle: React.CSSProperties = isDock
+    ? {
+        // Fully opaque gradient — no alpha
+        background:
+          app.iconType === 'monogram' || failed
+            ? `linear-gradient(135deg, color-mix(in oklab, ${accent} 22%, white), color-mix(in oklab, ${accent} 78%, #111827))`
+            : `linear-gradient(135deg, color-mix(in oklab, ${accent} 18%, white), color-mix(in oklab, ${accent} 55%, white))`,
+        isolation: 'isolate',
+        transform: 'translateZ(0)',
+        willChange: 'transform',
+      }
+    : {
         background:
           app.iconType === 'monogram' || failed
             ? `linear-gradient(135deg, color-mix(in oklab, ${accent} 18%, white), color-mix(in oklab, ${accent} 72%, #111827))`
             : `linear-gradient(135deg, color-mix(in oklab, ${accent} 16%, white), rgba(255,255,255,.55))`,
-        // Force GPU compositing layer — prevents subpixel colour bleed outside rounded corners
         isolation: 'isolate',
         transform: 'translateZ(0)',
         willChange: 'transform',
-      }}
+      };
+
+  return (
+    <span
+      className={baseClass}
+      style={bgStyle}
       data-testid={`icon-${app.id}`}
     >
       {!failed ? (
