@@ -118,13 +118,19 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   const progressPath = progress > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
   const activeColor = isBreak ? '#34d399' : '#0f172a';
 
-  const HEIGHT = Math.round(SIZE * 0.78);
+  // HEIGHT trims the bottom gap of the dial (the 120° open gap faces downward)
+  // We clip only the very bottom portion — the arc itself must not be cut off.
+  // The lowest point of the arc sits at cy + R ≈ 142px, so we use SIZE as height
+  // and rely on the SVG viewBox to keep the arc fully visible.
+  const HEIGHT = SIZE; // full height — no clipping of the arc
 
   return (
-    <div style={{ position: 'relative', width: SIZE, height: HEIGHT, overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: SIZE, height: HEIGHT }}>
       <svg
-        width={SIZE} height={SIZE}
-        style={{ position: 'absolute', top: 0, left: 0 }}
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }}
         aria-hidden="true"
       >
         <path d={trackPath} fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth={STROKE} strokeLinecap="round" />
