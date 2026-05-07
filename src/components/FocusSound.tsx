@@ -141,12 +141,6 @@ class SoundscapeEngine {
 const engine = new SoundscapeEngine();
 
 // ── WebviewPlayer ─────────────────────────────────────────────────────────
-// Uses Chrome Extension <webview> tag instead of <iframe>.
-// <webview> runs in its own browser context — YouTube sees a normal https
-// request instead of chrome-extension://, bypassing Error 153.
-// visible=false → off-screen 1×1 webview keeps audio alive.
-// key=link.id   → forces remount on track change, triggering autoplay.
-// ─────────────────────────────────────────────────────────────────────────
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -168,7 +162,6 @@ export function PersistentEmbedPlayer({
   const displayLink = link ?? prevLinkRef.current;
   if (link) prevLinkRef.current = link;
 
-  // Portal container for off-screen hidden player
   if (!portalRef.current) {
     const div = document.createElement('div');
     div.style.cssText =
@@ -193,8 +186,6 @@ export function PersistentEmbedPlayer({
 
   if (!embedSrc) return null;
 
-  // Use <webview> in extension context to bypass chrome-extension origin block.
-  // Fall back to <iframe> if webview is not available (e.g. dev server).
   const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
 
   const playerEl = isExtension ? (
@@ -207,7 +198,7 @@ export function PersistentEmbedPlayer({
         border: 'none',
         borderRadius: visible ? '16px' : '0',
       }}
-      allowpopups="false"
+      allowpopups={false}
     />
   ) : (
     <iframe
