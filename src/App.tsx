@@ -9,10 +9,11 @@ import { SpotlightSearch } from './components/SpotlightSearch';
 import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
 import { Widgets, FocusModeOverlay } from './components/Widgets';
+import { AiPortalBar } from './components/AiPortalBar';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
-import { DEFAULT_SPACES, DEFAULT_TODO_LISTS } from './types';
+import { DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS } from './types';
 
 type EditorState = {
   open: boolean;
@@ -64,6 +65,7 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
     pinnedIds:     config.pinnedIds     ?? fallback.pinnedIds,
     searchEngines: config.searchEngines ?? fallback.searchEngines,
     prompts:       config.prompts       ?? fallback.prompts,
+    aiPortals:     (config.aiPortals && config.aiPortals.length > 0) ? config.aiPortals : [...DEFAULT_AI_PORTALS],
     widgets,
     experiments: { ...fallback.experiments, ...(config.experiments ?? {}) },
   };
@@ -88,10 +90,14 @@ function NewTab() {
   const t = useMemo(() => createTranslator(config.locale), [config.locale]);
   const editingApp = config.apps.find((app) => app.id === editor.appId) ?? null;
 
-  // Use spaces from config (with fallback to DEFAULT_SPACES)
   const spaces: Space[] = useMemo(
     () => (config.spaces && config.spaces.length > 0) ? config.spaces : [...DEFAULT_SPACES],
     [config.spaces],
+  );
+
+  const aiPortals = useMemo(
+    () => config.aiPortals && config.aiPortals.length > 0 ? config.aiPortals : [...DEFAULT_AI_PORTALS],
+    [config.aiPortals],
   );
 
   const pinnedApps = useMemo(
@@ -292,7 +298,6 @@ function NewTab() {
 
   const handleWidgetsChange = (widgets: WidgetState) => updateConfig({ ...config, widgets });
 
-  // ── Spaces CRUD ───────────────────────────────────────────────────────
   const addSpace = (name: string, accent: string) => {
     const id = `space-${Date.now().toString(36)}`;
     const newSpace: Space = { id, name: name.trim(), accent };
@@ -347,6 +352,9 @@ function NewTab() {
         }}
         onWidgetsChange={handleWidgetsChange}
       />
+
+      {/* AI Portal hover bar — above Prompt Book */}
+      <AiPortalBar portals={aiPortals} />
 
       <button
         type="button"

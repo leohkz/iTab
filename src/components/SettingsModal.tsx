@@ -1,8 +1,9 @@
-import { Database, Download, FlaskConical, LayoutGrid, Layers, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
+import { BotMessageSquare, Database, Download, FlaskConical, LayoutGrid, Layers, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import type { AppConfig, Locale, SearchEngine, SearchEngineId, Space, ThemeName } from '../types';
+import type { AppConfig, AiPortal, Locale, SearchEngine, SearchEngineId, Space, ThemeName } from '../types';
 import { SPACE_ACCENTS } from '../types';
 import type { TranslationKey } from '../i18n';
+import { AiPortalSettingsPanel } from './AiPortalBar';
 
 type SettingsModalProps = {
   open: boolean;
@@ -26,6 +27,7 @@ const categories = [
   { id: 'layout',     key: 'layout',     icon: LayoutGrid },
   { id: 'spaces',     key: 'spaces',     icon: Layers },
   { id: 'search',     key: 'search',     icon: Search },
+  { id: 'aiportals',  key: 'aiportals',  icon: BotMessageSquare },
   { id: 'data',       key: 'data',       icon: Database },
   { id: 'experiments',key: 'experiments',icon: FlaskConical },
 ] as const;
@@ -112,13 +114,11 @@ function SpacesPanel({
 
   return (
     <div className="grid gap-4">
-      {/* Space list */}
       <div className="rounded-2xl bg-white p-4 shadow-sm">
         <h4 className="mb-3 font-black">Spaces</h4>
         <div className="grid gap-2">
           {spaces.map((space) => (
             <div key={space.id} className="flex items-center gap-3 rounded-xl bg-slate-950/5 px-3 py-2.5">
-              {/* Colour dot + picker */}
               <div className="relative flex-shrink-0">
                 <div className={`h-7 w-7 rounded-full bg-gradient-to-br ${space.accent}`} />
                 <select
@@ -132,8 +132,6 @@ function SpacesPanel({
                   ))}
                 </select>
               </div>
-
-              {/* Name (editable) */}
               {editingId === space.id ? (
                 <input
                   autoFocus
@@ -152,8 +150,6 @@ function SpacesPanel({
                   {space.name}
                 </span>
               )}
-
-              {/* Rename button */}
               <button
                 type="button"
                 onClick={() => startEdit(space)}
@@ -161,8 +157,6 @@ function SpacesPanel({
               >
                 改名
               </button>
-
-              {/* Delete button */}
               <button
                 type="button"
                 onClick={() => onDelete(space.id)}
@@ -176,12 +170,9 @@ function SpacesPanel({
           ))}
         </div>
       </div>
-
-      {/* Add new space */}
       <div className="rounded-2xl bg-white p-4 shadow-sm">
         <h4 className="mb-3 font-black">新增 Space</h4>
         <div className="flex items-center gap-2">
-          {/* Accent colour picker */}
           <div className="relative flex-shrink-0">
             <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${newAccent}`} />
             <select
@@ -277,7 +268,7 @@ export function SettingsModal({
                   className={['flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black transition duration-200', active === cat.id ? 'bg-slate-950/10 text-slate-950' : 'text-slate-600 hover:bg-slate-950/6'].join(' ')}
                   data-testid={`button-settings-${cat.id}`}>
                   <cat.icon className="h-4 w-4" />
-                  {cat.id === 'spaces' ? 'Spaces' : t(cat.key as TranslationKey)}
+                  {cat.id === 'spaces' ? 'Spaces' : cat.id === 'aiportals' ? 'AI 入口' : t(cat.key as TranslationKey)}
                 </button>
               ))}
             </nav>
@@ -286,7 +277,9 @@ export function SettingsModal({
           <div className="overflow-auto bg-[#f6f2ea] p-6">
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">{active === 'spaces' ? 'SPACES' : t(title as TranslationKey)}</p>
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">
+                  {active === 'spaces' ? 'SPACES' : active === 'aiportals' ? 'AI 入口' : t(title as TranslationKey)}
+                </p>
                 <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h3>
               </div>
               <button type="button" aria-label={t('settings')} onClick={onClose}
@@ -414,6 +407,13 @@ export function SettingsModal({
                   </button>
                 </div>
               </div>
+            )}
+
+            {active === 'aiportals' && (
+              <AiPortalSettingsPanel
+                portals={config.aiPortals ?? []}
+                onChange={(portals: AiPortal[]) => onConfigChange({ ...config, aiPortals: portals })}
+              />
             )}
 
             {active === 'data' && (
