@@ -13,7 +13,7 @@ import { AiPortalBar } from './components/AiPortalBar';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
-import { DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS } from './types';
+import { DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS, AI_PORTAL_SIZE_DEFAULT } from './types';
 
 type EditorState = {
   open: boolean;
@@ -364,8 +364,12 @@ function NewTab() {
         onWidgetsChange={handleWidgetsChange}
       />
 
-      {/* AI Portal hover bar */}
-      <AiPortalBar portals={aiPortals} glass={config.glass} />
+      {/* AI Portal hover bar — size driven by config.aiPortalSize */}
+      <AiPortalBar
+        portals={aiPortals}
+        glass={config.glass}
+        size={config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT}
+      />
 
       {/* Prompt Book button */}
       <button
