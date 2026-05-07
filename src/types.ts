@@ -126,7 +126,12 @@ export interface AiPortal {
   id: string;
   name: string;
   url: string;
-  /** emoji or single char, e.g. '🤖'; or a favicon URL starting with http */
+  /**
+   * Icon source. Priority:
+   *  1. 'auto'           → fetch favicon via Google S2 service
+   *  2. URL (http/https) → use directly as <img src>
+   *  3. emoji/char       → render as text (legacy fallback)
+   */
   icon: string;
   enabled: boolean;
   builtIn?: boolean;
@@ -134,24 +139,28 @@ export interface AiPortal {
 
 export const DEFAULT_AI_PORTALS: AiPortal[] = [
   // International
-  { id: 'chatgpt',    name: 'ChatGPT',      url: 'https://chat.openai.com',           icon: '🤖', enabled: true,  builtIn: true },
-  { id: 'claude',     name: 'Claude',       url: 'https://claude.ai',                 icon: '🧠', enabled: true,  builtIn: true },
-  { id: 'gemini',     name: 'Gemini',       url: 'https://gemini.google.com',         icon: '✨', enabled: true,  builtIn: true },
-  { id: 'perplexity', name: 'Perplexity',   url: 'https://www.perplexity.ai',         icon: '🔍', enabled: true,  builtIn: true },
-  { id: 'grok',       name: 'Grok',         url: 'https://grok.x.ai',                 icon: '⚡', enabled: true,  builtIn: true },
-  { id: 'copilot',    name: 'Copilot',      url: 'https://copilot.microsoft.com',     icon: '🪟', enabled: true,  builtIn: true },
-  { id: 'mistral',    name: 'Mistral',      url: 'https://chat.mistral.ai',           icon: '🌬️', enabled: false, builtIn: true },
-  { id: 'meta-ai',    name: 'Meta AI',      url: 'https://www.meta.ai',               icon: '🔵', enabled: false, builtIn: true },
+  { id: 'chatgpt',    name: 'ChatGPT',      url: 'https://chat.openai.com',           icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'claude',     name: 'Claude',       url: 'https://claude.ai',                 icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'gemini',     name: 'Gemini',       url: 'https://gemini.google.com',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'perplexity', name: 'Perplexity',   url: 'https://www.perplexity.ai',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'grok',       name: 'Grok',         url: 'https://grok.x.ai',                 icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'copilot',    name: 'Copilot',      url: 'https://copilot.microsoft.com',     icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'mistral',    name: 'Mistral',      url: 'https://chat.mistral.ai',           icon: 'auto', enabled: false, builtIn: true },
+  { id: 'meta-ai',    name: 'Meta AI',      url: 'https://www.meta.ai',               icon: 'auto', enabled: false, builtIn: true },
   // 中國大陸
-  { id: 'deepseek',   name: 'DeepSeek',     url: 'https://chat.deepseek.com',         icon: '🐋', enabled: true,  builtIn: true },
-  { id: 'kimi',       name: 'Kimi',         url: 'https://kimi.moonshot.cn',          icon: '🌙', enabled: true,  builtIn: true },
-  { id: 'wenxin',     name: '文心一言',      url: 'https://yiyan.baidu.com',           icon: '🌊', enabled: true,  builtIn: true },
-  { id: 'tongyi',     name: '通義千問',      url: 'https://tongyi.aliyun.com',         icon: '🔶', enabled: true,  builtIn: true },
-  { id: 'doubao',     name: '豆包',          url: 'https://www.doubao.com',            icon: '🫘', enabled: true,  builtIn: true },
-  { id: 'zhipu',      name: '智譜清言',      url: 'https://chatglm.cn',               icon: '🧊', enabled: false, builtIn: true },
-  { id: 'hailuo',     name: '海螺AI',        url: 'https://hailuoai.com',             icon: '🐚', enabled: false, builtIn: true },
-  { id: 'spark',      name: '訊飛星火',      url: 'https://xinghuo.xfyun.cn',         icon: '🔥', enabled: false, builtIn: true },
+  { id: 'deepseek',   name: 'DeepSeek',     url: 'https://chat.deepseek.com',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'kimi',       name: 'Kimi',         url: 'https://kimi.moonshot.cn',          icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'wenxin',     name: '文心一言',      url: 'https://yiyan.baidu.com',           icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'tongyi',     name: '通義千問',      url: 'https://tongyi.aliyun.com',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'doubao',     name: '豆包',          url: 'https://www.doubao.com',            icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'zhipu',      name: '智譜清言',      url: 'https://chatglm.cn',               icon: 'auto', enabled: false, builtIn: true },
+  { id: 'hailuo',     name: '海螺AI',        url: 'https://hailuoai.com',             icon: 'auto', enabled: false, builtIn: true },
+  { id: 'spark',      name: '訊飛星火',      url: 'https://xinghuo.xfyun.cn',         icon: 'auto', enabled: false, builtIn: true },
 ];
+
+/** AI portal button size: 'sm' | 'md' | 'lg' | 'xl' */
+export type AiPortalSize = 'sm' | 'md' | 'lg' | 'xl';
+export const AI_PORTAL_SIZE_DEFAULT: AiPortalSize = 'lg';
 
 export interface AppConfig {
   spaces?: Space[];
@@ -172,6 +181,7 @@ export interface AppConfig {
   widgets: WidgetState;
   prompts: Prompt[];
   aiPortals?: AiPortal[];
+  aiPortalSize?: AiPortalSize;
   experiments: {
     smartRecommendations: boolean;
     recentVisits: boolean;
