@@ -48,6 +48,10 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
           app.iconType === 'monogram' || failed
             ? `linear-gradient(135deg, color-mix(in oklab, ${accent} 18%, white), color-mix(in oklab, ${accent} 72%, #111827))`
             : `linear-gradient(135deg, color-mix(in oklab, ${accent} 16%, white), rgba(255,255,255,.55))`,
+        // Force GPU compositing layer — prevents subpixel colour bleed outside rounded corners
+        isolation: 'isolate',
+        transform: 'translateZ(0)',
+        willChange: 'transform',
       }}
       data-testid={`icon-${app.id}`}
     >
