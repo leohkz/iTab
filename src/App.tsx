@@ -75,6 +75,17 @@ function isChromeExtensionApiAvailable() {
   return typeof chrome !== 'undefined' && Boolean(chrome.storage?.local);
 }
 
+// ── Glass style helper (shared with left-side buttons in App) ────────────────
+function glassBtn(glass: number, active = false): React.CSSProperties {
+  const alpha = Math.min(0.40, Math.max(0.08, glass / 280)) * (active ? 1.8 : 1);
+  const blur  = Math.round(4 + glass / 10);
+  return {
+    backgroundColor: `rgba(255,255,255,${alpha})`,
+    backdropFilter: `blur(${blur}px)`,
+    WebkitBackdropFilter: `blur(${blur}px)`,
+  };
+}
+
 function NewTab() {
   const [config, setConfig] = useState<AppConfig>(() => cloneDefaultConfig());
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -353,17 +364,16 @@ function NewTab() {
         onWidgetsChange={handleWidgetsChange}
       />
 
-      {/* AI Portal hover bar — above Prompt Book */}
-      <AiPortalBar portals={aiPortals} />
+      {/* AI Portal hover bar */}
+      <AiPortalBar portals={aiPortals} glass={config.glass} />
 
+      {/* Prompt Book button */}
       <button
         type="button"
         onClick={() => setShowPrompts((v) => !v)}
         aria-label={t('promptLibrary')}
-        className={[
-          'fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg backdrop-blur-md transition hover:text-white',
-          showPrompts ? 'bg-white/28' : 'bg-white/12 hover:bg-white/20',
-        ].join(' ')}
+        className="fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg transition hover:text-white"
+        style={glassBtn(config.glass, showPrompts)}
       >
         <BookMarked className="h-5 w-5" aria-hidden="true" />
         <span

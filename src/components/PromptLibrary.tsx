@@ -91,7 +91,6 @@ function PromptCard({
       className="group relative flex flex-col overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(15,23,42,0.16)]"
       style={{ animation: 'fadeInUp 0.28s ease both' }}
     >
-      {/* Image */}
       {prompt.imageUrl ? (
         <img src={prompt.imageUrl} alt={prompt.title} className="h-32 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : (
@@ -99,12 +98,8 @@ function PromptCard({
           <span className="text-3xl opacity-25">✨</span>
         </div>
       )}
-
-      {/* Body */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="text-sm font-black leading-tight text-slate-900">{prompt.title}</h3>
-
-        {/* Tags */}
         {prompt.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {prompt.tags.map((tag) => (
@@ -118,12 +113,8 @@ function PromptCard({
             ))}
           </div>
         )}
-
-        {/* Content preview — solid dark text */}
         <p className="line-clamp-3 text-xs font-medium leading-relaxed text-slate-700">{prompt.content}</p>
       </div>
-
-      {/* Action bar */}
       <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5">
         <div className="flex gap-1">
           <button
@@ -164,12 +155,21 @@ type PromptLibraryProps = {
   onDelete: (id: string) => void;
 };
 
-export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: PromptLibraryProps) {
+export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDelete }: PromptLibraryProps) {
   const [search, setSearch] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // glass-driven panel background: blend white opacity with blur from setting
+  const panelAlpha = Math.min(0.98, Math.max(0.82, glass / 100));
+  const panelBlur  = Math.round(8 + glass / 8);
+  const panelStyle: React.CSSProperties = {
+    background: `rgba(255,255,255,${panelAlpha})`,
+    backdropFilter: `blur(${panelBlur}px)`,
+    WebkitBackdropFilter: `blur(${panelBlur}px)`,
+  };
 
   const allTags = useMemo(() => {
     const map = new Map<string, PromptTag>();
@@ -197,20 +197,17 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
 
   return (
     <>
-      {/* ── Overlay backdrop ── */}
       <div
         className="fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-md"
         style={{ animation: 'fadeIn 0.2s ease' }}
         onClick={onClose}
       />
 
-      {/* ── Panel — centred, full height minus topbar ── */}
       <div
-        className="fixed inset-x-4 bottom-4 top-20 z-[61] flex flex-col overflow-hidden rounded-[2rem] border border-white/25 bg-white/95 shadow-[0_24px_80px_rgba(15,23,42,0.35)] backdrop-blur-2xl"
-        style={{ animation: 'slideUp 0.28s cubic-bezier(0.34,1.3,0.64,1)' }}
+        className="fixed inset-x-4 bottom-4 top-20 z-[61] flex flex-col overflow-hidden rounded-[2rem] border border-white/25 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+        style={{ ...panelStyle, animation: 'slideUp 0.28s cubic-bezier(0.34,1.3,0.64,1)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="text-xl">✨</span>
@@ -234,7 +231,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
           </div>
         </div>
 
-        {/* Search + Tags */}
         <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-100 px-6 py-3">
           <div className="flex min-w-[14rem] items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-400">
             <Search className="h-4 w-4 shrink-0" />
@@ -245,8 +241,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
             />
             {search && <button type="button" onClick={() => setSearch('')} className="shrink-0 text-slate-400 hover:text-slate-700"><X className="h-3.5 w-3.5" /></button>}
           </div>
-
-          {/* All pill */}
           <button
             type="button"
             onClick={() => setActiveTag(null)}
@@ -254,7 +248,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
           >
             {t('allTags')}
           </button>
-
           {allTags.map((tag) => (
             <TagPill
               key={tag.label}
@@ -265,7 +258,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
           ))}
         </div>
 
-        {/* Grid */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
           {filtered.length === 0 ? (
             <div className="flex h-40 items-center justify-center text-sm font-bold text-slate-400">{t('noPrompts')}</div>
@@ -290,7 +282,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
         </div>
       </div>
 
-      {/* Delete confirm */}
       {deletingPrompt && (
         <DeleteConfirm
           title={deletingPrompt.title}
@@ -300,7 +291,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
         />
       )}
 
-      {/* Editor */}
       {editorOpen && (
         <PromptEditor
           open={editorOpen}
@@ -314,7 +304,6 @@ export function PromptLibrary({ prompts, t, onClose, onAdd, onEdit, onDelete }: 
         />
       )}
 
-      {/* Keyframe styles */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(32px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
