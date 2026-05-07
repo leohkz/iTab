@@ -33,7 +33,7 @@ export function defaultFocusSoundState(): FocusSoundState {
   };
 }
 
-// ── SVG Icons ─────────────────────────────────────────────────────────
+// ── SVG Icons ──────────────────────────────────────────────────────────
 const SoundIcons: Record<string, React.ReactElement> = {
   rain: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2a7 7 0 0 0-7 7c0 .34.03.67.07 1H5a4 4 0 0 0 0 8h1.5l-1 3h2l1-3h5l-1 3h2l1-3H17a4 4 0 0 0 0-8h-.07A7 7 0 0 0 12 2z"/></svg>),
   cafe: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M2 21h18v-2H2v2zM20 8h-2V5h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2zm-4-5H4v10a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V3z"/></svg>),
@@ -104,7 +104,8 @@ function getSpotifyEmbed(url: string) {
 function getYoutubeEmbed(url: string) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1`;
+  // youtube-nocookie.com bypasses the referrer restriction that causes error 153 in extensions
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1`;
 }
 function getThumbnail(link: MediaLink) {
   if (link.thumbnail) return link.thumbnail;
@@ -139,7 +140,7 @@ class SoundscapeEngine {
 }
 const engine = new SoundscapeEngine();
 
-// ── PersistentEmbedPlayer (iframe only) ─────────────────────────────────
+// ── PersistentEmbedPlayer ──────────────────────────────────────────────
 export function PersistentEmbedPlayer({ link, visible }: { link: MediaLink | null; visible: boolean }) {
   const prevLinkRef = useRef<MediaLink | null>(null);
   const portalRef = useRef<HTMLDivElement | null>(null);
@@ -171,6 +172,7 @@ export function PersistentEmbedPlayer({ link, visible }: { link: MediaLink | nul
       src={embedSrc}
       width="100%"
       height="100%"
+      referrerPolicy="strict-origin-when-cross-origin"
       allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
       allowFullScreen
       style={{ border: 'none', borderRadius: visible ? '12px' : '0', display: 'block', backgroundColor: '#000' }}
@@ -182,7 +184,7 @@ export function PersistentEmbedPlayer({ link, visible }: { link: MediaLink | nul
   return createPortal(iframeEl, portalRef.current!);
 }
 
-// ── SoundscapeGrid — minimal square buttons ─────────────────────────────
+// ── SoundscapeGrid — minimal square buttons ────────────────────────────
 function SoundscapeGrid({ volumes, onChange }: { volumes: Record<string, number>; onChange: (id: string, vol: number) => void }) {
   return (
     <div className="grid grid-cols-4 gap-2 p-4">
@@ -191,7 +193,6 @@ function SoundscapeGrid({ volumes, onChange }: { volumes: Record<string, number>
         const active = vol > 0;
         return (
           <div key={s.id} className="flex flex-col items-center gap-1.5">
-            {/* Square button */}
             <button
               onClick={() => onChange(s.id, active ? 0 : 0.6)}
               style={{
@@ -213,21 +214,13 @@ function SoundscapeGrid({ volumes, onChange }: { volumes: Record<string, number>
               {SoundIcons[s.id]}
               <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.02em', color: 'inherit', lineHeight: 1 }}>{s.label}</span>
             </button>
-            {/* Volume bar — thick rounded line, only visible when active */}
             <div style={{ width: '100%', height: active ? 'auto' : 0, overflow: 'hidden', transition: 'all 0.2s' }}>
               {active && (
                 <input
                   type="range" min="0" max="1" step="0.01"
                   value={vol}
                   onChange={e => onChange(s.id, Number(e.target.value))}
-                  style={{
-                    width: '100%',
-                    height: '4px',
-                    cursor: 'pointer',
-                    accentColor: '#fff',
-                    borderRadius: '99px',
-                    display: 'block',
-                  }}
+                  style={{ width: '100%', height: '4px', cursor: 'pointer', accentColor: '#fff', borderRadius: '99px', display: 'block' }}
                 />
               )}
             </div>
