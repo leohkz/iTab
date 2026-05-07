@@ -35,45 +35,21 @@ export function defaultFocusSoundState(): FocusSoundState {
 
 // ── Open-source SVG icons (inline) ────────────────────────────────────
 const SoundIcons: Record<string, React.ReactElement> = {
-  rain: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2a7 7 0 0 0-7 7c0 .34.03.67.07 1H5a4 4 0 0 0 0 8h1.5l-1 3h2l1-3h5l-1 3h2l1-3H17a4 4 0 0 0 0-8h-.07A7 7 0 0 0 12 2z"/></svg>
-  ),
-  cafe: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M2 21h18v-2H2v2zM20 8h-2V5h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2zm-4-5H4v10a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V3z"/></svg>
-  ),
-  forest: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2L6 10h3v2H7l5 5 5-5h-2v-2h3L12 2zM9 20h6v2H9v-2z"/></svg>
-  ),
-  ocean: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 18c1.5 0 3-1 4.5-1s3 1 4.5 1 3-1 4.5-1 3 1 4.5 1v-2c-1.5 0-3-1-4.5-1s-3 1-4.5 1-3-1-4.5-1-3 1-4.5 1v2zm0-4c1.5 0 3-1 4.5-1s3 1 4.5 1 3-1 4.5-1 3 1 4.5 1v-2c-1.5 0-3-1-4.5-1s-3 1-4.5 1-3-1-4.5-1-3 1-4.5 1v2zM12 6l-3 4h6l-3-4z"/></svg>
-  ),
-  fire: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/></svg>
-  ),
-  wind: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 8h10a2 2 0 1 0-2-2M3 12h14a2 2 0 1 0-2-2M3 16h8a2 2 0 1 0-2 2"/></svg>
-  ),
-  birds: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M21 7c0 2.21-3.58 4-8 4S5 9.21 5 7s3.58-4 8-4 8 1.79 8 4zM5 7v10l8 3 8-3V7c-1.64 1.22-4.6 2-8 2S6.64 8.22 5 7z"/></svg>
-  ),
-  thunder: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M19 2H9L7 12h4l-3 10 11-12h-5l3-8z"/></svg>
-  ),
-  whitenoise: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 3h2v2H3V3zm4 0h2v2H7V3zm4 0h2v2h-2V3zm4 0h2v2h-2V3zm4 0h2v2h-2V3zM3 7h2v2H3V7zm4 0h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM3 11h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM3 15h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM3 19h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/></svg>
-  ),
-  creek: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 18c1.5-1 3-1.5 4.5-1S10.5 18 12 18s3-1 4.5-1.5S19 17 21 18v-3c-1.5-1-3-1.5-4.5-1S13.5 15 12 15s-3-1-4.5-1.5S4.5 14 3 15v3zm0-6c1.5-1 3-1.5 4.5-1S10.5 12 12 12s3-1 4.5-1.5S19 11 21 12V9c-1.5-1-3-1.5-4.5-1S13.5 9 12 9s-3-1-4.5-1.5S4.5 8 3 9v3z"/></svg>
-  ),
-  keyboard: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H7v-2h10v2zm0-5h-2v-2h2v2zm0-3h-2V8h2v2zm2 8h-2v-2h2v2z"/></svg>
-  ),
-  binaural: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h2v-8H5v-1a7 7 0 0 1 14 0v1h-2v8h2a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"/></svg>
-  ),
+  rain: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2a7 7 0 0 0-7 7c0 .34.03.67.07 1H5a4 4 0 0 0 0 8h1.5l-1 3h2l1-3h5l-1 3h2l1-3H17a4 4 0 0 0 0-8h-.07A7 7 0 0 0 12 2z"/></svg>),
+  cafe: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M2 21h18v-2H2v2zM20 8h-2V5h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2zm-4-5H4v10a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V3z"/></svg>),
+  forest: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2L6 10h3v2H7l5 5 5-5h-2v-2h3L12 2zM9 20h6v2H9v-2z"/></svg>),
+  ocean: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 18c1.5 0 3-1 4.5-1s3 1 4.5 1 3-1 4.5-1 3 1 4.5 1v-2c-1.5 0-3-1-4.5-1s-3 1-4.5 1-3-1-4.5-1-3 1-4.5 1v2zm0-4c1.5 0 3-1 4.5-1s3 1 4.5 1 3-1 4.5-1 3 1 4.5 1v-2c-1.5 0-3-1-4.5-1s-3 1-4.5 1-3-1-4.5-1-3 1-4.5 1v2zM12 6l-3 4h6l-3-4z"/></svg>),
+  fire: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/></svg>),
+  wind: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 8h10a2 2 0 1 0-2-2M3 12h14a2 2 0 1 0-2-2M3 16h8a2 2 0 1 0-2 2"/></svg>),
+  birds: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M21 7c0 2.21-3.58 4-8 4S5 9.21 5 7s3.58-4 8-4 8 1.79 8 4zM5 7v10l8 3 8-3V7c-1.64 1.22-4.6 2-8 2S6.64 8.22 5 7z"/></svg>),
+  thunder: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M19 2H9L7 12h4l-3 10 11-12h-5l3-8z"/></svg>),
+  whitenoise: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 3h2v2H3V3zm4 0h2v2H7V3zm4 0h2v2h-2V3zm4 0h2v2h-2V3zm4 0h2v2h-2V3zM3 7h2v2H3V7zm4 0h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM3 11h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM3 15h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM3 19h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/></svg>),
+  creek: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 18c1.5-1 3-1.5 4.5-1S10.5 18 12 18s3-1 4.5-1.5S19 17 21 18v-3c-1.5-1-3-1.5-4.5-1S13.5 15 12 15s-3-1-4.5-1.5S4.5 14 3 15v3zm0-6c1.5-1 3-1.5 4.5-1S10.5 12 12 12s3-1 4.5-1.5S19 11 21 12V9c-1.5-1-3-1.5-4.5-1S13.5 9 12 9s-3-1-4.5-1.5S4.5 8 3 9v3z"/></svg>),
+  keyboard: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H7v-2h10v2zm0-5h-2v-2h2v2zm0-3h-2V8h2v2zm2 8h-2v-2h2v2z"/></svg>),
+  binaural: (<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h2v-8H5v-1a7 7 0 0 1 14 0v1h-2v8h2a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"/></svg>),
 };
 
-// ── Soundscapes ──────────────────────────────────────────────────────────
+// ── Soundscapes data ──────────────────────────────────────────────────────
 const SOUNDSCAPES = [
   { id: 'rain',       label: '下雨',     color: '#3b82f6', url: 'https://cdn.pixabay.com/audio/2022/05/13/audio_1b2571cd4c.mp3' },
   { id: 'cafe',       label: '咖啡廳',   color: '#92400e', url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_fef4d6ca8d.mp3' },
@@ -127,7 +103,9 @@ function getSpotifyEmbed(url: string) {
 }
 function getYoutubeEmbed(url: string) {
   const id = getYoutubeId(url);
-  return id ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` : null;
+  if (!id) return null;
+  // playsinline=1 防止「請前往YouTube」警告；origin 必須跟擴展與頁面相同
+  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`;
 }
 function getThumbnail(link: MediaLink) {
   if (link.thumbnail) return link.thumbnail;
@@ -138,7 +116,7 @@ function getThumbnail(link: MediaLink) {
   return null;
 }
 
-// ── Audio engine ─────────────────────────────────────────────────────────
+// ── Audio engine (soundscapes) ───────────────────────────────────────────
 class SoundscapeEngine {
   private nodes = new Map<string, HTMLAudioElement>();
   setVolume(id: string, url: string, vol: number) {
@@ -162,6 +140,59 @@ class SoundscapeEngine {
 }
 const engine = new SoundscapeEngine();
 
+// ── PersistentEmbedPlayer
+// iframe 永遠在 DOM 裡，關闭彈窗只是隱藏，不會停止播放
+// ─────────────────────────────────────────────────────────────
+export function PersistentEmbedPlayer({
+  link, visible,
+}: {
+  link: MediaLink | null;
+  visible: boolean;
+}) {
+  const prevLinkRef = useRef<MediaLink | null>(null);
+  // Keep the last active link so iframe doesn’t blank when panel closes
+  const displayLink = link ?? prevLinkRef.current;
+  if (link) prevLinkRef.current = link;
+
+  if (!displayLink) return null;
+
+  const embedSrc = displayLink.type === 'spotify'
+    ? getSpotifyEmbed(displayLink.url)
+    : getYoutubeEmbed(displayLink.url);
+
+  if (!embedSrc) return null;
+
+  const isYoutube = displayLink.type === 'youtube';
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        // Visible: inside panel area; hidden: pushed off-screen but still alive
+        bottom: visible ? 'auto' : '-9999px',
+        left: visible ? 'auto' : '-9999px',
+        // When visible, rendered inline — parent controls layout
+        pointerEvents: visible ? 'auto' : 'none',
+        zIndex: visible ? 'auto' : -1,
+        width: visible ? '100%' : '1px',
+        height: visible ? '100%' : '1px',
+        opacity: visible ? 1 : 0,
+      }}
+    >
+      <iframe
+        key={displayLink.id}
+        src={embedSrc}
+        width="100%"
+        height="100%"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        allowFullScreen={isYoutube}
+        style={{ border: 'none', borderRadius: '16px' }}
+        title={displayLink.title}
+      />
+    </div>
+  );
+}
+
 // ── SoundscapeGrid ───────────────────────────────────────────────────────────
 function SoundscapeGrid({
   volumes, onChange,
@@ -184,10 +215,7 @@ function SoundscapeGrid({
               outline: active ? `2px solid ${s.color}88` : '2px solid transparent',
             }}
           >
-            <div
-              className="h-1 w-full transition-all"
-              style={{ background: active ? s.color : 'rgba(255,255,255,0.10)' }}
-            />
+            <div className="h-1 w-full transition-all" style={{ background: active ? s.color : 'rgba(255,255,255,0.10)' }} />
             <button
               onClick={() => onChange(s.id, active ? 0 : 0.6)}
               className="flex items-center justify-center py-3 px-1 w-full"
@@ -214,7 +242,7 @@ function SoundscapeGrid({
   );
 }
 
-// ── MediaGrid: square (1:1) cards ────────────────────────────────────
+// ── MediaGrid ─────────────────────────────────────────────────────────────
 function MediaGrid({
   items, activeId, onSelect, onDelete,
 }: {
@@ -258,29 +286,6 @@ function MediaGrid({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ── EmbedPlayer ─────────────────────────────────────────────────────────────
-function EmbedPlayer({ link }: { link: MediaLink | null }) {
-  if (!link) return null;
-  if (link.type === 'spotify') {
-    return (
-      <div className="mx-4 mb-1 mt-3 rounded-2xl overflow-hidden">
-        <iframe key={link.id} src={getSpotifyEmbed(link.url)} width="100%" height="152"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          className="rounded-2xl" title={link.title} />
-      </div>
-    );
-  }
-  const embedUrl = getYoutubeEmbed(link.url);
-  if (!embedUrl) return null;
-  return (
-    <div className="mx-4 mb-1 mt-3 rounded-2xl overflow-hidden aspect-video">
-      <iframe key={link.id} src={embedUrl} width="100%" height="100%"
-        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-        allowFullScreen className="rounded-2xl w-full h-full" title={link.title} />
     </div>
   );
 }
@@ -363,15 +368,9 @@ export function FocusSoundPanel({
   const handleDelete = (id: string) => {
     const isPreset = [...SPOTIFY_PLAYLISTS, ...YOUTUBE_VIDEOS].some(p => p.id === id);
     if (isPreset) {
-      set({
-        deletedPresetIds: [...deleted, id],
-        activeMediaId: state.activeMediaId === id ? null : state.activeMediaId,
-      });
+      set({ deletedPresetIds: [...deleted, id], activeMediaId: state.activeMediaId === id ? null : state.activeMediaId });
     } else {
-      set({
-        customLinks: state.customLinks.filter(l => l.id !== id),
-        activeMediaId: state.activeMediaId === id ? null : state.activeMediaId,
-      });
+      set({ customLinks: state.customLinks.filter(l => l.id !== id), activeMediaId: state.activeMediaId === id ? null : state.activeMediaId });
     }
   };
 
@@ -382,6 +381,7 @@ export function FocusSoundPanel({
   ];
   const canAdd = state.tab === 'spotify' || state.tab === 'youtube';
   const currentItems = state.tab === 'spotify' ? visibleSpotify : visibleYoutube;
+  const panelVisible = state.tab === 'spotify' || state.tab === 'youtube';
 
   if (addingLink) {
     return (
@@ -456,7 +456,13 @@ export function FocusSoundPanel({
           )}
           {(state.tab === 'spotify' || state.tab === 'youtube') && (
             <>
-              {activeLink && activeLink.type === state.tab && <EmbedPlayer link={activeLink} />}
+              {/* Persistent embed — shown inline when panel is on media tab */}
+              {activeLink && activeLink.type === state.tab && (
+                <div className="mx-4 mb-1 mt-3 rounded-2xl overflow-hidden"
+                  style={{ aspectRatio: activeLink.type === 'youtube' ? '16/9' : 'auto', height: activeLink.type === 'spotify' ? 152 : undefined }}>
+                  <PersistentEmbedPlayer link={activeLink} visible={panelVisible} />
+                </div>
+              )}
               <MediaGrid
                 items={currentItems}
                 activeId={state.activeMediaId}
