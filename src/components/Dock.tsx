@@ -17,11 +17,23 @@ type DockProps = {
   onRenameApp: (appId: string) => void;
 };
 
+// Wrapper that clips to the same radius as AppIcon "dock" size
+// Must match sizeClasses.dock in AppIcon.tsx (rounded-[13px])
+const ICON_WRAPPER: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+  height: '100%',
+  borderRadius: '13px',
+  overflow: 'hidden',
+  isolation: 'isolate',
+};
+
 export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
   const dockRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [mouseX, setMouseX] = useState<number | null>(null);
-  // Bug#2 fix: store computed sizes in state, updated via useLayoutEffect to avoid 1-frame rect lag
   const [sizes, setSizes] = useState<number[]>([]);
 
   const allApps = [
@@ -46,16 +58,9 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
     setSizes(next);
   }, [mouseX, editing, allApps.length]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLUListElement>) => {
-    setMouseX(e.clientX);
-  };
+  const handleMouseMove = (e: React.MouseEvent<HTMLUListElement>) => setMouseX(e.clientX);
+  const handleMouseLeave = () => { setMouseX(null); setSizes(allApps.map(() => BASE)); };
 
-  const handleMouseLeave = () => {
-    setMouseX(null);
-    setSizes(allApps.map(() => BASE));
-  };
-
-  // Derive glass style for dock pill background
   const dockAlpha = Math.min(0.45, Math.max(0.10, glass / 250));
   const dockBlur  = Math.round(6 + glass / 10);
   const dockStyle: React.CSSProperties = {
@@ -83,8 +88,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
             onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
             aria-label={app.name}
           >
-            {/* Bug#14 fix: use object-contain wrapper to prevent icon stretch at dynamic sizes */}
-            <span className="flex h-full w-full items-center justify-center overflow-hidden">
+            <span style={ICON_WRAPPER}>
               <AppIcon app={app} size="dock" />
             </span>
             <button
@@ -111,7 +115,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
             rel="noreferrer"
             aria-label={`Open ${app.name}`}
           >
-            <span className="flex h-full w-full items-center justify-center overflow-hidden">
+            <span style={ICON_WRAPPER}>
               <AppIcon app={app} size="dock" />
             </span>
           </a>
