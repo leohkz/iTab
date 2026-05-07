@@ -1,17 +1,14 @@
 import type { AppConfig } from '../types';
-import { DEFAULT_TODO_LISTS } from '../types';
+import { DEFAULT_SPACES, DEFAULT_TODO_LISTS } from '../types';
 
-export const spaces = [
-  { id: 'work',     name: 'Work',     accent: 'from-blue-500 to-cyan-400' },
-  { id: 'personal', name: 'Personal', accent: 'from-violet-500 to-pink-400' },
-  { id: 'study',    name: 'Study',    accent: 'from-emerald-500 to-teal-400' },
-];
+export const spaces = DEFAULT_SPACES;
 
 export const recentTabs: AppConfig['apps'] = [];
 
 const DEFAULT_META = { enabled: true, minimised: false, pinned: false, expanded: false };
 
 export const defaultConfig: AppConfig = {
+  spaces: [...DEFAULT_SPACES],
   currentSpaceId: 'work',
   locale: 'en',
   theme: 'sonoma',

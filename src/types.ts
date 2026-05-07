@@ -48,7 +48,6 @@ export interface WidgetState {
   pomodoroTask: string;
   focusModeActive: boolean;
   focusSoundState?: Record<string, unknown>;
-  // Per-widget UI state
   todoMeta: WidgetMeta;
   pomodoroMeta: WidgetMeta;
   notesMeta: WidgetMeta;
@@ -87,11 +86,26 @@ export interface Folder {
   spaceId?: string;
 }
 
+export const SPACE_ACCENTS = [
+  { value: 'from-blue-500 to-cyan-400',     label: '藍' },
+  { value: 'from-violet-500 to-pink-400',   label: '紫' },
+  { value: 'from-emerald-500 to-teal-400',  label: '綠' },
+  { value: 'from-orange-500 to-amber-400',  label: '橙' },
+  { value: 'from-rose-500 to-pink-400',     label: '玫' },
+  { value: 'from-sky-500 to-indigo-400',    label: '靛' },
+] as const;
+
 export interface Space {
   id: string;
   name: string;
   accent: string;
 }
+
+export const DEFAULT_SPACES: Space[] = [
+  { id: 'work',     name: 'Work',     accent: 'from-blue-500 to-cyan-400' },
+  { id: 'personal', name: 'Personal', accent: 'from-violet-500 to-pink-400' },
+  { id: 'study',    name: 'Study',    accent: 'from-emerald-500 to-teal-400' },
+];
 
 export interface SearchEngine {
   id: string;
@@ -99,7 +113,7 @@ export interface SearchEngine {
   url?: string;
   shortcut?: string;
   template?: string;
-  enabled: boolean;       // non-optional: always required, defaults to true at data layer
+  enabled: boolean;
   builtIn?: boolean;
   icon?: string;
 }

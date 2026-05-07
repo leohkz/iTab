@@ -1,11 +1,13 @@
-import { Database, Download, FlaskConical, LayoutGrid, Palette, Plus, RotateCcw, Search, Upload, X } from 'lucide-react';
+import { Database, Download, FlaskConical, LayoutGrid, Layers, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import type { AppConfig, Locale, SearchEngine, SearchEngineId, ThemeName } from '../types';
+import type { AppConfig, Locale, SearchEngine, SearchEngineId, Space, ThemeName } from '../types';
+import { SPACE_ACCENTS } from '../types';
 import type { TranslationKey } from '../i18n';
 
 type SettingsModalProps = {
   open: boolean;
   config: AppConfig;
+  spaces: Space[];
   t: (key: TranslationKey) => string;
   onClose: () => void;
   onConfigChange: (config: AppConfig) => void;
@@ -13,11 +15,16 @@ type SettingsModalProps = {
   onExportJson: () => void;
   onImportJson: (file: File) => void;
   onResetDefaults: () => void;
+  onAddSpace: (name: string, accent: string) => void;
+  onRenameSpace: (id: string, name: string) => void;
+  onRecolorSpace: (id: string, accent: string) => void;
+  onDeleteSpace: (id: string) => void;
 };
 
 const categories = [
   { id: 'appearance', key: 'appearance', icon: Palette },
   { id: 'layout',     key: 'layout',     icon: LayoutGrid },
+  { id: 'spaces',     key: 'spaces',     icon: Layers },
   { id: 'search',     key: 'search',     icon: Search },
   { id: 'data',       key: 'data',       icon: Database },
   { id: 'experiments',key: 'experiments',icon: FlaskConical },
@@ -71,9 +78,148 @@ function ResetConfirmDialog({ t, onConfirm, onCancel }: {
   );
 }
 
+// ── Spaces Panel ────────────────────────────────────────────────────────
+function SpacesPanel({
+  spaces, onAdd, onRename, onRecolor, onDelete,
+}: {
+  spaces: Space[];
+  onAdd: (name: string, accent: string) => void;
+  onRename: (id: string, name: string) => void;
+  onRecolor: (id: string, accent: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [newName, setNewName] = useState('');
+  const [newAccent, setNewAccent] = useState(SPACE_ACCENTS[0].value);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  const handleAdd = () => {
+    if (!newName.trim()) return;
+    onAdd(newName.trim(), newAccent);
+    setNewName('');
+    setNewAccent(SPACE_ACCENTS[0].value);
+  };
+
+  const startEdit = (space: Space) => {
+    setEditingId(space.id);
+    setEditingName(space.name);
+  };
+
+  const commitEdit = (id: string) => {
+    if (editingName.trim()) onRename(id, editingName.trim());
+    setEditingId(null);
+  };
+
+  return (
+    <div className="grid gap-4">
+      {/* Space list */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <h4 className="mb-3 font-black">Spaces</h4>
+        <div className="grid gap-2">
+          {spaces.map((space) => (
+            <div key={space.id} className="flex items-center gap-3 rounded-xl bg-slate-950/5 px-3 py-2.5">
+              {/* Colour dot + picker */}
+              <div className="relative flex-shrink-0">
+                <div className={`h-7 w-7 rounded-full bg-gradient-to-br ${space.accent}`} />
+                <select
+                  value={space.accent}
+                  onChange={(e) => onRecolor(space.id, e.target.value)}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  title="Change colour"
+                >
+                  {SPACE_ACCENTS.map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Name (editable) */}
+              {editingId === space.id ? (
+                <input
+                  autoFocus
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={() => commitEdit(space.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(space.id); if (e.key === 'Escape') setEditingId(null); }}
+                  className="flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm font-bold outline-none focus:border-slate-950"
+                />
+              ) : (
+                <span
+                  className="flex-1 cursor-pointer text-sm font-bold hover:text-slate-600"
+                  onDoubleClick={() => startEdit(space)}
+                  title="Double-click to rename"
+                >
+                  {space.name}
+                </span>
+              )}
+
+              {/* Rename button */}
+              <button
+                type="button"
+                onClick={() => startEdit(space)}
+                className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              >
+                改名
+              </button>
+
+              {/* Delete button */}
+              <button
+                type="button"
+                onClick={() => onDelete(space.id)}
+                disabled={spaces.length <= 1}
+                className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
+                title="Delete space"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Add new space */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <h4 className="mb-3 font-black">新增 Space</h4>
+        <div className="flex items-center gap-2">
+          {/* Accent colour picker */}
+          <div className="relative flex-shrink-0">
+            <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${newAccent}`} />
+            <select
+              value={newAccent}
+              onChange={(e) => setNewAccent(e.target.value)}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {SPACE_ACCENTS.map((a) => (
+                <option key={a.value} value={a.value}>{a.label}</option>
+              ))}
+            </select>
+          </div>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+            placeholder="Space 名稱"
+            className="h-10 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-bold outline-none focus:border-slate-950"
+          />
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={!newName.trim()}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" /> 新增
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">點色塊可更換顏色 · 雙擊名稱可改名</p>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsModal({
-  open, config, t, onClose, onConfigChange, onAction,
+  open, config, spaces, t, onClose, onConfigChange, onAction,
   onExportJson, onImportJson, onResetDefaults,
+  onAddSpace, onRenameSpace, onRecolorSpace, onDeleteSpace,
 }: SettingsModalProps) {
   const [active, setActive] = useState<CategoryId>('appearance');
   const [newEngine, setNewEngine] = useState({ name: '', shortcut: '', template: '' });
@@ -131,7 +277,7 @@ export function SettingsModal({
                   className={['flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black transition duration-200', active === cat.id ? 'bg-slate-950/10 text-slate-950' : 'text-slate-600 hover:bg-slate-950/6'].join(' ')}
                   data-testid={`button-settings-${cat.id}`}>
                   <cat.icon className="h-4 w-4" />
-                  {t(cat.key as TranslationKey)}
+                  {cat.id === 'spaces' ? 'Spaces' : t(cat.key as TranslationKey)}
                 </button>
               ))}
             </nav>
@@ -140,7 +286,7 @@ export function SettingsModal({
           <div className="overflow-auto bg-[#f6f2ea] p-6">
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">{t(title as TranslationKey)}</p>
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">{active === 'spaces' ? 'SPACES' : t(title as TranslationKey)}</p>
                 <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h3>
               </div>
               <button type="button" aria-label={t('settings')} onClick={onClose}
@@ -217,6 +363,16 @@ export function SettingsModal({
                   <Toggle checked={config.showWidgets} onChange={(v) => onConfigChange({ ...config, showWidgets: v })} testId="toggle-show-widgets" />
                 </div>
               </div>
+            )}
+
+            {active === 'spaces' && (
+              <SpacesPanel
+                spaces={spaces}
+                onAdd={onAddSpace}
+                onRename={onRenameSpace}
+                onRecolor={onRecolorSpace}
+                onDelete={onDeleteSpace}
+              />
             )}
 
             {active === 'search' && (

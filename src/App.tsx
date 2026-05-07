@@ -9,10 +9,10 @@ import { SpotlightSearch } from './components/SpotlightSearch';
 import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
 import { Widgets, FocusModeOverlay } from './components/Widgets';
-import { defaultConfig, recentTabs, spaces } from './data/mockStore';
+import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
-import type { AppConfig, AppShortcut, Prompt, WidgetMeta, WidgetState } from './types';
-import { DEFAULT_TODO_LISTS } from './types';
+import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
+import { DEFAULT_SPACES, DEFAULT_TODO_LISTS } from './types';
 
 type EditorState = {
   open: boolean;
@@ -58,6 +58,7 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
   return {
     ...fallback,
     ...config,
+    spaces:        (config.spaces && config.spaces.length > 0) ? config.spaces : [...DEFAULT_SPACES],
     apps:          config.apps          ?? fallback.apps,
     folders:       config.folders       ?? fallback.folders,
     pinnedIds:     config.pinnedIds     ?? fallback.pinnedIds,
@@ -86,6 +87,13 @@ function NewTab() {
 
   const t = useMemo(() => createTranslator(config.locale), [config.locale]);
   const editingApp = config.apps.find((app) => app.id === editor.appId) ?? null;
+
+  // Use spaces from config (with fallback to DEFAULT_SPACES)
+  const spaces: Space[] = useMemo(
+    () => (config.spaces && config.spaces.length > 0) ? config.spaces : [...DEFAULT_SPACES],
+    [config.spaces],
+  );
+
   const pinnedApps = useMemo(
     () => config.pinnedIds.map((id) => config.apps.find((app) => app.id === id)).filter((app): app is AppShortcut => Boolean(app)),
     [config.apps, config.pinnedIds],
@@ -284,6 +292,36 @@ function NewTab() {
 
   const handleWidgetsChange = (widgets: WidgetState) => updateConfig({ ...config, widgets });
 
+  // ── Spaces CRUD ───────────────────────────────────────────────────────
+  const addSpace = (name: string, accent: string) => {
+    const id = `space-${Date.now().toString(36)}`;
+    const newSpace: Space = { id, name: name.trim(), accent };
+    updateConfig({ ...config, spaces: [...spaces, newSpace] });
+    notify('Space added');
+  };
+
+  const renameSpace = (id: string, name: string) => {
+    updateConfig({ ...config, spaces: spaces.map((s) => s.id === id ? { ...s, name } : s) });
+  };
+
+  const recolorSpace = (id: string, accent: string) => {
+    updateConfig({ ...config, spaces: spaces.map((s) => s.id === id ? { ...s, accent } : s) });
+  };
+
+  const deleteSpace = (id: string) => {
+    if (spaces.length <= 1) { notify('Must have at least one space'); return; }
+    const nextSpaces = spaces.filter((s) => s.id !== id);
+    const nextCurrentId = config.currentSpaceId === id ? nextSpaces[0].id : config.currentSpaceId;
+    updateConfig({
+      ...config,
+      spaces: nextSpaces,
+      currentSpaceId: nextCurrentId,
+      apps: config.apps.map((a) => a.spaceId === id ? { ...a, spaceId: undefined } : a),
+      folders: config.folders.map((f) => f.spaceId === id ? { ...f, spaceId: undefined } : f),
+    });
+    notify('Space deleted');
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
       <div className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
@@ -399,6 +437,7 @@ function NewTab() {
         <SettingsModal
           open={settingsOpen}
           config={config}
+          spaces={spaces}
           t={t}
           onClose={() => setSettingsOpen(false)}
           onConfigChange={updateConfig}
@@ -406,6 +445,10 @@ function NewTab() {
           onExportJson={exportJson}
           onImportJson={importJson}
           onResetDefaults={resetDefaults}
+          onAddSpace={addSpace}
+          onRenameSpace={renameSpace}
+          onRecolorSpace={recolorSpace}
+          onDeleteSpace={deleteSpace}
         />
       )}
 
