@@ -77,24 +77,29 @@ function PreviewModal({ prompt, t, onClose }: {
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/20 text-white backdrop-blur-sm transition hover:bg-black/40"
+          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/10 text-slate-700 backdrop-blur-sm transition hover:bg-black/20 hover:text-slate-900"
           aria-label="Close preview"
         >
           <X className="h-5 w-5" />
         </button>
 
-        {/* Left — image */}
-        <div className="flex w-1/2 shrink-0 items-center justify-center bg-slate-950 p-4">
+        {/* Left — image (white background, consistent with right panel) */}
+        <div className="flex w-1/2 shrink-0 items-center justify-center bg-white p-6 border-r border-slate-100">
           <img
             src={prompt.imageUrl}
             alt={prompt.title}
-            className="max-h-full max-w-full rounded-xl object-contain"
-            style={{ maxHeight: 'calc(88vh - 2rem)' }}
+            className="max-h-full max-w-full rounded-2xl object-contain"
+            style={{
+              maxHeight: 'calc(88vh - 3rem)',
+              boxShadow: '0 4px 32px rgba(15,23,42,0.12)',
+            }}
             onError={(e) => {
               const el = e.target as HTMLImageElement;
               el.style.display = 'none';
-              (el.parentElement as HTMLElement).innerHTML =
-                '<span style="color:rgba(255,255,255,0.3);font-size:2rem;">🖼️</span>';
+              if (el.parentElement) {
+                el.parentElement.innerHTML =
+                  '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:200px;color:#cbd5e1;font-size:3rem">🖼️</div>';
+              }
             }}
           />
         </div>
@@ -195,14 +200,11 @@ function PromptCard({
             onError={(e) => {
               const el = e.target as HTMLImageElement;
               el.style.display = 'none';
-              (el.parentElement as HTMLElement).classList.add(
-                'flex', 'items-center', 'justify-center',
-                'bg-gradient-to-br', 'from-slate-100', 'to-slate-200',
-              );
-              (el.parentElement as HTMLElement).innerHTML = '<span style="font-size:1.5rem;opacity:0.3">✨</span>';
+              const parent = el.parentElement as HTMLElement;
+              parent.classList.add('flex', 'items-center', 'justify-center', 'bg-gradient-to-br', 'from-slate-100', 'to-slate-200');
+              parent.innerHTML = '<span style="font-size:1.5rem;opacity:0.3">✨</span>';
             }}
           />
-          {/* hover overlay hint */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition duration-200 group-hover:bg-black/20">
             <Eye className="h-7 w-7 text-white opacity-0 drop-shadow transition duration-200 group-hover:opacity-100" />
           </div>
@@ -245,7 +247,6 @@ function PromptCard({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
-          {/* Preview button — only shown when imageUrl is present */}
           {prompt.imageUrl && (
             <button
               type="button" onClick={onPreview}
@@ -295,6 +296,7 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
     WebkitBackdropFilter: `blur(${panelBlur}px)`,
   };
 
+  // Collect all unique tags across all prompts
   const allTags = useMemo(() => {
     const map = new Map<string, PromptTag>();
     prompts.forEach((p) => p.tags.forEach((tag) => { if (!map.has(tag.label)) map.set(tag.label, tag); }));
@@ -429,6 +431,7 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
         <PromptEditor
           open={editorOpen}
           initial={editingPrompt}
+          allTags={allTags}
           t={t}
           onSave={(data) => {
             if (editingPrompt) onEdit(editingPrompt.id, data); else onAdd(data);

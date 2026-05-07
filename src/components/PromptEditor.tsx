@@ -23,11 +23,12 @@ function tagTextColor(bg: string) {
 
 type TagInputProps = {
   tags: PromptTag[];
+  existingTags: PromptTag[];   // all tags already in the library
   onChange: (tags: PromptTag[]) => void;
   placeholder: string;
 };
 
-function TagInput({ tags, onChange, placeholder }: TagInputProps) {
+function TagInput({ tags, existingTags, onChange, placeholder }: TagInputProps) {
   const [inputVal, setInputVal] = useState('');
   const [pickColor, setPickColor] = useState(PRESET_COLORS[0]);
 
@@ -41,9 +42,25 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
 
   const removeTag = (label: string) => onChange(tags.filter((t) => t.label !== label));
 
+  const toggleExisting = (tag: PromptTag) => {
+    const already = tags.some((t) => t.label === tag.label);
+    if (already) {
+      removeTag(tag.label);
+    } else {
+      onChange([...tags, tag]);
+    }
+  };
+
+  // Only show library tags that are not already in the "active" list as suggestions,
+  // but show ALL library tags so user can toggle any of them.
+  // We deduplicate by label.
+  const libraryTags = existingTags.filter(
+    (et, idx, arr) => arr.findIndex((x) => x.label === et.label) === idx,
+  );
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Existing tags */}
+      {/* Currently selected tags */}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
@@ -104,6 +121,35 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
           title="Custom colour"
         />
       </div>
+
+      {/* Existing library tags — click to toggle */}
+      {libraryTags.length > 0 && (
+        <div className="rounded-xl border border-slate-100 bg-slate-50 p-2">
+          <p className="mb-1.5 text-[0.6rem] font-black uppercase tracking-widest text-slate-400">已有標籤</p>
+          <div className="flex flex-wrap gap-1.5">
+            {libraryTags.map((tag) => {
+              const active = tags.some((t) => t.label === tag.label);
+              return (
+                <button
+                  key={tag.label}
+                  type="button"
+                  onClick={() => toggleExisting(tag)}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black transition"
+                  style={{
+                    backgroundColor: active ? tag.color : `${tag.color}28`,
+                    color: active ? tagTextColor(tag.color) : tag.color,
+                    border: `1.5px solid ${tag.color}`,
+                    opacity: 1,
+                  }}
+                  title={active ? '點擊移除' : '點擊加入'}
+                >
+                  {active ? '✓ ' : '+ '}{tag.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,12 +157,13 @@ function TagInput({ tags, onChange, placeholder }: TagInputProps) {
 type PromptEditorProps = {
   open: boolean;
   initial: Prompt | null;
+  allTags: PromptTag[];   // all tags from the library
   t: (key: TranslationKey) => string;
   onSave: (p: Omit<Prompt, 'id' | 'createdAt'>) => void;
   onClose: () => void;
 };
 
-export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditorProps) {
+export function PromptEditor({ open, initial, allTags, t, onSave, onClose }: PromptEditorProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [content, setContent] = useState(initial?.content ?? '');
   const [tags, setTags] = useState<PromptTag[]>(initial?.tags ?? []);
@@ -137,7 +184,7 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
     >
       <div
         className="flex w-full max-w-lg flex-col gap-4 rounded-[2rem] bg-white p-6 shadow-2xl"
-        style={{ animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}
+        style={{ animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)', maxHeight: '90vh', overflowY: 'auto' }}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-black text-slate-800">
@@ -172,7 +219,12 @@ export function PromptEditor({ open, initial, t, onSave, onClose }: PromptEditor
 
         <div className="flex flex-col gap-1">
           <label className="text-xs font-black uppercase tracking-widest text-slate-500">{t('promptTags')}</label>
-          <TagInput tags={tags} onChange={setTags} placeholder="coding, writing…" />
+          <TagInput
+            tags={tags}
+            existingTags={allTags}
+            onChange={setTags}
+            placeholder="coding, writing…"
+          />
         </div>
 
         <div className="flex flex-col gap-1">
