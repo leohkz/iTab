@@ -19,11 +19,21 @@ type TopBarProps = {
   onWidgetsChange: (w: WidgetState) => void;
 };
 
+function glassStyle(glass: number) {
+  const alpha = Math.min(0.38, Math.max(0.08, glass / 300));
+  const blur  = Math.round(4 + glass / 10);
+  return {
+    backgroundColor: `rgba(255,255,255,${alpha})`,
+    backdropFilter: `blur(${blur}px)`,
+    WebkitBackdropFilter: `blur(${blur}px)`,
+  } as React.CSSProperties;
+}
+
 export function TopBar({
   spaces,
   currentSpaceId,
   editing,
-  glass: _glass,
+  glass,
   t,
   widgets,
   onSpaceChange,
@@ -97,7 +107,8 @@ export function TopBar({
           type="button"
           aria-label={t('searchPlaceholderBar')}
           onClick={onSearchClick}
-          className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-white/25 bg-white/18 px-4 py-2.5 text-white/60 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-white/25 hover:text-white/80"
+          className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-white/25 px-4 py-2.5 text-white/60 shadow-[0_4px_24px_rgba(0,0,0,0.18)] transition hover:text-white/80"
+          style={glassStyle(glass)}
         >
           <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="text-sm font-medium">{t('searchPlaceholderBar')}</span>
