@@ -17,7 +17,7 @@ type DockProps = {
   onRenameApp: (appId: string) => void;
 };
 
-export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
+export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
   const dockRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [mouseX, setMouseX] = useState<number | null>(null);
@@ -53,6 +53,15 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
   const handleMouseLeave = () => {
     setMouseX(null);
     setSizes(allApps.map(() => BASE));
+  };
+
+  // Derive glass style for dock pill background
+  const dockAlpha = Math.min(0.45, Math.max(0.10, glass / 250));
+  const dockBlur  = Math.round(6 + glass / 10);
+  const dockStyle: React.CSSProperties = {
+    backgroundColor: `rgba(255,255,255,${dockAlpha})`,
+    backdropFilter: `blur(${dockBlur}px)`,
+    WebkitBackdropFilter: `blur(${dockBlur}px)`,
   };
 
   const renderItem = (app: AppShortcut, isRecent: boolean, index: number) => {
@@ -117,6 +126,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass: _glass, onDropApp
     <div className="dock-root" aria-label="Dock">
       <nav
         className={['dock', editing ? 'dock--editing' : ''].join(' ')}
+        style={dockStyle}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           const appId = e.dataTransfer.getData('text/plain');
