@@ -28,7 +28,7 @@ const faviconSizes = {
 function autoAccent(input: string) {
   let hash = 0;
   for (let i = 0; i < input.length; i++) hash = input.charCodeAt(i) + ((hash << 5) - hash);
-  return `hsl(${Math.abs(hash) % 360} 72% 62%)`;
+  return `hsl(${Math.abs(hash) % 360} 72% 55%)`;
 }
 
 export function AppIcon({ app, size = 'grid' }: AppIconProps) {
@@ -36,42 +36,14 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
   const iconSource = app.iconType === 'custom' ? app.iconValue : getFaviconUrl(app.iconValue || app.url);
   const accent = app.iconColor ?? autoAccent(app.url || app.name);
 
-  // Dock icons are fully opaque — no glass/transparency
-  const isDock = size === 'dock';
-
-  const baseClass = [
-    'relative flex shrink-0 items-center justify-center overflow-hidden',
-    isDock
-      ? 'shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_4px_12px_rgba(17,24,39,0.3)]'
-      : 'border border-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_18px_40px_rgba(17,24,39,0.22)]',
-    sizeClasses[size],
-  ].join(' ');
-
-  const bgStyle: React.CSSProperties = isDock
-    ? {
-        // Fully opaque gradient — no alpha
-        background:
-          app.iconType === 'monogram' || failed
-            ? `linear-gradient(135deg, color-mix(in oklab, ${accent} 22%, white), color-mix(in oklab, ${accent} 78%, #111827))`
-            : `linear-gradient(135deg, color-mix(in oklab, ${accent} 18%, white), color-mix(in oklab, ${accent} 55%, white))`,
-        isolation: 'isolate',
-        transform: 'translateZ(0)',
-        willChange: 'transform',
-      }
-    : {
-        background:
-          app.iconType === 'monogram' || failed
-            ? `linear-gradient(135deg, color-mix(in oklab, ${accent} 18%, white), color-mix(in oklab, ${accent} 72%, #111827))`
-            : `linear-gradient(135deg, color-mix(in oklab, ${accent} 16%, white), rgba(255,255,255,.55))`,
-        isolation: 'isolate',
-        transform: 'translateZ(0)',
-        willChange: 'transform',
-      };
-
   return (
     <span
-      className={baseClass}
-      style={bgStyle}
+      className={[
+        'relative flex shrink-0 items-center justify-center overflow-hidden',
+        'bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_14px_rgba(17,24,39,0.18)]',
+        sizeClasses[size],
+      ].join(' ')}
+      style={{ isolation: 'isolate', transform: 'translateZ(0)' }}
       data-testid={`icon-${app.id}`}
     >
       {!failed ? (
@@ -84,12 +56,13 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
           onError={() => setFailed(true)}
         />
       ) : (
+        // Monogram: colour lives only inside this inner span, outer bg stays white
         <span
           className={[
-            'flex h-full w-full items-center justify-center font-black tracking-[-0.04em] text-slate-800',
+            'flex h-full w-full items-center justify-center font-black tracking-[-0.04em] text-white',
             monogramSizes[size],
           ].join(' ')}
-          style={{ background: `linear-gradient(135deg, color-mix(in oklab, ${accent} 12%, white), color-mix(in oklab, ${accent} 66%, white))` }}
+          style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in oklab, ${accent} 70%, #111827))` }}
           aria-hidden="true"
         >
           {getInitials(app.name)}
