@@ -1,5 +1,6 @@
 import { Music, Plus, Trash2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // ── Types ─────────────────────────────────────────────────────────────
 export type SoundTab = 'soundscapes' | 'spotify' | 'youtube';
@@ -104,7 +105,6 @@ function getSpotifyEmbed(url: string) {
 function getYoutubeEmbed(url: string) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  // playsinline=1 防止「請前往YouTube」警告；origin 必須跟擴展與頁面相同
   return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`;
 }
 function getThumbnail(link: MediaLink) {
@@ -140,9 +140,12 @@ class SoundscapeEngine {
 }
 const engine = new SoundscapeEngine();
 
-// ── PersistentEmbedPlayer
-// iframe 永遠在 DOM 裡，關闭彈窗只是隱藏，不會停止播放
-// ─────────────────────────────────────────────────────────────
+// ── PersistentEmbedPlayer ─────────────────────────────────────────────────
+// When visible=true  → iframe rendered inline inside panel (position: relative)
+// When visible=false → iframe moved to off-screen portal (1×1px, opacity:0)
+//                      so music/video keeps playing without covering anything
+// Switching tracks   → key changes → iframe remounts → autoplay=1 triggers
+// ─────────────────────────────────────────────────────────────────────────────
 export function PersistentEmbedPlayer({
   link, visible,
 }: {
@@ -150,9 +153,29 @@ export function PersistentEmbedPlayer({
   visible: boolean;
 }) {
   const prevLinkRef = useRef<MediaLink | null>(null);
-  // Keep the last active link so iframe doesn’t blank when panel closes
+  const portalRef = useRef<HTMLDivElement | null>(null);
+
+  // Keep the last active link so iframe doesn't blank when panel closes
   const displayLink = link ?? prevLinkRef.current;
   if (link) prevLinkRef.current = link;
+
+  // Create a single portal container mounted once on body
+  if (!portalRef.current) {
+    const div = document.createElement('div');
+    div.style.cssText =
+      'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden;';
+    document.body.appendChild(div);
+    portalRef.current = div;
+  }
+
+  useEffect(() => {
+    return () => {
+      // Cleanup portal on unmount
+      if (portalRef.current && document.body.contains(portalRef.current)) {
+        document.body.removeChild(portalRef.current);
+      }
+    };
+  }, []);
 
   if (!displayLink) return null;
 
@@ -164,33 +187,26 @@ export function PersistentEmbedPlayer({
 
   const isYoutube = displayLink.type === 'youtube';
 
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        // Visible: inside panel area; hidden: pushed off-screen but still alive
-        bottom: visible ? 'auto' : '-9999px',
-        left: visible ? 'auto' : '-9999px',
-        // When visible, rendered inline — parent controls layout
-        pointerEvents: visible ? 'auto' : 'none',
-        zIndex: visible ? 'auto' : -1,
-        width: visible ? '100%' : '1px',
-        height: visible ? '100%' : '1px',
-        opacity: visible ? 1 : 0,
-      }}
-    >
-      <iframe
-        key={displayLink.id}
-        src={embedSrc}
-        width="100%"
-        height="100%"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        allowFullScreen={isYoutube}
-        style={{ border: 'none', borderRadius: '16px' }}
-        title={displayLink.title}
-      />
-    </div>
+  const iframeEl = (
+    <iframe
+      key={displayLink.id}
+      src={embedSrc}
+      width="100%"
+      height="100%"
+      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+      allowFullScreen={isYoutube}
+      style={{ border: 'none', borderRadius: visible ? '16px' : '0' }}
+      title={displayLink.title}
+    />
   );
+
+  if (visible) {
+    // Render inline — parent wrapper controls size/aspect-ratio
+    return <>{iframeEl}</>;
+  }
+
+  // Render into off-screen portal so audio/video keeps playing
+  return createPortal(iframeEl, portalRef.current!);
 }
 
 // ── SoundscapeGrid ───────────────────────────────────────────────────────────
@@ -381,7 +397,11 @@ export function FocusSoundPanel({
   ];
   const canAdd = state.tab === 'spotify' || state.tab === 'youtube';
   const currentItems = state.tab === 'spotify' ? visibleSpotify : visibleYoutube;
-  const panelVisible = state.tab === 'spotify' || state.tab === 'youtube';
+
+  // Determine if the embed player should show inline (panel open AND on correct tab)
+  const embedVisible = state.open
+    && activeLink !== null
+    && (state.tab === activeLink?.type);
 
   if (addingLink) {
     return (
@@ -399,80 +419,93 @@ export function FocusSoundPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="flex flex-col rounded-3xl overflow-hidden shadow-2xl"
-        style={{
-          width: 'min(680px,calc(100vw - 2rem))',
-          maxHeight: 'min(82vh, 720px)',
-          background: 'rgba(12,12,22,0.98)',
-          backdropFilter: 'blur(24px)',
-        }}>
+    <>
+      {/* Off-screen persistent player — always rendered so audio never stops */}
+      {activeLink && (
+        <PersistentEmbedPlayer link={activeLink} visible={embedVisible} />
+      )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 shrink-0">
-          <span className="font-bold text-sm text-white">聲音 &amp; 音樂</span>
-          <div className="flex items-center gap-2">
-            {canAdd && (
-              <button onClick={() => setAddingLink(true)}
-                className="flex items-center gap-1 rounded-xl bg-white/10 hover:bg-white/18 text-white/70 hover:text-white text-xs font-semibold px-3 py-1.5 transition">
-                <Plus className="h-3 w-3" /> 新增
+      <div className="fixed inset-0 z-[200] flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
+        onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="flex flex-col rounded-3xl overflow-hidden shadow-2xl"
+          style={{
+            width: 'min(680px,calc(100vw - 2rem))',
+            maxHeight: 'min(82vh, 720px)',
+            background: 'rgba(12,12,22,0.98)',
+            backdropFilter: 'blur(24px)',
+          }}>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 shrink-0">
+            <span className="font-bold text-sm text-white">聲音 &amp; 音樂</span>
+            <div className="flex items-center gap-2">
+              {canAdd && (
+                <button onClick={() => setAddingLink(true)}
+                  className="flex items-center gap-1 rounded-xl bg-white/10 hover:bg-white/18 text-white/70 hover:text-white text-xs font-semibold px-3 py-1.5 transition">
+                  <Plus className="h-3 w-3" /> 新增
+                </button>
+              )}
+              <button onClick={onClose}
+                className="grid h-7 w-7 place-items-center rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 px-5 py-2.5 border-b border-white/8 shrink-0">
+            {TABS.map(tab => (
+              <button key={tab.id} onClick={() => set({ tab: tab.id })}
+                className={[
+                  'rounded-xl px-4 py-1.5 text-sm font-semibold transition',
+                  state.tab === tab.id ? 'bg-white text-black' : 'text-white/55 hover:text-white hover:bg-white/10',
+                ].join(' ')}>
+                {tab.label}
+              </button>
+            ))}
+            {state.activeMediaId && (
+              <button onClick={() => set({ activeMediaId: null })}
+                className="ml-auto rounded-xl px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-white/8 transition">
+                ▶ 播放中
               </button>
             )}
-            <button onClick={onClose}
-              className="grid h-7 w-7 place-items-center rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition">
-              <X className="h-3.5 w-3.5" />
-            </button>
+          </div>
+
+          {/* Content */}
+          <div className="overflow-y-auto flex-1">
+            {state.tab === 'soundscapes' && (
+              <SoundscapeGrid
+                volumes={state.soundscapeVolumes}
+                onChange={(id, vol) => set({ soundscapeVolumes: { ...state.soundscapeVolumes, [id]: vol } })}
+              />
+            )}
+            {(state.tab === 'spotify' || state.tab === 'youtube') && (
+              <>
+                {/* Inline embed — only shown when activeLink matches current tab */}
+                {activeLink && activeLink.type === state.tab && (
+                  <div
+                    className="mx-4 mb-1 mt-3 rounded-2xl overflow-hidden"
+                    style={{
+                      aspectRatio: activeLink.type === 'youtube' ? '16/9' : 'auto',
+                      height: activeLink.type === 'spotify' ? 152 : undefined,
+                      position: 'relative',
+                    }}
+                  >
+                    <PersistentEmbedPlayer link={activeLink} visible={true} />
+                  </div>
+                )}
+                <MediaGrid
+                  items={currentItems}
+                  activeId={state.activeMediaId}
+                  onSelect={id => set({ activeMediaId: state.activeMediaId === id ? null : id })}
+                  onDelete={handleDelete}
+                />
+              </>
+            )}
           </div>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 px-5 py-2.5 border-b border-white/8 shrink-0">
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => set({ tab: tab.id })}
-              className={[
-                'rounded-xl px-4 py-1.5 text-sm font-semibold transition',
-                state.tab === tab.id ? 'bg-white text-black' : 'text-white/55 hover:text-white hover:bg-white/10',
-              ].join(' ')}>
-              {tab.label}
-            </button>
-          ))}
-          {state.activeMediaId && (
-            <button onClick={() => set({ activeMediaId: null })}
-              className="ml-auto rounded-xl px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-white/8 transition">
-              ▶ 播放中
-            </button>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="overflow-y-auto flex-1">
-          {state.tab === 'soundscapes' && (
-            <SoundscapeGrid
-              volumes={state.soundscapeVolumes}
-              onChange={(id, vol) => set({ soundscapeVolumes: { ...state.soundscapeVolumes, [id]: vol } })}
-            />
-          )}
-          {(state.tab === 'spotify' || state.tab === 'youtube') && (
-            <>
-              {/* Persistent embed — shown inline when panel is on media tab */}
-              {activeLink && activeLink.type === state.tab && (
-                <div className="mx-4 mb-1 mt-3 rounded-2xl overflow-hidden"
-                  style={{ aspectRatio: activeLink.type === 'youtube' ? '16/9' : 'auto', height: activeLink.type === 'spotify' ? 152 : undefined }}>
-                  <PersistentEmbedPlayer link={activeLink} visible={panelVisible} />
-                </div>
-              )}
-              <MediaGrid
-                items={currentItems}
-                activeId={state.activeMediaId}
-                onSelect={id => set({ activeMediaId: state.activeMediaId === id ? null : id })}
-                onDelete={handleDelete}
-              />
-            </>
-          )}
-        </div>
       </div>
-    </div>
+    </>
   );
 }
