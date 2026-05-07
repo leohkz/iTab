@@ -1,5 +1,5 @@
 import { Music, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────
 export type SoundTab = 'soundscapes' | 'spotify' | 'youtube';
@@ -34,7 +34,7 @@ export function defaultFocusSoundState(): FocusSoundState {
 }
 
 // ── Open-source SVG icons (inline) ────────────────────────────────────
-const SoundIcons: Record<string, JSX.Element> = {
+const SoundIcons: Record<string, React.ReactElement> = {
   rain: (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2a7 7 0 0 0-7 7c0 .34.03.67.07 1H5a4 4 0 0 0 0 8h1.5l-1 3h2l1-3h5l-1 3h2l1-3H17a4 4 0 0 0 0-8h-.07A7 7 0 0 0 12 2z"/></svg>
   ),
@@ -162,7 +162,7 @@ class SoundscapeEngine {
 }
 const engine = new SoundscapeEngine();
 
-// ── SoundscapeGrid: rectangular cards, open-source SVG icons, no labels, slim slider ───
+// ── SoundscapeGrid ───────────────────────────────────────────────────────────
 function SoundscapeGrid({
   volumes, onChange,
 }: {
@@ -184,12 +184,10 @@ function SoundscapeGrid({
               outline: active ? `2px solid ${s.color}88` : '2px solid transparent',
             }}
           >
-            {/* Accent bar */}
             <div
               className="h-1 w-full transition-all"
               style={{ background: active ? s.color : 'rgba(255,255,255,0.10)' }}
             />
-            {/* Icon only — no label */}
             <button
               onClick={() => onChange(s.id, active ? 0 : 0.6)}
               className="flex items-center justify-center py-3 px-1 w-full"
@@ -197,7 +195,6 @@ function SoundscapeGrid({
             >
               {icon}
             </button>
-            {/* Slim volume slider — shown when active, no speaker icon */}
             <div
               className="overflow-hidden transition-all duration-200 px-2 pb-2"
               style={{ maxHeight: active ? 20 : 0, opacity: active ? 1 : 0 }}
@@ -207,11 +204,7 @@ function SoundscapeGrid({
                 value={vol}
                 onChange={e => onChange(s.id, Number(e.target.value))}
                 className="w-full"
-                style={{
-                  accentColor: s.color,
-                  height: '3px',
-                  cursor: 'pointer',
-                }}
+                style={{ accentColor: s.color, height: '3px', cursor: 'pointer' }}
               />
             </div>
           </div>
@@ -244,7 +237,6 @@ function MediaGrid({
                 active ? 'ring-2 ring-white' : 'hover:ring-1 hover:ring-white/40',
               ].join(' ')}
             >
-              {/* Square aspect ratio */}
               <div className="aspect-square bg-white/10 flex items-center justify-center overflow-hidden">
                 {thumb
                   ? <img src={thumb} alt={item.title} className="w-full h-full object-cover" />
@@ -418,7 +410,7 @@ export function FocusSoundPanel({
           backdropFilter: 'blur(24px)',
         }}>
 
-        {/* Header — no Music icon on left */}
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 shrink-0">
           <span className="font-bold text-sm text-white">聲音 &amp; 音樂</span>
           <div className="flex items-center gap-2">
