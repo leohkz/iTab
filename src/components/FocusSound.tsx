@@ -105,8 +105,7 @@ function getSpotifyEmbed(url: string) {
 function getYoutubeEmbed(url: string) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  // origin=https://www.youtube.com helps bypass extension embed restrictions
-  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=https://www.youtube.com`;
+  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1`;
 }
 function getThumbnail(link: MediaLink) {
   if (link.thumbnail) return link.thumbnail;
@@ -141,12 +140,22 @@ class SoundscapeEngine {
 }
 const engine = new SoundscapeEngine();
 
-// ── PersistentEmbedPlayer ─────────────────────────────────────────────────────
-// visible=true  → iframe rendered inline inside panel (position: relative)
-// visible=false → iframe moved to off-screen portal (1×1px, opacity:0)
-//                 so music/video keeps playing without covering anything
-// Switching tracks → key changes → iframe remounts → autoplay=1 triggers
-// ─────────────────────────────────────────────────────────────────────────────
+// ── WebviewPlayer ─────────────────────────────────────────────────────────
+// Uses Chrome Extension <webview> tag instead of <iframe>.
+// <webview> runs in its own browser context — YouTube sees a normal https
+// request instead of chrome-extension://, bypassing Error 153.
+// visible=false → off-screen 1×1 webview keeps audio alive.
+// key=link.id   → forces remount on track change, triggering autoplay.
+// ─────────────────────────────────────────────────────────────────────────
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      webview: any;
+    }
+  }
+}
+
 export function PersistentEmbedPlayer({
   link, visible,
 }: {
@@ -159,6 +168,7 @@ export function PersistentEmbedPlayer({
   const displayLink = link ?? prevLinkRef.current;
   if (link) prevLinkRef.current = link;
 
+  // Portal container for off-screen hidden player
   if (!portalRef.current) {
     const div = document.createElement('div');
     div.style.cssText =
@@ -183,26 +193,40 @@ export function PersistentEmbedPlayer({
 
   if (!embedSrc) return null;
 
-  const isYoutube = displayLink.type === 'youtube';
+  // Use <webview> in extension context to bypass chrome-extension origin block.
+  // Fall back to <iframe> if webview is not available (e.g. dev server).
+  const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
 
-  const iframeEl = (
+  const playerEl = isExtension ? (
+    <webview
+      key={displayLink.id}
+      src={embedSrc}
+      style={{
+        width: '100%',
+        height: '100%',
+        border: 'none',
+        borderRadius: visible ? '16px' : '0',
+      }}
+      allowpopups="false"
+    />
+  ) : (
     <iframe
       key={displayLink.id}
       src={embedSrc}
       width="100%"
       height="100%"
       allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-      allowFullScreen={isYoutube}
+      allowFullScreen={displayLink.type === 'youtube'}
       style={{ border: 'none', borderRadius: visible ? '16px' : '0' }}
       title={displayLink.title}
     />
   );
 
   if (visible) {
-    return <>{iframeEl}</>;
+    return <>{playerEl}</>;
   }
 
-  return createPortal(iframeEl, portalRef.current!);
+  return createPortal(playerEl, portalRef.current!);
 }
 
 // ── SoundscapeGrid ───────────────────────────────────────────────────────────
@@ -415,7 +439,6 @@ export function FocusSoundPanel({
 
   return (
     <>
-      {/* Off-screen persistent player — always rendered so audio never stops */}
       {activeLink && (
         <PersistentEmbedPlayer link={activeLink} visible={embedVisible} />
       )}
