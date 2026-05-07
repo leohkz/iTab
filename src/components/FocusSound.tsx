@@ -105,7 +105,8 @@ function getSpotifyEmbed(url: string) {
 function getYoutubeEmbed(url: string) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`;
+  // origin=https://www.youtube.com helps bypass extension embed restrictions
+  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=https://www.youtube.com`;
 }
 function getThumbnail(link: MediaLink) {
   if (link.thumbnail) return link.thumbnail;
@@ -140,11 +141,11 @@ class SoundscapeEngine {
 }
 const engine = new SoundscapeEngine();
 
-// ── PersistentEmbedPlayer ─────────────────────────────────────────────────
-// When visible=true  → iframe rendered inline inside panel (position: relative)
-// When visible=false → iframe moved to off-screen portal (1×1px, opacity:0)
-//                      so music/video keeps playing without covering anything
-// Switching tracks   → key changes → iframe remounts → autoplay=1 triggers
+// ── PersistentEmbedPlayer ─────────────────────────────────────────────────────
+// visible=true  → iframe rendered inline inside panel (position: relative)
+// visible=false → iframe moved to off-screen portal (1×1px, opacity:0)
+//                 so music/video keeps playing without covering anything
+// Switching tracks → key changes → iframe remounts → autoplay=1 triggers
 // ─────────────────────────────────────────────────────────────────────────────
 export function PersistentEmbedPlayer({
   link, visible,
@@ -155,11 +156,9 @@ export function PersistentEmbedPlayer({
   const prevLinkRef = useRef<MediaLink | null>(null);
   const portalRef = useRef<HTMLDivElement | null>(null);
 
-  // Keep the last active link so iframe doesn't blank when panel closes
   const displayLink = link ?? prevLinkRef.current;
   if (link) prevLinkRef.current = link;
 
-  // Create a single portal container mounted once on body
   if (!portalRef.current) {
     const div = document.createElement('div');
     div.style.cssText =
@@ -170,7 +169,6 @@ export function PersistentEmbedPlayer({
 
   useEffect(() => {
     return () => {
-      // Cleanup portal on unmount
       if (portalRef.current && document.body.contains(portalRef.current)) {
         document.body.removeChild(portalRef.current);
       }
@@ -201,11 +199,9 @@ export function PersistentEmbedPlayer({
   );
 
   if (visible) {
-    // Render inline — parent wrapper controls size/aspect-ratio
     return <>{iframeEl}</>;
   }
 
-  // Render into off-screen portal so audio/video keeps playing
   return createPortal(iframeEl, portalRef.current!);
 }
 
@@ -398,7 +394,6 @@ export function FocusSoundPanel({
   const canAdd = state.tab === 'spotify' || state.tab === 'youtube';
   const currentItems = state.tab === 'spotify' ? visibleSpotify : visibleYoutube;
 
-  // Determine if the embed player should show inline (panel open AND on correct tab)
   const embedVisible = state.open
     && activeLink !== null
     && (state.tab === activeLink?.type);
@@ -482,7 +477,6 @@ export function FocusSoundPanel({
             )}
             {(state.tab === 'spotify' || state.tab === 'youtube') && (
               <>
-                {/* Inline embed — only shown when activeLink matches current tab */}
                 {activeLink && activeLink.type === state.tab && (
                   <div
                     className="mx-4 mb-1 mt-3 rounded-2xl overflow-hidden"

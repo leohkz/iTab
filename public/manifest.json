@@ -11,5 +11,8 @@
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; frame-src https://www.youtube.com https://open.spotify.com;"
   }
 }
