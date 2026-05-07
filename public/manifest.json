@@ -11,5 +11,8 @@
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; media-src 'self' https://cdn.pixabay.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://open.spotify.com; connect-src 'self' https:"
   }
 }
