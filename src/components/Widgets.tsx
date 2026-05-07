@@ -101,6 +101,9 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   const startDeg = 240;
   const endDeg = startDeg + ARC_DEG;
 
+  // Clamp progress to [0, 1] so the arc never overflows the track
+  const p = Math.min(1, Math.max(0, progress));
+
   const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
   const polarToXY = (deg: number, r: number) => ({
     x: cx + r * Math.cos(degToRad(deg)),
@@ -113,19 +116,13 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
   };
 
   const trackPath = arcPath(startDeg, endDeg, R, true);
-  const progressDeg = startDeg + ARC_DEG * progress;
-  const progressLarge = ARC_DEG * progress > 180;
-  const progressPath = progress > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
+  const progressDeg = startDeg + ARC_DEG * p;
+  const progressLarge = ARC_DEG * p > 180;
+  const progressPath = p > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
   const activeColor = isBreak ? '#34d399' : '#0f172a';
 
-  // HEIGHT trims the bottom gap of the dial (the 120° open gap faces downward)
-  // We clip only the very bottom portion — the arc itself must not be cut off.
-  // The lowest point of the arc sits at cy + R ≈ 142px, so we use SIZE as height
-  // and rely on the SVG viewBox to keep the arc fully visible.
-  const HEIGHT = SIZE; // full height — no clipping of the arc
-
   return (
-    <div style={{ position: 'relative', width: SIZE, height: HEIGHT }}>
+    <div style={{ position: 'relative', width: SIZE, height: SIZE }}>
       <svg
         width={SIZE}
         height={SIZE}
@@ -172,6 +169,9 @@ function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }
   const startDeg = 240;
   const endDeg   = startDeg + ARC_DEG;
 
+  // Clamp progress to [0, 1]
+  const p = Math.min(1, Math.max(0, progress));
+
   const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
   const polarToXY = (deg: number, r: number) => ({
     x: cx + r * Math.cos(degToRad(deg)),
@@ -184,9 +184,9 @@ function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }
   };
 
   const trackPath = arcPath(startDeg, endDeg, R, true);
-  const progressDeg = startDeg + ARC_DEG * progress;
-  const progressLarge = ARC_DEG * progress > 180;
-  const progressPath = progress > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
+  const progressDeg = startDeg + ARC_DEG * p;
+  const progressLarge = ARC_DEG * p > 180;
+  const progressPath = p > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
   const activeColor = isBreak ? '#34d399' : '#ffffff';
 
   return (
@@ -526,8 +526,9 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
   const totalSeconds = isBreak
     ? (widgets.pomodoroBreakMinutes ?? 5) * 60
     : widgets.pomodoroMinutes * 60;
-  const remaining  = widgets.pomodoroRemainingSeconds;
-  const progress   = totalSeconds > 0 ? remaining / totalSeconds : 0;
+  // Clamp remaining so it never exceeds totalSeconds (handles stale state after minutes change)
+  const remaining  = Math.min(widgets.pomodoroRemainingSeconds, totalSeconds);
+  const progress   = totalSeconds > 0 ? Math.min(1, Math.max(0, remaining / totalSeconds)) : 0;
   const isDone     = remaining === 0;
   const timerLabel = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '0')}`;
 
@@ -641,8 +642,9 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
   const totalSeconds = isBreak
     ? (widgets.pomodoroBreakMinutes ?? 5) * 60
     : widgets.pomodoroMinutes * 60;
-  const remaining  = widgets.pomodoroRemainingSeconds;
-  const progress   = totalSeconds > 0 ? remaining / totalSeconds : 0;
+  // Clamp remaining so it never exceeds totalSeconds
+  const remaining  = Math.min(widgets.pomodoroRemainingSeconds, totalSeconds);
+  const progress   = totalSeconds > 0 ? Math.min(1, Math.max(0, remaining / totalSeconds)) : 0;
   const isDone     = remaining === 0;
   const mm = Math.floor(remaining / 60).toString().padStart(2, '0');
   const ss = (remaining % 60).toString().padStart(2, '0');
