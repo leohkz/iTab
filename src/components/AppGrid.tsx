@@ -34,48 +34,55 @@ type GridItem =
   | { kind: 'app'; id: string; app: AppShortcut }
   | { kind: 'folder'; id: string; folder: Folder; apps: AppShortcut[] };
 
-// Apple-style glass badge used in grid edit mode
-// iconSizePx = rendered pixel size of the icon (4.5rem = 72px)
-const ICON_PX = 72; // grid icon = h-[4.5rem] at 16px base
-const BADGE_PX = Math.round(ICON_PX * 0.28); // ~20px
-const BADGE_OFFSET = -Math.round(BADGE_PX * 0.3); // slightly outside corner
+// icon = 4.5rem = 72px; badge = 28% of icon ≈ 20px
+const ICON_PX = 72;
+const BADGE_PX = Math.round(ICON_PX * 0.28); // 20px
+const BADGE_OFFSET = -Math.round(BADGE_PX * 0.35); // -7px — peeks outside icon corner
 
 const glassBadgeBase: React.CSSProperties = {
   position: 'absolute',
-  zIndex: 10,
+  zIndex: 20,
   width: BADGE_PX,
   height: BADGE_PX,
   borderRadius: '50%',
   display: 'grid',
   placeItems: 'center',
   cursor: 'pointer',
-  background: 'rgba(255,255,255,0.72)',
+  background: 'rgba(255,255,255,0.78)',
   backdropFilter: 'blur(14px) saturate(1.8)',
   WebkitBackdropFilter: 'blur(14px) saturate(1.8)',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.85)',
-  border: '1px solid rgba(255,255,255,0.55)',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.9)',
+  border: '1px solid rgba(255,255,255,0.6)',
 };
 
-const removeBadgeStyle: React.CSSProperties = {
-  ...glassBadgeBase,
-  top: BADGE_OFFSET,
-  left: BADGE_OFFSET,
+// These are relative to the icon <span> (which has position:relative via animate-jiggle wrapper)
+const removeBadgeStyle: React.CSSProperties = { ...glassBadgeBase, top: BADGE_OFFSET, left: BADGE_OFFSET };
+const editBadgeStyle: React.CSSProperties   = { ...glassBadgeBase, top: BADGE_OFFSET, right: BADGE_OFFSET };
+const spaceBadgeStyle: React.CSSProperties  = {
+  position: 'absolute',
+  bottom: BADGE_OFFSET,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 20,
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  background: 'rgba(255,255,255,0.78)',
+  backdropFilter: 'blur(10px) saturate(1.6)',
+  WebkitBackdropFilter: 'blur(10px) saturate(1.6)',
+  border: '1px solid rgba(255,255,255,0.6)',
+  borderRadius: 999,
+  padding: '1px 6px',
+  fontSize: '0.6rem',
+  fontWeight: 900,
+  color: '#334155',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.14)',
 };
 
-const editBadgeStyle: React.CSSProperties = {
-  ...glassBadgeBase,
-  top: BADGE_OFFSET,
-  right: BADGE_OFFSET,
-};
-
-const iconSize = BADGE_PX * 0.48;
+const svgSize = BADGE_PX * 0.5;
 
 // Apple-style glass confirm sheet
 function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
+  title: string; message: string; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
     <div
@@ -83,7 +90,6 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
       style={{ animation: 'fadeIn 0.15s ease' }}
       onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
-      {/* Dim overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-xs overflow-hidden rounded-[1.6rem]"
@@ -103,14 +109,10 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
         </div>
         <div className="flex border-t border-slate-200/80">
           <button type="button" onClick={onCancel}
-            className="flex-1 py-3.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100/60">
-            Cancel
-          </button>
+            className="flex-1 py-3.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100/60">Cancel</button>
           <span className="w-px bg-slate-200/80" />
           <button type="button" onClick={onConfirm}
-            className="flex-1 py-3.5 text-sm font-black text-red-500 transition hover:bg-red-50/60">
-            Delete
-          </button>
+            className="flex-1 py-3.5 text-sm font-black text-red-500 transition hover:bg-red-50/60">Delete</button>
         </div>
       </div>
     </div>
@@ -123,101 +125,115 @@ function FolderPreview({ apps }: { apps: AppShortcut[] }) {
     <span className="grid h-[5.4rem] w-[5.4rem] grid-cols-2 grid-rows-2 place-items-center gap-2 rounded-[1.55rem] border border-white/35 bg-white/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_18px_40px_rgba(17,24,39,0.2)] backdrop-blur-sm">
       {Array.from({ length: 4 }).map((_, index) => {
         const app = previewApps[index];
-        return app ? (
-          <AppIcon key={app.id} app={app} size="mini" />
-        ) : (
-          <span key={`empty-${index}`} className="h-6 w-6 rounded-[0.48rem] bg-white/22" />
-        );
+        return app
+          ? <AppIcon key={app.id} app={app} size="mini" />
+          : <span key={`empty-${index}`} className="h-6 w-6 rounded-[0.48rem] bg-white/22" />;
       })}
     </span>
   );
 }
 
-function AppEditControls({
-  app, spaces, currentSpaceId, onDelete, onRename, onMoveToSpace,
+// IconWithBadges — wraps AppIcon + all edit badges inside ONE span
+// so badges are positioned relative to the icon and jiggle together
+function IconWithBadges({
+  app, editing, spaces, currentSpaceId,
+  onDelete, onRename, onMoveToSpace,
+  isMini = false,
 }: {
   app: AppShortcut;
+  editing: boolean;
   spaces: Space[];
   currentSpaceId: string;
   onDelete: () => void;
   onRename: () => void;
   onMoveToSpace: (spaceId: string | undefined) => void;
+  isMini?: boolean;
 }) {
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
 
   return (
-    <>
-      {/* Remove badge — top-left */}
-      <button
-        type="button" aria-label="Delete shortcut"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-        style={removeBadgeStyle}
-        data-testid="button-delete-shortcut"
-      >
-        <Minus style={{ width: iconSize, height: iconSize, color: '#ef4444', strokeWidth: 3 }} />
-      </button>
+    // This span is the jiggle + positioning root
+    <span
+      className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
+      style={{ isolation: 'isolate' }}
+    >
+      <AppIcon app={app} size={isMini ? 'grid' : 'grid'} />
 
-      {/* Edit badge — top-right */}
-      <button
-        type="button" aria-label="Edit shortcut"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-        style={editBadgeStyle}
-        data-testid="button-rename-shortcut"
-      >
-        <Pencil style={{ width: iconSize * 0.9, height: iconSize * 0.9, color: '#334155', strokeWidth: 2 }} />
-      </button>
+      {editing && (
+        <>
+          {/* Remove — top-left of icon */}
+          <button
+            type="button" aria-label="Delete shortcut"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+            style={removeBadgeStyle}
+            data-testid="button-delete-shortcut"
+          >
+            <Minus style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 3 }} />
+          </button>
 
-      {/* Space badge — bottom centre */}
-      <button
-        type="button" aria-label="Move to space"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSpaceMenuOpen((v) => !v); }}
-        className="absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 rounded-full px-2 py-0.5 text-[0.6rem] font-black text-slate-700 shadow"
-        style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.55)',
-        }}
-        data-testid="button-space-badge"
-      >
-        {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '✦ All'}
-      </button>
+          {/* Edit — top-right of icon */}
+          <button
+            type="button" aria-label="Edit shortcut"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
+            style={editBadgeStyle}
+            data-testid="button-rename-shortcut"
+          >
+            <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
+          </button>
 
-      {spaceMenuOpen && (
-        <div
-          className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-2xl shadow-2xl"
-          style={{
-            background: 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(24px) saturate(1.8)',
-            WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
-            border: '1px solid rgba(255,255,255,0.55)',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="min-w-[9rem] py-1 text-xs font-black text-slate-800">
-            <button type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50"
-              onClick={(e) => { e.stopPropagation(); onMoveToSpace(undefined); setSpaceMenuOpen(false); }}
+          {/* Space — bottom-centre of icon */}
+          <button
+            type="button" aria-label="Move to space"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSpaceMenuOpen((v) => !v); }}
+            style={spaceBadgeStyle}
+            data-testid="button-space-badge"
+          >
+            {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '✦ All'}
+          </button>
+
+          {spaceMenuOpen && (
+            <div
+              className="absolute z-30 overflow-hidden rounded-2xl shadow-2xl"
+              style={{
+                bottom: 'calc(100% + 4px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(24px) saturate(1.8)',
+                WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+                border: '1px solid rgba(255,255,255,0.6)',
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-slate-400">✦</span> All Spaces
-            </button>
-            {spaces.map((space) => (
-              <button key={space.id} type="button"
-                className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50', space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
-                onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}
-              >
-                <span className={`h-2 w-2 rounded-full bg-gradient-to-br ${space.accent}`} />
-                {space.name}
-              </button>
-            ))}
-          </div>
-        </div>
+              <div className="min-w-[9rem] py-1 text-xs font-black text-slate-800">
+                <button type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50"
+                  onClick={(e) => { e.stopPropagation(); onMoveToSpace(undefined); setSpaceMenuOpen(false); }}
+                >
+                  <span className="text-slate-400">✦</span> All Spaces
+                </button>
+                {spaces.map((space) => (
+                  <button key={space.id} type="button"
+                    className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50',
+                      space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
+                    onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}
+                  >
+                    <span className={`h-2 w-2 rounded-full bg-gradient-to-br ${space.accent}`} />
+                    {space.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
-    </>
+    </span>
   );
 }
 
-function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string }) {
+function FolderRenameOverlay({ name, onSave, onCancel, t }: {
+  name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string;
+}) {
   const [value, setValue] = useState(name);
   const handleSave = () => { if (!value.trim()) return; onSave(value.trim()); };
   return (
@@ -234,8 +250,10 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: { name: string; onSa
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-400"
         />
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
-          <button type="button" onClick={handleSave} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">{t('save')}</button>
+          <button type="button" onClick={onCancel}
+            className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
+          <button type="button" onClick={handleSave}
+            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700">{t('save')}</button>
         </div>
       </div>
     </div>
@@ -258,10 +276,6 @@ export function AppGrid({
   const deletingApp = apps.find((a) => a.id === deletingAppId) ?? null;
   const mainRef = useRef<HTMLElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (editing && e.key === 'Escape') onStopEditing();
-  };
-
   const items = useMemo<GridItem[]>(() => {
     const rootApps = apps.filter((a) => a.folderId === null).map((a) => ({ kind: 'app' as const, id: a.id, app: a }));
     const folderItems = folders.map((folder) => ({
@@ -283,7 +297,7 @@ export function AppGrid({
   const cellClass = [
     'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
     editing ? 'cursor-grab' : '',
-  ];
+  ].join(' ');
 
   return (
     <main
@@ -291,7 +305,7 @@ export function AppGrid({
       className="relative z-10 flex min-h-screen items-center justify-center px-6 pb-32 pt-28"
       data-testid="main-new-tab"
       tabIndex={editing ? 0 : undefined}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => { if (editing && e.key === 'Escape') onStopEditing(); }}
       onContextMenu={(e) => { e.preventDefault(); onStartEditing(); }}
       onClick={(e) => { if (editing && e.target === mainRef.current) onStopEditing(); }}
       onDragOver={(e) => { if (selectedFolderId) e.preventDefault(); }}
@@ -312,10 +326,11 @@ export function AppGrid({
         >
           {items.map((item) => {
             if (item.kind === 'folder') {
+              // Folder: badges on the folder preview icon
               return (
                 <div
                   key={item.id}
-                  className={[...cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
+                  className={[cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
                   draggable={editing}
                   onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                   onDragOver={(e) => e.preventDefault()}
@@ -323,29 +338,33 @@ export function AppGrid({
                   onPointerDown={(e) => setLongPress(e.currentTarget)}
                   data-testid={`button-folder-${item.folder.id}`}
                 >
-                  {editing && (
-                    <>
-                      <button type="button" aria-label="Delete folder"
-                        onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
-                        style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}
-                      >
-                        <Trash2 style={{ width: iconSize, height: iconSize, color: '#ef4444', strokeWidth: 2.5 }} />
-                      </button>
-                      <button type="button" aria-label="Rename folder"
-                        onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
-                        style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}
-                      >
-                        <Pencil style={{ width: iconSize * 0.9, height: iconSize * 0.9, color: '#334155', strokeWidth: 2 }} />
-                      </button>
-                    </>
-                  )}
                   <button
                     type="button"
                     onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
-                    className="flex flex-col items-center gap-2 rounded-[1.6rem] transition duration-200 hover:bg-white/12 active:scale-[0.98] p-2"
+                    className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                   >
-                    <span className={editing ? 'animate-jiggle' : ''}>
+                    {/* folder icon + badges in one jiggle span */}
+                    <span
+                      className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
+                      style={{ isolation: 'isolate' }}
+                    >
                       <FolderPreview apps={item.apps} />
+                      {editing && (
+                        <>
+                          <button type="button" aria-label="Delete folder"
+                            onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
+                            style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}
+                          >
+                            <Trash2 style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 2.5 }} />
+                          </button>
+                          <button type="button" aria-label="Rename folder"
+                            onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
+                            style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}
+                          >
+                            <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
+                          </button>
+                        </>
+                      )}
                     </span>
                     <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
                       {item.folder.name}
@@ -355,10 +374,11 @@ export function AppGrid({
               );
             }
 
+            // App item
             return (
               <div
                 key={item.id}
-                className={[...cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
+                className={[cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
                 draggable={editing}
                 onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                 onDragOver={(e) => e.preventDefault()}
@@ -366,23 +386,22 @@ export function AppGrid({
                 onPointerDown={(e) => setLongPress(e.currentTarget)}
                 data-testid={`link-app-${item.app.id}`}
               >
-                {editing && (
-                  <AppEditControls
-                    app={item.app} spaces={spaces} currentSpaceId={currentSpaceId}
-                    onDelete={() => setDeletingAppId(item.app.id)}
-                    onRename={() => onRenameApp(item.app.id)}
-                    onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
-                  />
-                )}
                 <a
                   href={editing ? undefined : item.app.url}
                   target="_blank" rel="noreferrer"
                   onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
-                  className="flex flex-col items-center gap-2 rounded-[1.6rem] transition duration-200 hover:bg-white/12 active:scale-[0.98] p-2"
+                  className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
                 >
-                  <span className={editing ? 'animate-jiggle' : ''}>
-                    <AppIcon app={item.app} size="grid" />
-                  </span>
+                  {/* Icon + all badges inside ONE span = jiggle together */}
+                  <IconWithBadges
+                    app={item.app}
+                    editing={editing}
+                    spaces={spaces}
+                    currentSpaceId={currentSpaceId}
+                    onDelete={() => setDeletingAppId(item.app.id)}
+                    onRename={() => onRenameApp(item.app.id)}
+                    onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
+                  />
                   <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
                     {item.app.name}
                   </span>
@@ -418,6 +437,7 @@ export function AppGrid({
         </div>
       </section>
 
+      {/* Folder modal */}
       {selectedFolder && (
         <div
           className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
@@ -448,23 +468,22 @@ export function AppGrid({
                   onDragStart={(e) => { setDraggedId(app.id); e.dataTransfer.setData('text/plain', app.id); }}
                   data-testid={`folder-app-${app.id}`}
                 >
-                  {editing && (
-                    <AppEditControls
-                      app={app} spaces={spaces} currentSpaceId={currentSpaceId}
-                      onDelete={() => setDeletingAppId(app.id)}
-                      onRename={() => onRenameApp(app.id)}
-                      onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
-                    />
-                  )}
                   <a
                     href={editing ? undefined : app.url}
                     target="_blank" rel="noreferrer"
                     onClick={(e) => { if (editing) e.preventDefault(); }}
-                    className="flex flex-col items-center gap-2 rounded-[1.4rem] transition duration-200 hover:bg-white/12 p-1"
+                    className="flex flex-col items-center gap-2 rounded-[1.4rem] p-1 transition duration-200 hover:bg-white/12"
                   >
-                    <span className={editing ? 'animate-jiggle' : ''}>
-                      <AppIcon app={app} size="grid" />
-                    </span>
+                    <IconWithBadges
+                      app={app}
+                      editing={editing}
+                      spaces={spaces}
+                      currentSpaceId={currentSpaceId}
+                      onDelete={() => setDeletingAppId(app.id)}
+                      onRename={() => onRenameApp(app.id)}
+                      onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
+                      isMini
+                    />
                     <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
                   </a>
                 </div>
@@ -497,7 +516,7 @@ export function AppGrid({
       {deletingApp && (
         <DeleteConfirmSheet
           title="Delete Shortcut?"
-          message={`“${deletingApp.name}” will be removed from your home screen.`}
+          message={`\u201c${deletingApp.name}\u201d will be removed from your home screen.`}
           onConfirm={() => { onDeleteApp(deletingAppId!); setDeletingAppId(null); }}
           onCancel={() => setDeletingAppId(null)}
         />

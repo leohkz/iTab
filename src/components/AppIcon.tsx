@@ -7,10 +7,12 @@ type AppIconProps = {
   size?: 'grid' | 'dock' | 'mini';
 };
 
-// All sizes share the same corner-radius ratio (~30% of width = Apple iOS icon style)
+// grid: 72px × 30% ≈ 21.6px → rounded-[1.35rem]
+// dock: 52px × 30% ≈ 16px  → rounded-[16px]  (fixed so it looks correct at base size)
+// mini: 24px × 30% ≈ 7px   → rounded-[0.48rem]
 const sizeClasses = {
   grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
-  dock: 'h-full w-full rounded-[1.35rem]',   // same radius as grid
+  dock: 'h-full w-full rounded-[16px]',
   mini: 'h-6 w-6 rounded-[0.48rem]',
 };
 
