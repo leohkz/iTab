@@ -1,4 +1,4 @@
-import { Check, Copy, Pencil, Plus, Search, Tag, Trash2, X } from 'lucide-react';
+import { Check, Copy, Eye, Pencil, Plus, Search, Tag, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Prompt, PromptTag } from '../types';
 import type { TranslationKey } from '../i18n';
@@ -24,7 +24,7 @@ function DeleteConfirm({ title, t, onConfirm, onCancel }: {
 }) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
       style={{ animation: 'fadeIn 0.15s ease' }}
       onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
@@ -40,6 +40,100 @@ function DeleteConfirm({ title, t, onConfirm, onCancel }: {
           </button>
           <button type="button" onClick={onConfirm} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white hover:bg-red-600">
             {t('delete')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Image Preview Modal ───────────────────────────────────────────────────────
+function PreviewModal({ prompt, t, onClose }: {
+  prompt: Prompt;
+  t: (k: TranslationKey) => string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(prompt.content).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/70 backdrop-blur-md"
+      style={{ animation: 'fadeIn 0.18s ease' }}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="relative mx-4 flex w-full max-w-4xl overflow-hidden rounded-[2rem] bg-white shadow-[0_32px_96px_rgba(15,23,42,0.45)]"
+        style={{ maxHeight: '88vh', animation: 'slideUp 0.22s cubic-bezier(0.34,1.3,0.64,1)' }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/20 text-white backdrop-blur-sm transition hover:bg-black/40"
+          aria-label="Close preview"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {/* Left — image */}
+        <div className="flex w-1/2 shrink-0 items-center justify-center bg-slate-950 p-4">
+          <img
+            src={prompt.imageUrl}
+            alt={prompt.title}
+            className="max-h-full max-w-full rounded-xl object-contain"
+            style={{ maxHeight: 'calc(88vh - 2rem)' }}
+            onError={(e) => {
+              const el = e.target as HTMLImageElement;
+              el.style.display = 'none';
+              (el.parentElement as HTMLElement).innerHTML =
+                '<span style="color:rgba(255,255,255,0.3);font-size:2rem;">🖼️</span>';
+            }}
+          />
+        </div>
+
+        {/* Right — prompt info */}
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 leading-tight mb-2">{prompt.title}</h2>
+            {prompt.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {prompt.tags.map((tag) => (
+                  <span
+                    key={tag.label}
+                    className="rounded-full px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide"
+                    style={{ backgroundColor: `${tag.color}22`, color: tag.color, border: `1px solid ${tag.color}55` }}
+                  >
+                    {tag.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 rounded-2xl bg-slate-50 p-4">
+            <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700 select-text">
+              {prompt.content}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={[
+              'flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition',
+              copied ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white hover:bg-slate-700',
+            ].join(' ')}
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? t('copied') : t('copyPrompt')}
           </button>
         </div>
       </div>
@@ -70,12 +164,13 @@ function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; on
 
 // ── Prompt Card ──────────────────────────────────────────────────────────────
 function PromptCard({
-  prompt, t, onEdit, onDeleteRequest,
+  prompt, t, onEdit, onDeleteRequest, onPreview,
 }: {
   prompt: Prompt;
   t: (key: TranslationKey) => string;
   onEdit: () => void;
   onDeleteRequest: () => void;
+  onPreview: () => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -92,7 +187,26 @@ function PromptCard({
       style={{ animation: 'fadeInUp 0.28s ease both' }}
     >
       {prompt.imageUrl ? (
-        <img src={prompt.imageUrl} alt={prompt.title} className="h-32 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        <div className="relative h-32 w-full overflow-hidden cursor-pointer" onClick={onPreview}>
+          <img
+            src={prompt.imageUrl}
+            alt={prompt.title}
+            className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+            onError={(e) => {
+              const el = e.target as HTMLImageElement;
+              el.style.display = 'none';
+              (el.parentElement as HTMLElement).classList.add(
+                'flex', 'items-center', 'justify-center',
+                'bg-gradient-to-br', 'from-slate-100', 'to-slate-200',
+              );
+              (el.parentElement as HTMLElement).innerHTML = '<span style="font-size:1.5rem;opacity:0.3">✨</span>';
+            }}
+          />
+          {/* hover overlay hint */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition duration-200 group-hover:bg-black/20">
+            <Eye className="h-7 w-7 text-white opacity-0 drop-shadow transition duration-200 group-hover:opacity-100" />
+          </div>
+        </div>
       ) : (
         <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
           <span className="text-3xl opacity-25">✨</span>
@@ -131,6 +245,16 @@ function PromptCard({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
+          {/* Preview button — only shown when imageUrl is present */}
+          {prompt.imageUrl && (
+            <button
+              type="button" onClick={onPreview}
+              className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-violet-50 hover:text-violet-600"
+              aria-label="Preview"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <button
           type="button" onClick={handleCopy}
@@ -161,8 +285,8 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewPrompt, setPreviewPrompt] = useState<Prompt | null>(null);
 
-  // glass-driven panel background: blend white opacity with blur from setting
   const panelAlpha = Math.min(0.98, Math.max(0.82, glass / 100));
   const panelBlur  = Math.round(8 + glass / 8);
   const panelStyle: React.CSSProperties = {
@@ -268,6 +392,7 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
                   key={p.id} prompt={p} t={t}
                   onEdit={() => openEdit(p)}
                   onDeleteRequest={() => setDeletingId(p.id)}
+                  onPreview={() => setPreviewPrompt(p)}
                 />
               ))}
               <button
@@ -281,6 +406,15 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
           )}
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {previewPrompt && (
+        <PreviewModal
+          prompt={previewPrompt}
+          t={t}
+          onClose={() => setPreviewPrompt(null)}
+        />
+      )}
 
       {deletingPrompt && (
         <DeleteConfirm
