@@ -89,7 +89,7 @@ function SpacesPanel({
   onDelete: (id: string) => void;
 }) {
   const [newName, setNewName] = useState('');
-  const [newAccent, setNewAccent] = useState(SPACE_ACCENTS[0].value);
+  const [newAccent, setNewAccent] = useState<string>(SPACE_ACCENTS[0].value);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
