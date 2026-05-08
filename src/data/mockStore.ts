@@ -1,5 +1,5 @@
 import type { AppConfig } from '../types';
-import { DEFAULT_NOTE_TABS, DEFAULT_SPACES, DEFAULT_TODO_LISTS } from '../types';
+import { DEFAULT_NOTE_TABS, DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS } from '../types';
 
 export const spaces = DEFAULT_SPACES;
 
@@ -24,19 +24,14 @@ export const defaultConfig: AppConfig = {
   showWidgets: true,
   pinnedIds: ['chatgpt', 'notion', 'perplexity'],
   folders: [],
+  // AI Portals — populated from DEFAULT_AI_PORTALS in types.ts
+  aiPortals: [...DEFAULT_AI_PORTALS],
+  aiPortalSize: 'lg',
   prompts: [
     {
       id: 'prompt-image-gen',
       title: '\uD83C\uDFA8 Cinematic Image Prompt',
-      content: `Create a photorealistic image of [SUBJECT].
-
-Style: Cinematic, shot on Sony A7R IV, 85mm f/1.4 lens
-Lighting: Golden hour, soft side lighting, subtle lens flare
-Mood: [MOOD \u2014 e.g. serene / dramatic / mysterious]
-Color palette: Warm tones, slight film grain, muted shadows
-Composition: Rule of thirds, shallow depth of field, bokeh background
-Aspect ratio: 16:9
-Negative prompt: cartoon, illustration, blurry, watermark, text`,
+      content: `Create a photorealistic image of [SUBJECT].\n\nStyle: Cinematic, shot on Sony A7R IV, 85mm f/1.4 lens\nLighting: Golden hour, soft side lighting, subtle lens flare\nMood: [MOOD — e.g. serene / dramatic / mysterious]\nColor palette: Warm tones, slight film grain, muted shadows\nComposition: Rule of thirds, shallow depth of field, bokeh background\nAspect ratio: 16:9\nNegative prompt: cartoon, illustration, blurry, watermark, text`,
       tags: [
         { label: 'Image Gen', color: '#8b5cf6' },
         { label: 'Midjourney', color: '#ec4899' },
@@ -47,23 +42,7 @@ Negative prompt: cartoon, illustration, blurry, watermark, text`,
     {
       id: 'prompt-agent-research',
       title: '\uD83E\uDD16 Deep Research Agent',
-      content: `You are an expert research analyst. Your task is to conduct deep research on the following topic:
-
-Topic: [INSERT TOPIC]
-
-Instructions:
-1. Search for the latest information (prioritise sources from the last 12 months)
-2. Identify the top 5 key insights
-3. Find contrarian viewpoints and challenges
-4. Summarise in a structured report with:
-   - Executive Summary (3 sentences)
-   - Key Findings (bullet points)
-   - Data & Statistics
-   - Opposing Views
-   - Actionable Recommendations
-5. Cite sources with URLs where possible
-
-Output format: Markdown`,
+      content: `You are an expert research analyst. Your task is to conduct deep research on the following topic:\n\nTopic: [INSERT TOPIC]\n\nInstructions:\n1. Search for the latest information (prioritise sources from the last 12 months)\n2. Identify the top 5 key insights\n3. Find contrarian viewpoints and challenges\n4. Summarise in a structured report with:\n   - Executive Summary (3 sentences)\n   - Key Findings (bullet points)\n   - Data & Statistics\n   - Opposing Views\n   - Actionable Recommendations\n5. Cite sources with URLs where possible\n\nOutput format: Markdown`,
       tags: [
         { label: 'Agent', color: '#0ea5e9' },
         { label: 'Research', color: '#10b981' },
@@ -74,23 +53,7 @@ Output format: Markdown`,
     {
       id: 'prompt-copywriting',
       title: '\u270D\uFE0F Viral Social Media Copy',
-      content: `You are a world-class copywriter who specialises in viral social media content.
-
-Product / Topic: [DESCRIBE YOUR PRODUCT OR TOPIC]
-Target audience: [WHO ARE THEY \u2014 age, interests, pain points]
-Platform: [Instagram / LinkedIn / Twitter / Facebook]
-Goal: [Awareness / Engagement / Sales / Sign-ups]
-
-Write 3 variations of a post using these frameworks:
-1. AIDA (Attention \u2192 Interest \u2192 Desire \u2192 Action)
-2. PAS (Problem \u2192 Agitate \u2192 Solution)
-3. Hook + Story + CTA
-
-Requirements:
-- Each post under 280 characters for Twitter, or up to 2,200 for Instagram
-- Include 5 relevant hashtags
-- Add an emoji strategy (no more than 4 emojis per post)
-- End with a clear, compelling CTA`,
+      content: `You are a world-class copywriter who specialises in viral social media content.\n\nProduct / Topic: [DESCRIBE YOUR PRODUCT OR TOPIC]\nTarget audience: [WHO ARE THEY — age, interests, pain points]\nPlatform: [Instagram / LinkedIn / Twitter / Facebook]\nGoal: [Awareness / Engagement / Sales / Sign-ups]\n\nWrite 3 variations of a post using these frameworks:\n1. AIDA (Attention → Interest → Desire → Action)\n2. PAS (Problem → Agitate → Solution)\n3. Hook + Story + CTA\n\nRequirements:\n- Each post under 280 characters for Twitter, or up to 2,200 for Instagram\n- Include 5 relevant hashtags\n- Add an emoji strategy (no more than 4 emojis per post)\n- End with a clear, compelling CTA`,
       tags: [
         { label: 'Copywriting', color: '#f59e0b' },
         { label: 'Marketing', color: '#ef4444' },
@@ -116,7 +79,6 @@ Requirements:
       url: 'https://notion.so',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — notion (black)
       iconValue: SI('notion', '000000'),
       iconColor: '',
     },
@@ -126,7 +88,6 @@ Requirements:
       url: 'https://youtube.com',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — youtube (red)
       iconValue: SI('youtube', 'FF0000'),
       iconColor: '',
     },
@@ -136,7 +97,6 @@ Requirements:
       url: 'https://mail.google.com',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — gmail (red)
       iconValue: SI('gmail', 'EA4335'),
       iconColor: '',
     },
@@ -146,7 +106,6 @@ Requirements:
       url: 'https://perplexity.ai',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — perplexity (teal)
       iconValue: SI('perplexity', '1FB8CD'),
       iconColor: '',
     },
@@ -156,7 +115,6 @@ Requirements:
       url: 'https://figma.com',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — figma (brand orange-red)
       iconValue: SI('figma', 'F24E1E'),
       iconColor: '',
     },
@@ -166,7 +124,6 @@ Requirements:
       url: 'https://github.com',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — github (black)
       iconValue: SI('github', '181717'),
       iconColor: '',
     },
@@ -176,7 +133,6 @@ Requirements:
       url: 'https://linear.app',
       folderId: null,
       iconType: 'url',
-      // Simple Icons — linear (indigo)
       iconValue: SI('linear', '5E6AD2'),
       iconColor: '',
     },

@@ -1,18 +1,22 @@
 import { BotMessageSquare, Plus, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { AiPortal, AiPortalSize } from '../types';
+import type { TranslationKey } from '../i18n';
 
 // ── Favicon helper ──────────────────────────────────────────────────────
-function getFaviconSrc(icon: string, url: string): string | null {
+// Simple Icons CDN helper — returns branded SVG, no CORS issues in extension
+function getIconSrc(icon: string, url: string): string | null {
+  // Already a full URL (Simple Icons CDN, Wikimedia, etc.) — use directly
+  if (icon.startsWith('http') || icon.startsWith('data:')) return icon;
+  // 'auto' — derive from domain via DuckDuckGo (works in extension context, no CORS)
   if (icon === 'auto') {
     try {
-      const origin = new URL(url).origin;
-      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(origin)}&sz=64`;
+      const domain = new URL(url).hostname;
+      return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
     } catch {
       return null;
     }
   }
-  if (icon.startsWith('http') || icon.startsWith('data:')) return icon;
   return null;
 }
 
@@ -37,7 +41,7 @@ function glassStyle(glass: number, alphaScale = 1): React.CSSProperties {
 
 // ── PortalIcon ───────────────────────────────────────────────────────────
 function PortalIcon({ icon, url, name, size }: { icon: string; url: string; name: string; size: number }) {
-  const src = getFaviconSrc(icon, url);
+  const src = getIconSrc(icon, url);
   const [errored, setErrored] = useState(false);
 
   if (src && !errored) {
@@ -60,7 +64,7 @@ function PortalIcon({ icon, url, name, size }: { icon: string; url: string; name
       role="img"
       aria-label={name}
     >
-      {icon === 'auto' ? name.charAt(0) : icon}
+      {name.charAt(0).toUpperCase()}
     </span>
   );
 }
@@ -70,9 +74,10 @@ type Props = {
   portals: AiPortal[];
   size?: AiPortalSize;
   glass: number;
+  t: (key: TranslationKey) => string;
 };
 
-export function AiPortalBar({ portals, size = 'lg', glass }: Props) {
+export function AiPortalBar({ portals, size = 'lg', glass, t }: Props) {
   const [hovered, setHovered] = useState(false);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -101,7 +106,7 @@ export function AiPortalBar({ portals, size = 'lg', glass }: Props) {
       {/* Trigger button */}
       <button
         type="button"
-        aria-label="AI 入口"
+        aria-label={t('aiPortals')}
         className="flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-white/70 shadow-lg transition-all duration-200 hover:text-white"
         style={triggerStyle}
       >
@@ -148,18 +153,12 @@ type PanelProps = {
   size: AiPortalSize;
   onChange: (portals: AiPortal[]) => void;
   onSizeChange: (size: AiPortalSize) => void;
+  t: (key: TranslationKey) => string;
 };
 
 const BLANK: Omit<AiPortal, 'id' | 'builtIn' | 'enabled'> = { name: '', url: '', icon: 'auto' };
 
-const SIZE_LABELS: Record<AiPortalSize, string> = {
-  sm: '小 (Small)',
-  md: '中 (Medium)',
-  lg: '大 (Large)',
-  xl: '超大 (XL)',
-};
-
-export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }: PanelProps) {
+export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange, t }: PanelProps) {
   const [form, setForm] = useState<typeof BLANK>({ ...BLANK });
 
   const toggle = (id: string) =>
@@ -182,11 +181,17 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
   };
 
   const SIZES: AiPortalSize[] = ['sm', 'md', 'lg', 'xl'];
+  const SIZE_LABELS: Record<AiPortalSize, string> = {
+    sm: t('sizeSm'),
+    md: t('sizeMd'),
+    lg: t('sizeLg'),
+    xl: t('sizeXl'),
+  };
 
   return (
     <div className="grid gap-4">
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">按鈕大小</h4>
+        <h4 className="mb-3 font-black">{t('portalButtonSize')}</h4>
         <div className="flex gap-2 flex-wrap">
           {SIZES.map((s) => (
             <button
@@ -205,7 +210,7 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
           ))}
         </div>
         <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-3">
-          <span className="text-xs text-slate-400 font-bold w-12 shrink-0">預覽</span>
+          <span className="text-xs text-slate-400 font-bold w-12 shrink-0">{t('preview')}</span>
           {['chatgpt', 'claude', 'deepseek'].map((pid) => {
             const p = portals.find((x) => x.id === pid);
             if (!p) return null;
@@ -224,7 +229,7 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">AI 入口列表</h4>
+        <h4 className="mb-3 font-black">{t('aiPortalList')}</h4>
         <div className="grid gap-2">
           {portals.map((portal) => (
             <div key={portal.id} className="flex items-center gap-2 rounded-xl bg-slate-950/5 px-3 py-2">
@@ -232,7 +237,7 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
                 type="button"
                 onClick={() => toggle(portal.id)}
                 className={['h-5 w-9 rounded-full transition', portal.enabled ? 'bg-slate-950' : 'bg-slate-300'].join(' ')}
-                title={portal.enabled ? '停用' : '啟用'}
+                title={portal.enabled ? t('disable') : t('enable')}
               >
                 <span className={['block h-4 w-4 rounded-full bg-white shadow transition-all', portal.enabled ? 'ml-[18px]' : 'ml-0.5'].join(' ')} />
               </button>
@@ -244,8 +249,8 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
                   value={portal.icon === 'auto' ? '' : portal.icon}
                   onChange={(e) => updateField(portal.id, 'icon', e.target.value.trim() || 'auto')}
                   className="w-20 rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-500"
-                  placeholder="auto / URL"
-                  title="留空=自動抓取favicon，或填圖片URL"
+                  placeholder={t('iconUrlAuto')}
+                  title={t('iconUrlHint')}
                 />
               </div>
               <input
@@ -273,18 +278,18 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">新增自定義 AI 入口</h4>
+        <h4 className="mb-3 font-black">{t('addCustomAiPortal')}</h4>
         <div className="flex flex-wrap gap-2">
           <input
             value={form.icon === 'auto' ? '' : form.icon}
             onChange={(e) => setForm({ ...form, icon: e.target.value.trim() || 'auto' })}
-            placeholder="圖示URL"
+            placeholder={t('iconUrl')}
             className="w-24 rounded-xl border border-slate-950/10 px-2 py-2 text-xs"
           />
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="名稱"
+            placeholder={t('name')}
             className="w-28 rounded-xl border border-slate-950/10 px-3 py-2 text-sm font-bold"
           />
           <input
@@ -299,11 +304,11 @@ export function AiPortalSettingsPanel({ portals, size, onChange, onSizeChange }:
             disabled={!form.name.trim() || !form.url.trim()}
             className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-40"
           >
-            <Plus className="h-4 w-4" />新增
+            <Plus className="h-4 w-4" />{t('add')}
           </button>
         </div>
         <p className="mt-2 text-xs text-slate-400">
-          圖示欄位留空 = 自動抓取網站 favicon。也可填入圖片 URL 自訂圖示。
+          {t('iconUrlHint')}
         </p>
       </div>
     </div>
