@@ -1,12 +1,12 @@
 import {
-  CalendarDays, CheckSquare, ChevronDown, FileText,
-  Focus, Minimize2, Music, Pause, Pin, PinOff, Play,
-  Plus, RotateCcw, Timer, Trash2, X,
+  Bold, CalendarDays, CheckSquare, ChevronDown, Eye, EyeOff,
+  FileText, Focus, Heading2, List, Minimize2, Music,
+  Pause, Pin, PinOff, Play, Plus, RotateCcw, Timer, Trash2, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { TranslationKey } from '../i18n';
-import type { TodoItem, TodoList, WidgetMeta, WidgetState } from '../types';
-import { DEFAULT_TODO_LISTS } from '../types';
+import type { NoteTab, TodoItem, TodoList, WidgetMeta, WidgetState } from '../types';
+import { DEFAULT_NOTE_TABS, DEFAULT_TODO_LISTS } from '../types';
 import { FocusSoundPanel, defaultFocusSoundState } from './FocusSound';
 import type { FocusSoundState } from './FocusSound';
 
@@ -74,6 +74,10 @@ function safeList(l: TodoList[] | undefined) {
   return (l && l.length > 0) ? l : [...DEFAULT_TODO_LISTS];
 }
 
+function safeNoteTabs(tabs: NoteTab[] | undefined): NoteTab[] {
+  return (tabs && tabs.length > 0) ? tabs : [...DEFAULT_NOTE_TABS].map(t => ({ ...t, updatedAt: Date.now() }));
+}
+
 function glassStyle(glass: number) {
   const alpha = Math.min(0.72, Math.max(0.55, glass / 120));
   const blur  = Math.round(8 + glass / 9);
@@ -84,74 +88,54 @@ function glassStyle(glass: number) {
   };
 }
 
-// ── Pomodoro gauge dial (widget) ───────────────────────────────────────────────
+// ── Minimal Markdown renderer (no external deps) ──────────────────────────────
+function renderMarkdown(md: string): string {
+  return md
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // headings
+    .replace(/^### (.+)$/gm, '<h3 style="font-size:0.85rem;font-weight:900;margin:0.5em 0 0.2em">$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2 style="font-size:0.95rem;font-weight:900;margin:0.6em 0 0.25em">$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1 style="font-size:1.05rem;font-weight:900;margin:0.7em 0 0.3em">$1</h1>')
+    // bold / italic
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,    '<em>$1</em>')
+    // inline code
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.08);border-radius:4px;padding:0.1em 0.35em;font-size:0.85em">$1</code>')
+    // checkboxes
+    .replace(/^- \[x\] (.+)$/gim, '<div style="display:flex;gap:6px;align-items:center"><input type="checkbox" checked disabled style="accent-color:#1e293b"><span style="text-decoration:line-through;color:#94a3b8">$1</span></div>')
+    .replace(/^- \[ \] (.+)$/gim, '<div style="display:flex;gap:6px;align-items:center"><input type="checkbox" disabled><span>$1</span></div>')
+    // unordered list
+    .replace(/^[-*] (.+)$/gm, '<div style="display:flex;gap:6px"><span style="color:#94a3b8;margin-top:1px">•</span><span>$1</span></div>')
+    // horizontal rule
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(0,0,0,0.12);margin:0.6em 0">')
+    // paragraph
+    .replace(/\n\n/g, '</p><p style="margin:0 0 0.4em">')
+    .replace(/^(?!<[h|d|i|c|s])(.+)$/gm, (m) => m.trim() ? m : '')
+    ;
+}
+
+// ── Pomodoro gauge dial (widget) ──────────────────────────────────────────────
 function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
-  progress: number;
-  isBreak: boolean;
-  timerLabel: string;
-  isDone: boolean;
+  progress: number; isBreak: boolean; timerLabel: string; isDone: boolean;
 }) {
-  const SIZE = 160;
-  const cx = SIZE / 2;
-  const cy = SIZE / 2;
-  const R = 62;
-  const STROKE = 10;
-  const GAP_DEG = 120;
-  const ARC_DEG = 360 - GAP_DEG; // 240°
-  const startDeg = 240;
-  const endDeg = startDeg + ARC_DEG;
-
-  // Clamp progress to [0, 1] so the arc never overflows the track
+  const SIZE = 160, cx = SIZE / 2, cy = SIZE / 2, R = 62, STROKE = 10;
+  const GAP_DEG = 120, ARC_DEG = 360 - GAP_DEG, startDeg = 240, endDeg = startDeg + ARC_DEG;
   const p = Math.min(1, Math.max(0, progress));
-
   const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
-  const polarToXY = (deg: number, r: number) => ({
-    x: cx + r * Math.cos(degToRad(deg)),
-    y: cy + r * Math.sin(degToRad(deg)),
-  });
-  const arcPath = (startD: number, endD: number, r: number, large: boolean) => {
-    const s = polarToXY(startD, r);
-    const e = polarToXY(endD, r);
-    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`;
-  };
-
+  const polarToXY = (deg: number, r: number) => ({ x: cx + r * Math.cos(degToRad(deg)), y: cy + r * Math.sin(degToRad(deg)) });
+  const arcPath = (sD: number, eD: number, r: number, large: boolean) => { const s = polarToXY(sD, r), e = polarToXY(eD, r); return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`; };
   const trackPath = arcPath(startDeg, endDeg, R, true);
   const progressDeg = startDeg + ARC_DEG * p;
-  const progressLarge = ARC_DEG * p > 180;
-  const progressPath = p > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
+  const progressPath = p > 0 ? arcPath(startDeg, progressDeg, R, ARC_DEG * p > 180) : null;
   const activeColor = isBreak ? '#34d399' : '#0f172a';
-
   return (
     <div style={{ position: 'relative', width: SIZE, height: SIZE }}>
-      <svg
-        width={SIZE}
-        height={SIZE}
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
-        style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }}
-        aria-hidden="true"
-      >
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }} aria-hidden="true">
         <path d={trackPath} fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth={STROKE} strokeLinecap="round" />
-        {progressPath && (
-          <path
-            d={progressPath} fill="none"
-            stroke={activeColor} strokeWidth={STROKE} strokeLinecap="round"
-            style={{ transition: 'all 1s linear' }}
-          />
-        )}
+        {progressPath && <path d={progressPath} fill="none" stroke={activeColor} strokeWidth={STROKE} strokeLinecap="round" style={{ transition: 'all 1s linear' }} />}
       </svg>
-      <div style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        paddingBottom: 8,
-      }}>
-        {isDone
-          ? <span style={{ fontSize: '1.5rem' }}>✅</span>
-          : <span
-              style={{ fontSize: '1.125rem', fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#1e293b' }}
-              data-testid="text-pomodoro-timer"
-            >{timerLabel}</span>
-        }
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: 8 }}>
+        {isDone ? <span style={{ fontSize: '1.5rem' }}>✅</span> : <span style={{ fontSize: '1.125rem', fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#1e293b' }} data-testid="text-pomodoro-timer">{timerLabel}</span>}
       </div>
     </div>
   );
@@ -159,172 +143,87 @@ function PomodoroGaugeDial({ progress, isBreak, timerLabel, isDone }: {
 
 // ── GaugeDial for Focus Mode overlay ──────────────────────────────────────────
 function GaugeDial({ progress, isBreak }: { progress: number; isBreak: boolean }) {
-  const SIZE = 260;
-  const cx = SIZE / 2;
-  const cy = SIZE / 2;
-  const R = 108;
-  const STROKE = 16;
-  const GAP_DEG = 120;
-  const ARC_DEG = 360 - GAP_DEG;
-  const startDeg = 240;
-  const endDeg   = startDeg + ARC_DEG;
-
-  // Clamp progress to [0, 1]
+  const SIZE = 260, cx = SIZE / 2, cy = SIZE / 2, R = 108, STROKE = 16;
+  const GAP_DEG = 120, ARC_DEG = 360 - GAP_DEG, startDeg = 240, endDeg = startDeg + ARC_DEG;
   const p = Math.min(1, Math.max(0, progress));
-
   const degToRad = (deg: number) => (deg - 90) * (Math.PI / 180);
-  const polarToXY = (deg: number, r: number) => ({
-    x: cx + r * Math.cos(degToRad(deg)),
-    y: cy + r * Math.sin(degToRad(deg)),
-  });
-  const arcPath = (startD: number, endD: number, r: number, large: boolean) => {
-    const s = polarToXY(startD, r);
-    const e = polarToXY(endD, r);
-    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`;
-  };
-
+  const polarToXY = (deg: number, r: number) => ({ x: cx + r * Math.cos(degToRad(deg)), y: cy + r * Math.sin(degToRad(deg)) });
+  const arcPath = (sD: number, eD: number, r: number, large: boolean) => { const s = polarToXY(sD, r), e = polarToXY(eD, r); return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large ? 1 : 0} 1 ${e.x} ${e.y}`; };
   const trackPath = arcPath(startDeg, endDeg, R, true);
   const progressDeg = startDeg + ARC_DEG * p;
-  const progressLarge = ARC_DEG * p > 180;
-  const progressPath = p > 0 ? arcPath(startDeg, progressDeg, R, progressLarge) : null;
+  const progressPath = p > 0 ? arcPath(startDeg, progressDeg, R, ARC_DEG * p > 180) : null;
   const activeColor = isBreak ? '#34d399' : '#ffffff';
-
   return (
     <svg width={SIZE} height={SIZE} style={{ overflow: 'visible' }} aria-hidden="true">
       <path d={trackPath} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth={STROKE} strokeLinecap="round" />
-      {progressPath && (
-        <path
-          d={progressPath} fill="none"
-          stroke={activeColor} strokeWidth={STROKE} strokeLinecap="round"
-          style={{ transition: 'all 1s linear', filter: `drop-shadow(0 0 6px ${activeColor}88)` }}
-        />
-      )}
+      {progressPath && <path d={progressPath} fill="none" stroke={activeColor} strokeWidth={STROKE} strokeLinecap="round" style={{ transition: 'all 1s linear', filter: `drop-shadow(0 0 6px ${activeColor}88)` }} />}
       {[startDeg, endDeg].map((deg, i) => {
-        const inner = polarToXY(deg, R - STROKE / 2 - 2);
-        const outer = polarToXY(deg, R + STROKE / 2 + 2);
-        return (
-          <line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
-            stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" />
-        );
+        const inner = polarToXY(deg, R - STROKE / 2 - 2), outer = polarToXY(deg, R + STROKE / 2 + 2);
+        return <line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" />;
       })}
     </svg>
   );
 }
 
-// ── Mini icon button ──────────────────────────────────────────────────
+// ── Mini icon button ──────────────────────────────────────────────────────────
 type MiniIconProps = { icon: React.ReactNode; label: string; onClick: () => void };
-
 export function MiniIcon({ icon, label, onClick }: MiniIconProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Expand ${label}`}
-      title={label}
-      className="grid h-8 w-8 place-items-center rounded-full text-white/70 transition hover:bg-white/18 hover:text-white"
-    >
+    <button type="button" onClick={onClick} aria-label={`Expand ${label}`} title={label} className="grid h-8 w-8 place-items-center rounded-full text-white/70 transition hover:bg-white/18 hover:text-white">
       {icon}
     </button>
   );
 }
 
-// ── Apple-style date picker popover ──────────────────────────────────
-function DatePicker({
-  value, locale, onConfirm, onClear, onClose,
-}: {
-  value?: string;
-  locale: Locale;
-  onConfirm: (d: string) => void;
-  onClear: () => void;
-  onClose: () => void;
+// ── Apple-style date picker popover ──────────────────────────────────────────
+function DatePicker({ value, locale, onConfirm, onClear, onClose }: {
+  value?: string; locale: Locale; onConfirm: (d: string) => void; onClear: () => void; onClose: () => void;
 }) {
   const [selected, setSelected] = useState(value ?? todayStr());
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
-
   return (
-    <div
-      ref={ref}
-      className="absolute right-0 top-full z-50 mt-1 w-56 rounded-2xl border border-white/30 shadow-2xl"
-      style={{ background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
-    >
+    <div ref={ref} className="absolute right-0 top-full z-50 mt-1 w-56 rounded-2xl border border-white/30 shadow-2xl" style={{ background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}>
       <div className="flex flex-col gap-3 p-4">
         <p className="text-center text-xs font-black uppercase tracking-widest text-slate-500">{lb('setDate', locale)}</p>
-        <input
-          type="date"
-          value={selected}
-          min={todayStr()}
-          onChange={(e) => setSelected(e.target.value)}
-          className="w-full rounded-xl border border-black/10 bg-white/60 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400 focus:bg-white/80"
-        />
+        <input type="date" value={selected} min={todayStr()} onChange={(e) => setSelected(e.target.value)} className="w-full rounded-xl border border-black/10 bg-white/60 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-slate-400 focus:bg-white/80" />
         <div className="flex gap-2">
-          {value && (
-            <button type="button" onClick={onClear} className="flex-1 rounded-xl border border-black/10 py-1.5 text-xs font-bold text-slate-400 transition hover:bg-black/6 hover:text-slate-600">
-              {lb('clearDate', locale)}
-            </button>
-          )}
-          <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="flex-1 rounded-xl bg-slate-800 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">
-            OK
-          </button>
+          {value && <button type="button" onClick={onClear} className="flex-1 rounded-xl border border-black/10 py-1.5 text-xs font-bold text-slate-400 transition hover:bg-black/6 hover:text-slate-600">{lb('clearDate', locale)}</button>}
+          <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="flex-1 rounded-xl bg-slate-800 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">OK</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Widget shell ──────────────────────────────────────────────────────
+// ── Widget shell ──────────────────────────────────────────────────────────────
 type WidgetShellProps = {
-  label: string;
-  icon: React.ReactNode;
-  meta: WidgetMeta;
-  glass: number;
-  headerRight?: React.ReactNode;
-  children: React.ReactNode;
-  onMetaChange: (m: WidgetMeta) => void;
-  hideExpand?: boolean;
+  label: string; icon: React.ReactNode; meta: WidgetMeta; glass: number;
+  headerRight?: React.ReactNode; children: React.ReactNode;
+  onMetaChange: (m: WidgetMeta) => void; hideExpand?: boolean;
 };
-
 function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMetaChange, hideExpand }: WidgetShellProps) {
   const shellRef = useRef<HTMLElement>(null);
-
   useEffect(() => {
     if (meta.pinned || meta.minimised) return;
-    const handler = (e: MouseEvent) => {
-      if (shellRef.current && !shellRef.current.contains(e.target as Node)) {
-        onMetaChange({ ...meta, minimised: true });
-      }
-    };
+    const handler = (e: MouseEvent) => { if (shellRef.current && !shellRef.current.contains(e.target as Node)) onMetaChange({ ...meta, minimised: true }); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [meta, onMetaChange]);
-
   const iconBtn = 'grid h-6 w-6 shrink-0 place-items-center rounded-full transition hover:bg-black/10 text-slate-500 hover:text-slate-800';
-
   return (
-    <section
-      ref={shellRef}
-      className={[
-        'box-border w-full rounded-[1.35rem] border border-black/8 text-slate-800',
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,23,42,0.12)]',
-        'transition-all duration-200',
-        meta.expanded ? 'p-5' : 'p-4',
-      ].join(' ')}
-      style={glassStyle(g)}
-    >
+    <section ref={shellRef} className={['box-border w-full rounded-[1.35rem] border border-black/8 text-slate-800', 'shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,23,42,0.12)]', 'transition-all duration-200', meta.expanded ? 'p-5' : 'p-4'].join(' ')} style={glassStyle(g)}>
       <div className="mb-3 flex items-center gap-1.5">
         <span className="mr-1 text-slate-400">{icon}</span>
         <p className="flex-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500">{label}</p>
         {headerRight}
         {!hideExpand && (
           <button type="button" onClick={() => onMetaChange({ ...meta, expanded: !meta.expanded })} className={iconBtn} aria-label={meta.expanded ? 'Collapse' : 'Expand'}>
-            {meta.expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5 rotate-180" />}
+            <Minimize2 className={['h-3.5 w-3.5', meta.expanded ? '' : 'rotate-180'].join(' ')} />
           </button>
         )}
         <button type="button" onClick={() => onMetaChange({ ...meta, pinned: !meta.pinned })} className={[iconBtn, meta.pinned ? 'text-slate-800' : ''].join(' ')} aria-label={meta.pinned ? 'Unpin' : 'Pin'}>
@@ -339,127 +238,79 @@ function WidgetShell({ label, icon, meta, glass: g, headerRight, children, onMet
   );
 }
 
-// ── TodoItem row ──────────────────────────────────────────────────────
-function TodoRow({
-  todo, locale, isCompleted, onToggle, onEdit, onDelete, onDateChange,
-}: {
+// ── TodoItem row ──────────────────────────────────────────────────────────────
+function TodoRow({ todo, locale, isCompleted, onToggle, onEdit, onDelete, onDateChange }: {
   todo: TodoItem; locale: Locale; isCompleted: boolean;
   onToggle: () => void; onEdit: (text: string) => void;
   onDelete: () => void; onDateChange: (d: string | undefined) => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const dateDisplay = todo.dueDate ? formatDate(todo.dueDate, locale) : null;
-
   return (
     <div className="group relative flex w-full flex-col gap-1 overflow-visible rounded-xl bg-black/6 px-2 py-2">
       <div className="flex w-full items-center gap-2">
         <input type="checkbox" checked={todo.done} onChange={onToggle} className="shrink-0 accent-slate-700" />
-        <input
-          value={todo.text}
-          onChange={(e) => onEdit(e.target.value)}
-          style={{ minWidth: 0 }}
-          className={['w-full flex-1 bg-transparent text-sm font-bold outline-none', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')}
-        />
+        <input value={todo.text} onChange={(e) => onEdit(e.target.value)} style={{ minWidth: 0 }} className={['w-full flex-1 bg-transparent text-sm font-bold outline-none', (todo.done || isCompleted) ? 'text-slate-400 line-through' : 'text-slate-800'].join(' ')} />
         {dateDisplay && !showPicker && (
-          <button
-            type="button"
-            onClick={() => setShowPicker(true)}
-            className="shrink-0 rounded-full bg-black/8 px-2 py-0.5 text-[0.65rem] font-bold text-slate-500 transition hover:bg-black/12 whitespace-nowrap"
-          >
-            {dateDisplay}
-          </button>
+          <button type="button" onClick={() => setShowPicker(true)} className="shrink-0 rounded-full bg-black/8 px-2 py-0.5 text-[0.65rem] font-bold text-slate-500 transition hover:bg-black/12 whitespace-nowrap">{dateDisplay}</button>
         )}
-        <button
-          type="button"
-          onClick={() => setShowPicker((v) => !v)}
-          className={['shrink-0 transition', todo.dueDate ? 'text-slate-600' : 'text-slate-400 hover:text-slate-600'].join(' ')}
-          aria-label={lb('setDate', locale)}
-          title={lb('setDate', locale)}
-        >
+        <button type="button" onClick={() => setShowPicker((v) => !v)} className={['shrink-0 transition', todo.dueDate ? 'text-slate-600' : 'text-slate-400 hover:text-slate-600'].join(' ')} aria-label={lb('setDate', locale)} title={lb('setDate', locale)}>
           <CalendarDays className="h-3.5 w-3.5" />
         </button>
         <button type="button" onClick={onDelete} className="shrink-0 text-slate-500 transition hover:text-red-500" aria-label="Delete">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      {showPicker && (
-        <DatePicker
-          value={todo.dueDate} locale={locale}
-          onConfirm={(d) => onDateChange(d)}
-          onClear={() => { onDateChange(undefined); setShowPicker(false); }}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
+      {showPicker && <DatePicker value={todo.dueDate} locale={locale} onConfirm={(d) => onDateChange(d)} onClear={() => { onDateChange(undefined); setShowPicker(false); }} onClose={() => setShowPicker(false)} />}
     </div>
   );
 }
 
-// ── Todo widget ───────────────────────────────────────────────────────
+// ── Todo widget ───────────────────────────────────────────────────────────────
 type TodoWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: WidgetState) => void };
-
 function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
   const locale: Locale = detectLocale();
   const meta     = safeMeta(widgets.todoMeta);
   const lists    = safeList(widgets.todoLists);
   const activeId = widgets.activeTodoListId ?? 'today';
-
-  const [editingListId, setEditingListId]       = useState<string | null>(null);
-  const [newListName, setNewListName]           = useState('');
-  const [addingList, setAddingList]             = useState(false);
-  const [newListInput, setNewListInput]         = useState('');
-  const [confirmDeleteId, setConfirmDeleteId]   = useState<string | null>(null);
+  const [editingListId, setEditingListId]     = useState<string | null>(null);
+  const [newListName, setNewListName]         = useState('');
+  const [addingList, setAddingList]           = useState(false);
+  const [newListInput, setNewListInput]       = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const newTodoRef = useRef<HTMLInputElement>(null);
-
   const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
   const setMeta = (m: WidgetMeta) => set({ todoMeta: m });
-
   const getDisplayTodos = (listId: string): TodoItem[] => {
     if (listId === 'completed') return widgets.todos.filter((t) => t.done);
-    if (listId === 'today') return widgets.todos.filter((t) => !t.done && (
-      t.listId === 'today' || (t.dueDate && dueDateSlot(t.dueDate) === 'today' && t.listId !== 'upcoming')
-    ));
-    if (listId === 'upcoming') return widgets.todos.filter((t) => !t.done && (
-      t.listId === 'upcoming' || (t.dueDate && dueDateSlot(t.dueDate) === 'upcoming' && t.listId !== 'today')
-    ));
+    if (listId === 'today')     return widgets.todos.filter((t) => !t.done && (t.listId === 'today' || (t.dueDate && dueDateSlot(t.dueDate) === 'today' && t.listId !== 'upcoming')));
+    if (listId === 'upcoming')  return widgets.todos.filter((t) => !t.done && (t.listId === 'upcoming' || (t.dueDate && dueDateSlot(t.dueDate) === 'upcoming' && t.listId !== 'today')));
     return widgets.todos.filter((t) => !t.done && t.listId === listId);
   };
-
   const activeTodos = getDisplayTodos(activeId);
-
   const addTodo = (text: string) => {
     if (!text.trim()) return;
     const id = `todo-${Date.now().toString(36)}`;
-    const targetList = activeId === 'completed' ? 'inbox' : activeId;
-    set({ todos: [...widgets.todos, { id, text: text.trim(), done: false, listId: targetList }] });
+    set({ todos: [...widgets.todos, { id, text: text.trim(), done: false, listId: activeId === 'completed' ? 'inbox' : activeId }] });
   };
-
-  const toggleDone  = (id: string) => set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, done: !t.done } : t) });
-  const editText    = (id: string, text: string) => set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, text } : t) });
-  const deleteTodo  = (id: string) => set({ todos: widgets.todos.filter((t) => t.id !== id) });
-  const setDueDate  = (id: string, dueDate: string | undefined) => set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, dueDate } : t) });
-
+  const toggleDone = (id: string) => set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, done: !t.done } : t) });
+  const editText   = (id: string, text: string) => set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, text } : t) });
+  const deleteTodo = (id: string) => set({ todos: widgets.todos.filter((t) => t.id !== id) });
+  const setDueDate = (id: string, dueDate: string | undefined) => set({ todos: widgets.todos.map((t) => t.id === id ? { ...t, dueDate } : t) });
   const addList = () => {
     if (!newListInput.trim()) { setAddingList(false); return; }
     const id = `list-${Date.now().toString(36)}`;
     set({ todoLists: [...lists, { id, name: newListInput.trim() }], activeTodoListId: id });
     setNewListInput(''); setAddingList(false);
   };
-
   const deleteList = (id: string) => {
     const remaining = lists.filter((l) => l.id !== id);
-    const updatedTodos = widgets.todos.map((t) => t.listId === id ? { ...t, listId: 'inbox' } : t);
-    set({ todoLists: remaining, todos: updatedTodos, activeTodoListId: activeId === id ? (remaining[0]?.id ?? 'inbox') : activeId });
+    set({ todoLists: remaining, todos: widgets.todos.map((t) => t.listId === id ? { ...t, listId: 'inbox' } : t), activeTodoListId: activeId === id ? (remaining[0]?.id ?? 'inbox') : activeId });
     setConfirmDeleteId(null);
   };
-
-  const renameList = (id: string) => {
-    set({ todoLists: lists.map((l) => l.id === id ? { ...l, name: newListName } : l) });
-    setEditingListId(null);
-  };
-
+  const renameList = (id: string) => { set({ todoLists: lists.map((l) => l.id === id ? { ...l, name: newListName } : l) }); setEditingListId(null); };
   const listLabel = (list: TodoList) => list.builtIn ? getBuiltInLabel(list.id, locale) : list.name;
   const panelW = meta.expanded ? 'w-[40rem]' : 'w-72';
-
   return (
     <div className={panelW}>
       <WidgetShell label={locale === 'zh' ? '待辦事項' : 'To-Do'} icon={<CheckSquare className="h-3.5 w-3.5" />} meta={meta} glass={glass} onMetaChange={setMeta}>
@@ -474,18 +325,14 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
                     <button type="button" onDoubleClick={() => { if (!list.builtIn) { setEditingListId(list.id); setNewListName(list.name); } }} onClick={() => set({ activeTodoListId: list.id })} className={['flex-1 truncate rounded-lg px-2 py-1 text-left text-xs font-bold transition', activeId === list.id ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-black/8'].join(' ')}>
                       {listLabel(list)}
                     </button>
-                    {!list.builtIn && (
-                      confirmDeleteId === list.id ? (
-                        <div className="flex items-center gap-0.5">
-                          <button type="button" onClick={() => deleteList(list.id)} className="rounded px-1 text-[0.6rem] font-black text-red-500 hover:bg-red-50">✓</button>
-                          <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded px-1 text-[0.6rem] font-black text-slate-400 hover:bg-black/8">✕</button>
-                        </div>
-                      ) : (
-                        <button type="button" onClick={() => setConfirmDeleteId(list.id)} className="hidden shrink-0 text-slate-400 transition hover:text-red-400 group-hover/list:flex" aria-label={`Delete ${list.name}`}>
-                          <X className="h-3 w-3" />
-                        </button>
-                      )
-                    )}
+                    {!list.builtIn && (confirmDeleteId === list.id ? (
+                      <div className="flex items-center gap-0.5">
+                        <button type="button" onClick={() => deleteList(list.id)} className="rounded px-1 text-[0.6rem] font-black text-red-500 hover:bg-red-50">✓</button>
+                        <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded px-1 text-[0.6rem] font-black text-slate-400 hover:bg-black/8">✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setConfirmDeleteId(list.id)} className="hidden shrink-0 text-slate-400 transition hover:text-red-400 group-hover/list:flex" aria-label={`Delete ${list.name}`}><X className="h-3 w-3" /></button>
+                    ))}
                   </>
                 )}
               </div>
@@ -514,92 +361,41 @@ function TodoWidget({ widgets, glass, onChange }: TodoWidgetProps) {
   );
 }
 
-// ── Pomodoro widget ───────────────────────────────────────────────────
+// ── Pomodoro widget ───────────────────────────────────────────────────────────
 type PomodoroWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: WidgetState) => void };
-
 function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
   const meta = safeMeta(widgets.pomodoroMeta);
   const set  = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
   const locale: Locale = detectLocale();
-
   const isBreak = widgets.pomodoroIsBreak ?? false;
-  const totalSeconds = isBreak
-    ? (widgets.pomodoroBreakMinutes ?? 5) * 60
-    : widgets.pomodoroMinutes * 60;
-  // Clamp remaining so it never exceeds totalSeconds (handles stale state after minutes change)
+  const totalSeconds = isBreak ? (widgets.pomodoroBreakMinutes ?? 5) * 60 : widgets.pomodoroMinutes * 60;
   const remaining  = Math.min(widgets.pomodoroRemainingSeconds, totalSeconds);
   const progress   = totalSeconds > 0 ? Math.min(1, Math.max(0, remaining / totalSeconds)) : 0;
   const isDone     = remaining === 0;
   const timerLabel = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '0')}`;
-
-  const handleFocusMode = () => {
-    set({ focusModeActive: true, pomodoroRunning: true, pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60 });
-  };
-
-  const switchMode = (toBreak: boolean) => {
-    const mins = toBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes;
-    set({ pomodoroIsBreak: toBreak, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: false });
-  };
-
+  const handleFocusMode = () => set({ focusModeActive: true, pomodoroRunning: true, pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60 });
+  const switchMode = (toBreak: boolean) => { const mins = toBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes; set({ pomodoroIsBreak: toBreak, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: false }); };
   return (
     <div className="w-64 relative">
-      <WidgetShell
-        label={locale === 'zh' ? '番茄鐘' : 'Pomodoro'}
-        icon={<Timer className="h-3.5 w-3.5" />}
-        meta={meta}
-        glass={glass}
-        hideExpand
-        headerRight={
-          <button
-            type="button"
-            onClick={handleFocusMode}
-            className="mr-1 flex items-center gap-1 rounded-full bg-slate-800/10 px-2.5 py-1 text-[0.65rem] font-black uppercase tracking-wider text-slate-600 transition hover:bg-slate-800 hover:text-white"
-            title={locale === 'zh' ? '專注模式' : 'Focus Mode'}
-          >
-            <Focus className="h-3 w-3" />
-            {locale === 'zh' ? '專注' : 'Focus'}
-          </button>
-        }
-        onMetaChange={(m) => set({ pomodoroMeta: m })}
-      >
+      <WidgetShell label={locale === 'zh' ? '番茄鐘' : 'Pomodoro'} icon={<Timer className="h-3.5 w-3.5" />} meta={meta} glass={glass} hideExpand
+        headerRight={<button type="button" onClick={handleFocusMode} className="mr-1 flex items-center gap-1 rounded-full bg-slate-800/10 px-2.5 py-1 text-[0.65rem] font-black uppercase tracking-wider text-slate-600 transition hover:bg-slate-800 hover:text-white" title={locale === 'zh' ? '專注模式' : 'Focus Mode'}><Focus className="h-3 w-3" />{locale === 'zh' ? '專注' : 'Focus'}</button>}
+        onMetaChange={(m) => set({ pomodoroMeta: m })}>
         <div className="flex w-full flex-col items-center gap-3">
           <div className="flex w-full gap-1 rounded-xl bg-black/6 p-0.5">
-            <button type="button" onClick={() => switchMode(false)} className={['flex-1 rounded-[0.6rem] py-1 text-xs font-black transition', !isBreak ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-700'].join(' ')}>
-              {locale === 'zh' ? '專注' : 'Focus'}
-            </button>
-            <button type="button" onClick={() => switchMode(true)} className={['flex-1 rounded-[0.6rem] py-1 text-xs font-black transition', isBreak ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-700'].join(' ')}>
-              {locale === 'zh' ? '休息' : 'Break'}
-            </button>
+            <button type="button" onClick={() => switchMode(false)} className={['flex-1 rounded-[0.6rem] py-1 text-xs font-black transition', !isBreak ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-700'].join(' ')}>{locale === 'zh' ? '專注' : 'Focus'}</button>
+            <button type="button" onClick={() => switchMode(true)}  className={['flex-1 rounded-[0.6rem] py-1 text-xs font-black transition', isBreak  ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-700'].join(' ')}>{locale === 'zh' ? '休息' : 'Break'}</button>
           </div>
-
-          <PomodoroGaugeDial
-            progress={progress}
-            isBreak={isBreak}
-            timerLabel={timerLabel}
-            isDone={isDone}
-          />
-
+          <PomodoroGaugeDial progress={progress} isBreak={isBreak} timerLabel={timerLabel} isDone={isDone} />
           <div className="flex w-full items-center gap-2">
             <Timer className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
-            <input
-              type="number" min="1" max="90"
-              value={isBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes}
-              onChange={(e) => {
-                const m = Math.min(90, Math.max(1, Number(e.target.value) || 25));
-                if (isBreak) set({ pomodoroBreakMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
-                else set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
-              }}
-              className="w-12 rounded-lg bg-black/8 px-2 py-1 text-sm font-black text-slate-800 outline-none"
-              data-testid="input-pomodoro-minutes"
-            />
+            <input type="number" min="1" max="90" value={isBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes}
+              onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); if (isBreak) set({ pomodoroBreakMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false }); else set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false }); }}
+              className="w-12 rounded-lg bg-black/8 px-2 py-1 text-sm font-black text-slate-800 outline-none" data-testid="input-pomodoro-minutes" />
             <span className="text-xs font-bold text-slate-500">{locale === 'zh' ? '分鐘' : 'min'}</span>
           </div>
-
           <div className="flex w-full gap-2">
             {isDone ? (
-              <button type="button" onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-sm font-black text-white transition hover:bg-slate-700" data-testid="button-pomodoro-reset" aria-label="Reset">
-                <RotateCcw className="h-4 w-4" />{locale === 'zh' ? '重置' : 'Reset'}
-              </button>
+              <button type="button" onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false })} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-sm font-black text-white transition hover:bg-slate-700" data-testid="button-pomodoro-reset" aria-label="Reset"><RotateCcw className="h-4 w-4" />{locale === 'zh' ? '重置' : 'Reset'}</button>
             ) : (
               <button type="button" onClick={() => set({ pomodoroRemainingSeconds: remaining || widgets.pomodoroMinutes * 60, pomodoroRunning: !widgets.pomodoroRunning })} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-sm font-black text-white transition hover:bg-slate-700" data-testid="button-pomodoro-toggle" aria-label={widgets.pomodoroRunning ? 'Pause' : 'Start'}>
                 {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -613,77 +409,184 @@ function PomodoroWidget({ widgets, glass, onChange }: PomodoroWidgetProps) {
   );
 }
 
-// ── Quick Note widget ─────────────────────────────────────────────────
+// ── Notes widget (upgraded) ───────────────────────────────────────────────────
 type NotesWidgetProps = { widgets: WidgetState; glass: number; onChange: (w: WidgetState) => void };
 
+function insertAtCursor(el: HTMLTextAreaElement, before: string, after = '', placeholder = ''): string {
+  const start = el.selectionStart;
+  const end   = el.selectionEnd;
+  const sel   = el.value.slice(start, end) || placeholder;
+  return el.value.slice(0, start) + before + sel + after + el.value.slice(end);
+}
+
 function NotesWidget({ widgets, glass, onChange }: NotesWidgetProps) {
-  const meta = safeMeta(widgets.notesMeta);
-  const set  = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
+  const locale: Locale = detectLocale();
+  const meta  = safeMeta(widgets.notesMeta);
+  const tabs  = safeNoteTabs(widgets.noteTabs);
+  const activeId = widgets.activeNoteTabId ?? tabs[0]?.id ?? 'note-default';
+  const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
+
+  const [preview, setPreview]           = useState(false);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingName, setEditingName]   = useState('');
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
+
+  const updateTab = (id: string, content: string) => {
+    set({ noteTabs: tabs.map((t) => t.id === id ? { ...t, content, updatedAt: Date.now() } : t) });
+  };
+
+  const addTab = () => {
+    const id = `note-${Date.now().toString(36)}`;
+    const name = locale === 'zh' ? `筆記 ${tabs.length + 1}` : `Note ${tabs.length + 1}`;
+    set({ noteTabs: [...tabs, { id, name, content: '', updatedAt: Date.now() }], activeNoteTabId: id });
+  };
+
+  const deleteTab = (id: string) => {
+    if (tabs.length <= 1) return;
+    const remaining = tabs.filter((t) => t.id !== id);
+    set({ noteTabs: remaining, activeNoteTabId: activeId === id ? remaining[0].id : activeId });
+  };
+
+  const renameTab = (id: string) => {
+    if (!editingName.trim()) { setEditingTabId(null); return; }
+    set({ noteTabs: tabs.map((t) => t.id === id ? { ...t, name: editingName.trim() } : t) });
+    setEditingTabId(null);
+  };
+
+  const wordCount = (activeTab?.content ?? '').trim().split(/\s+/).filter(Boolean).length;
+  const charCount = (activeTab?.content ?? '').length;
+
+  const fmt = (before: string, after = '', placeholder = '') => {
+    const el = taRef.current;
+    if (!el) return;
+    const next = insertAtCursor(el, before, after, placeholder);
+    updateTab(activeId, next);
+    setTimeout(() => el.focus(), 0);
+  };
+
+  const widgetW = meta.expanded ? 'w-[36rem]' : 'w-72';
+  const textareaH = meta.expanded ? 'min-h-64' : 'min-h-28';
+
+  const headerRight = (
+    <div className="flex items-center gap-1 mr-1">
+      <span className="text-[0.6rem] font-bold text-slate-400 tabular-nums">{charCount}c</span>
+      <span className="text-[0.6rem] text-slate-300">·</span>
+      <span className="text-[0.6rem] font-bold text-slate-400 tabular-nums">{wordCount}w</span>
+      <button type="button" onClick={() => setPreview((v) => !v)} className="ml-1 grid h-5 w-5 place-items-center rounded-full transition hover:bg-black/10 text-slate-400 hover:text-slate-700" aria-label={preview ? 'Edit' : 'Preview'} title={preview ? 'Edit' : 'Preview'}>
+        {preview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+      </button>
+    </div>
+  );
 
   return (
-    <div className={meta.expanded ? 'w-80' : 'w-64'}>
-      <WidgetShell label="Quick Note" icon={<FileText className="h-3.5 w-3.5" />} meta={meta} glass={glass} headerRight={<span className="mr-1 text-[0.65rem] font-bold text-slate-400" aria-live="polite">{widgets.notes.length}</span>} onMetaChange={(m) => set({ notesMeta: m })}>
-        <textarea value={widgets.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Quick Note…" className={['box-border w-full resize-none rounded-xl bg-black/6 p-3 text-sm font-bold leading-5 text-slate-800 outline-none placeholder:text-slate-400 focus:bg-black/10', meta.expanded ? 'min-h-36' : 'min-h-20'].join(' ')} data-testid="textarea-widget-note" />
+    <div className={widgetW}>
+      <WidgetShell
+        label={locale === 'zh' ? '筆記' : 'Notes'}
+        icon={<FileText className="h-3.5 w-3.5" />}
+        meta={meta}
+        glass={glass}
+        headerRight={headerRight}
+        onMetaChange={(m) => set({ notesMeta: m })}
+      >
+        {/* Tab bar */}
+        <div className="mb-2 flex items-center gap-1 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+          {tabs.map((tab) => (
+            <div key={tab.id} className="group/tab flex shrink-0 items-center gap-0.5">
+              {editingTabId === tab.id ? (
+                <input
+                  autoFocus
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={() => renameTab(tab.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') renameTab(tab.id); if (e.key === 'Escape') setEditingTabId(null); }}
+                  className="w-20 rounded-md bg-black/8 px-1.5 py-0.5 text-xs font-bold text-slate-800 outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => set({ activeNoteTabId: tab.id })}
+                  onDoubleClick={() => { setEditingTabId(tab.id); setEditingName(tab.name); }}
+                  className={['rounded-lg px-2.5 py-1 text-xs font-bold transition whitespace-nowrap', tab.id === activeId ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:bg-black/8 hover:text-slate-700'].join(' ')}
+                >
+                  {tab.name}
+                </button>
+              )}
+              {tabs.length > 1 && tab.id === activeId && editingTabId !== tab.id && (
+                <button type="button" onClick={() => deleteTab(tab.id)} className="hidden h-4 w-4 place-items-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-500 group-hover/tab:grid" aria-label="Delete tab">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          {tabs.length < 8 && (
+            <button type="button" onClick={addTab} className="shrink-0 grid h-6 w-6 place-items-center rounded-full text-slate-400 transition hover:bg-black/8 hover:text-slate-600" aria-label="New tab">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Format toolbar — only in edit mode */}
+        {!preview && (
+          <div className="mb-2 flex items-center gap-0.5 rounded-xl bg-black/5 px-2 py-1">
+            <button type="button" onClick={() => fmt('**', '**', 'bold')} className="grid h-6 w-6 place-items-center rounded-md text-slate-500 transition hover:bg-black/10 hover:text-slate-800" title="Bold"><Bold className="h-3 w-3" /></button>
+            <button type="button" onClick={() => fmt('# ', '', 'Heading')} className="grid h-6 w-6 place-items-center rounded-md text-slate-500 transition hover:bg-black/10 hover:text-slate-800" title="Heading"><Heading2 className="h-3 w-3" /></button>
+            <button type="button" onClick={() => fmt('- ', '', 'item')} className="grid h-6 w-6 place-items-center rounded-md text-slate-500 transition hover:bg-black/10 hover:text-slate-800" title="List"><List className="h-3 w-3" /></button>
+            <button type="button" onClick={() => fmt('- [ ] ', '', 'task')} className="grid h-6 w-6 place-items-center rounded-md text-slate-500 transition hover:bg-black/10 hover:text-slate-800" title="Checkbox" aria-label="Checkbox">
+              <CheckSquare className="h-3 w-3" />
+            </button>
+            <button type="button" onClick={() => fmt('`', '`', 'code')} className="grid h-6 w-6 place-items-center rounded-md font-mono text-[0.7rem] text-slate-500 transition hover:bg-black/10 hover:text-slate-800" title="Inline code" aria-label="Code">{`</>`}</button>
+            <div className="flex-1" />
+            <span className="text-[0.6rem] font-bold text-slate-400">{locale === 'zh' ? '雙擊標籤可重命名' : 'Dbl-click tab to rename'}</span>
+          </div>
+        )}
+
+        {/* Editor / Preview */}
+        {preview ? (
+          <div
+            className={['box-border w-full overflow-y-auto rounded-xl bg-black/6 px-3 py-2.5 text-sm text-slate-800 leading-relaxed', textareaH].join(' ')}
+            dangerouslySetInnerHTML={{ __html: `<p style="margin:0 0 0.4em">${renderMarkdown(activeTab?.content ?? '')}</p>` }}
+          />
+        ) : (
+          <textarea
+            ref={taRef}
+            value={activeTab?.content ?? ''}
+            onChange={(e) => updateTab(activeId, e.target.value)}
+            placeholder={locale === 'zh' ? '開始記錄…  支援 Markdown' : 'Start typing…  Markdown supported'}
+            className={['box-border w-full resize-none rounded-xl bg-black/6 p-3 text-sm font-medium leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 focus:bg-black/10', textareaH].join(' ')}
+            data-testid="textarea-widget-note"
+          />
+        )}
       </WidgetShell>
     </div>
   );
 }
 
-// ── Focus Mode Overlay ───────────────────────────────────────────────────
-type FocusModeOverlayProps = {
-  widgets: WidgetState;
-  onChange: (w: WidgetState) => void;
-  backgroundClass: string;
-};
-
+// ── Focus Mode Overlay ────────────────────────────────────────────────────────
+type FocusModeOverlayProps = { widgets: WidgetState; onChange: (w: WidgetState) => void; backgroundClass: string; };
 export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusModeOverlayProps) {
   const locale: Locale = detectLocale();
   const isBreak = widgets.pomodoroIsBreak ?? false;
-  const totalSeconds = isBreak
-    ? (widgets.pomodoroBreakMinutes ?? 5) * 60
-    : widgets.pomodoroMinutes * 60;
-  // Clamp remaining so it never exceeds totalSeconds
+  const totalSeconds = isBreak ? (widgets.pomodoroBreakMinutes ?? 5) * 60 : widgets.pomodoroMinutes * 60;
   const remaining  = Math.min(widgets.pomodoroRemainingSeconds, totalSeconds);
   const progress   = totalSeconds > 0 ? Math.min(1, Math.max(0, remaining / totalSeconds)) : 0;
   const isDone     = remaining === 0;
   const mm = Math.floor(remaining / 60).toString().padStart(2, '0');
   const ss = (remaining % 60).toString().padStart(2, '0');
-
   const set = (patch: Partial<WidgetState>) => onChange({ ...widgets, ...patch });
-
   const soundState: FocusSoundState = (widgets as any).focusSoundState ?? defaultFocusSoundState();
   const setSoundState = (s: FocusSoundState) => set({ ...(widgets as any), focusSoundState: s } as any);
   const [showSound, setShowSound] = useState(false);
-
   const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
+  useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id); }, []);
   const timeStr = now.toLocaleTimeString(locale === 'zh' ? 'zh-TW' : 'en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
   const dateStr = now.toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-GB', { weekday: 'long', month: 'long', day: 'numeric' });
-
   const justFinishedFocus = isDone && !isBreak;
   const justFinishedBreak = isDone && isBreak;
-
-  const startBreak = () => {
-    const mins = widgets.pomodoroBreakMinutes ?? 5;
-    set({ pomodoroIsBreak: true, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: true });
-  };
-
-  const switchMode = (toBreak: boolean) => {
-    const mins = toBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes;
-    set({ pomodoroIsBreak: toBreak, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: false });
-  };
-
+  const startBreak = () => { const mins = widgets.pomodoroBreakMinutes ?? 5; set({ pomodoroIsBreak: true, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: true }); };
+  const switchMode = (toBreak: boolean) => { const mins = toBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes; set({ pomodoroIsBreak: toBreak, pomodoroRemainingSeconds: mins * 60, pomodoroRunning: false }); };
   const currentMins = isBreak ? (widgets.pomodoroBreakMinutes ?? 5) : widgets.pomodoroMinutes;
-
-  const handleSoundOpen = () => {
-    setSoundState({ ...soundState, open: true });
-    setShowSound(true);
-  };
-
   return (
     <>
       <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center ${backgroundClass}`}>
@@ -694,131 +597,67 @@ export function FocusModeOverlay({ widgets, onChange, backgroundClass }: FocusMo
             <p className="mt-2 text-base font-bold text-white/75 tracking-wide">{dateStr}</p>
           </div>
           <div className="relative flex items-center justify-center" style={{ width: 260, height: 220 }}>
-            <div style={{ overflow: 'hidden', width: 260, height: 220 }}>
-              <GaugeDial progress={progress} isBreak={isBreak} />
-            </div>
+            <div style={{ overflow: 'hidden', width: 260, height: 220 }}><GaugeDial progress={progress} isBreak={isBreak} /></div>
             <div className="absolute inset-0 flex flex-col items-center justify-center pb-6">
               <p className="text-xs font-black uppercase tracking-[0.25em] mb-1" style={{ color: isBreak ? '#34d399' : 'rgba(255,255,255,0.55)' }}>
                 {isBreak ? (locale === 'zh' ? '休息' : 'BREAK') : (locale === 'zh' ? '專注' : 'FOCUS')}
               </p>
-              {isDone ? (
-                <span className="text-5xl">✅</span>
-              ) : (
-                <p className="text-6xl font-black text-white tabular-nums leading-none" style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
-                  {mm}<span className="text-white/50">:</span>{ss}
-                </p>
-              )}
+              {isDone ? <span className="text-5xl">✅</span> : <p className="text-6xl font-black text-white tabular-nums leading-none" style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>{mm}<span className="text-white/50">:</span>{ss}</p>}
             </div>
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-2">
-              <button type="button" onClick={() => switchMode(false)} className={['rounded-full px-4 py-1.5 text-xs font-black transition', !isBreak ? 'bg-white text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}>
-                {locale === 'zh' ? '專注' : 'Focus'}
-              </button>
-              <button type="button" onClick={() => switchMode(true)} className={['rounded-full px-4 py-1.5 text-xs font-black transition', isBreak ? 'bg-emerald-400 text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}>
-                {locale === 'zh' ? '休息' : 'Break'}
-              </button>
+              <button type="button" onClick={() => switchMode(false)} className={['rounded-full px-4 py-1.5 text-xs font-black transition', !isBreak ? 'bg-white text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}>{locale === 'zh' ? '專注' : 'Focus'}</button>
+              <button type="button" onClick={() => switchMode(true)}  className={['rounded-full px-4 py-1.5 text-xs font-black transition', isBreak  ? 'bg-emerald-400 text-slate-900 shadow-lg' : 'bg-white/15 text-white/70 hover:bg-white/25'].join(' ')}>{locale === 'zh' ? '休息' : 'Break'}</button>
             </div>
           </div>
-          {justFinishedFocus && (
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '🎉 專注完成！要休息一下嗎？' : '🎉 Focus done! Take a break?'}</p>
-              <button onClick={startBreak} className="rounded-full bg-emerald-400 px-8 py-2.5 text-sm font-black text-slate-900 shadow-lg transition hover:bg-emerald-300">
-                {locale === 'zh' ? `休息 ${widgets.pomodoroBreakMinutes ?? 5} 分鐘` : `Break ${widgets.pomodoroBreakMinutes ?? 5} min`}
-              </button>
-            </div>
-          )}
-          {justFinishedBreak && (
-            <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '☀️ 休息完成，繼續加油！' : '☀️ Break done, keep going!'}</p>
-          )}
-
+          {justFinishedFocus && (<div className="flex flex-col items-center gap-2"><p className="text-sm font-bold text-white/80">{locale === 'zh' ? '🎉 專注完成！要休息一下嗎？' : '🎉 Focus done! Take a break?'}</p><button onClick={startBreak} className="rounded-full bg-emerald-400 px-8 py-2.5 text-sm font-black text-slate-900 shadow-lg transition hover:bg-emerald-300">{locale === 'zh' ? `休息 ${widgets.pomodoroBreakMinutes ?? 5} 分鐘` : `Break ${widgets.pomodoroBreakMinutes ?? 5} min`}</button></div>)}
+          {justFinishedBreak && <p className="text-sm font-bold text-white/80">{locale === 'zh' ? '☀️ 休息完成，繼續加油！' : '☀️ Break done, keep going!'}</p>}
           <div className="flex items-center gap-3 flex-wrap justify-center">
-            {!isDone && (
-              <button onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">
-                {widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {widgets.pomodoroRunning ? (locale === 'zh' ? '暫停' : 'Pause') : (locale === 'zh' ? '繼續' : 'Resume')}
-              </button>
-            )}
-            {isDone && (
-              <button onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false, pomodoroIsBreak: false })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">
-                <RotateCcw className="h-4 w-4" />{locale === 'zh' ? '重置' : 'Reset'}
-              </button>
-            )}
-            <button onClick={() => set({ focusModeActive: false, pomodoroRunning: false })} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white/65 backdrop-blur transition hover:bg-white/20 hover:text-white">
-              <X className="h-4 w-4" />{locale === 'zh' ? '退出' : 'Exit'}
-            </button>
+            {!isDone && <button onClick={() => set({ pomodoroRunning: !widgets.pomodoroRunning })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32">{widgets.pomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{widgets.pomodoroRunning ? (locale === 'zh' ? '暫停' : 'Pause') : (locale === 'zh' ? '繼續' : 'Resume')}</button>}
+            {isDone && <button onClick={() => set({ pomodoroRemainingSeconds: widgets.pomodoroMinutes * 60, pomodoroRunning: false, pomodoroIsBreak: false })} className="flex items-center gap-2 rounded-full bg-white/22 px-7 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/32"><RotateCcw className="h-4 w-4" />{locale === 'zh' ? '重置' : 'Reset'}</button>}
+            <button onClick={() => set({ focusModeActive: false, pomodoroRunning: false })} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white/65 backdrop-blur transition hover:bg-white/20 hover:text-white"><X className="h-4 w-4" />{locale === 'zh' ? '退出' : 'Exit'}</button>
           </div>
-
           <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3 backdrop-blur">
-            <span className="text-xs font-black text-white/50 uppercase tracking-wider">
-              {isBreak ? (locale === 'zh' ? '休息時間' : 'Break') : (locale === 'zh' ? '專注時間' : 'Focus')}
-            </span>
-            <input
-              type="number" min="1" max="90"
-              value={currentMins}
-              onChange={(e) => {
-                const m = Math.min(90, Math.max(1, Number(e.target.value) || 25));
-                if (isBreak) set({ pomodoroBreakMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
-                else set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false });
-              }}
-              className="w-14 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center"
-            />
+            <span className="text-xs font-black text-white/50 uppercase tracking-wider">{isBreak ? (locale === 'zh' ? '休息時間' : 'Break') : (locale === 'zh' ? '專注時間' : 'Focus')}</span>
+            <input type="number" min="1" max="90" value={currentMins} onChange={(e) => { const m = Math.min(90, Math.max(1, Number(e.target.value) || 25)); if (isBreak) set({ pomodoroBreakMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false }); else set({ pomodoroMinutes: m, pomodoroRemainingSeconds: m * 60, pomodoroRunning: false }); }} className="w-14 rounded-lg bg-white/15 px-2 py-1 text-sm font-black text-white outline-none text-center" />
             <span className="text-xs font-bold text-white/50">{locale === 'zh' ? '分' : 'min'}</span>
           </div>
-
-          {/* Sound button at bottom */}
-          <button
-            onClick={handleSoundOpen}
-            className={['flex items-center gap-2 rounded-full px-6 py-3 text-sm font-black backdrop-blur transition', showSound ? 'bg-white/30 text-white' : 'bg-white/14 text-white/80 hover:bg-white/22'].join(' ')}
-          >
-            <Music className="h-4 w-4" />
-            {locale === 'zh' ? '🎵 聲音' : '🎵 Sound'}
+          <button onClick={() => { setSoundState({ ...soundState, open: true }); setShowSound(true); }} className={['flex items-center gap-2 rounded-full px-6 py-3 text-sm font-black backdrop-blur transition', showSound ? 'bg-white/30 text-white' : 'bg-white/14 text-white/80 hover:bg-white/22'].join(' ')}>
+            <Music className="h-4 w-4" />{locale === 'zh' ? '🎵 聲音' : '🎵 Sound'}
           </button>
         </div>
       </div>
-
-      {showSound && (
-        <FocusSoundPanel
-          state={soundState}
-          onChange={setSoundState}
-          onClose={() => setShowSound(false)}
-        />
-      )}
+      {showSound && <FocusSoundPanel state={soundState} onChange={setSoundState} onClose={() => setShowSound(false)} />}
     </>
   );
 }
 
-// ── Root Widgets panel ──────────────────────────────────────────────────────
+// ── Root Widgets panel ────────────────────────────────────────────────────────
 export function Widgets({ widgets, glass, onChange }: WidgetsProps) {
   const todoMeta     = safeMeta(widgets.todoMeta);
   const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
   const notesMeta    = safeMeta(widgets.notesMeta);
-
   return (
     <aside className="fixed right-5 top-24 z-20 flex flex-col items-end gap-3 max-xl:hidden" aria-label="Widgets">
-      {todoMeta.enabled && !todoMeta.minimised && <TodoWidget widgets={widgets} glass={glass} onChange={onChange} />}
+      {todoMeta.enabled     && !todoMeta.minimised     && <TodoWidget     widgets={widgets} glass={glass} onChange={onChange} />}
       {pomodoroMeta.enabled && !pomodoroMeta.minimised && <PomodoroWidget widgets={widgets} glass={glass} onChange={onChange} />}
-      {notesMeta.enabled && !notesMeta.minimised && <NotesWidget widgets={widgets} glass={glass} onChange={onChange} />}
+      {notesMeta.enabled    && !notesMeta.minimised    && <NotesWidget    widgets={widgets} glass={glass} onChange={onChange} />}
     </aside>
   );
 }
 
-// ── Mini icons bar ──────────────────────────────────────────────────────
+// ── Mini icons bar ────────────────────────────────────────────────────────────
 export function WidgetMiniIcons({ widgets, onChange }: { widgets: WidgetState; onChange: (w: WidgetState) => void }) {
   const todoMeta     = safeMeta(widgets.todoMeta);
   const pomodoroMeta = safeMeta(widgets.pomodoroMeta);
   const notesMeta    = safeMeta(widgets.notesMeta);
-
-  const hasMini = (todoMeta.enabled && todoMeta.minimised) ||
-                  (pomodoroMeta.enabled && pomodoroMeta.minimised) ||
-                  (notesMeta.enabled && notesMeta.minimised);
-
+  const hasMini = (todoMeta.enabled && todoMeta.minimised) || (pomodoroMeta.enabled && pomodoroMeta.minimised) || (notesMeta.enabled && notesMeta.minimised);
   if (!hasMini) return null;
-
   return (
     <>
       <span className="mx-0.5 h-4 w-px bg-white/25" aria-hidden="true" />
-      {todoMeta.enabled && todoMeta.minimised && <MiniIcon icon={<CheckSquare className="h-4 w-4" />} label="To-Do" onClick={() => onChange({ ...widgets, todoMeta: { ...todoMeta, minimised: false } })} />}
-      {pomodoroMeta.enabled && pomodoroMeta.minimised && <MiniIcon icon={<Timer className="h-4 w-4" />} label="Pomodoro" onClick={() => onChange({ ...widgets, pomodoroMeta: { ...pomodoroMeta, minimised: false } })} />}
-      {notesMeta.enabled && notesMeta.minimised && <MiniIcon icon={<FileText className="h-4 w-4" />} label="Note" onClick={() => onChange({ ...widgets, notesMeta: { ...notesMeta, minimised: false } })} />}
+      {todoMeta.enabled     && todoMeta.minimised     && <MiniIcon icon={<CheckSquare className="h-4 w-4" />} label="To-Do"    onClick={() => onChange({ ...widgets, todoMeta:     { ...todoMeta,     minimised: false } })} />}
+      {pomodoroMeta.enabled && pomodoroMeta.minimised && <MiniIcon icon={<Timer       className="h-4 w-4" />} label="Pomodoro" onClick={() => onChange({ ...widgets, pomodoroMeta: { ...pomodoroMeta, minimised: false } })} />}
+      {notesMeta.enabled    && notesMeta.minimised    && <MiniIcon icon={<FileText    className="h-4 w-4" />} label="Note"     onClick={() => onChange({ ...widgets, notesMeta:    { ...notesMeta,    minimised: false } })} />}
     </>
   );
 }

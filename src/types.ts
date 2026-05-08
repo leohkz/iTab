@@ -35,8 +35,22 @@ export const DEFAULT_TODO_LISTS: TodoList[] = [
   { id: 'completed', name: 'Completed', builtIn: true },
 ];
 
+// ── Notes ────────────────────────────────────────────────────────────────────
+export interface NoteTab {
+  id: string;
+  name: string;
+  content: string;
+  updatedAt: number;
+}
+
+export const DEFAULT_NOTE_TABS: NoteTab[] = [
+  { id: 'note-default', name: 'Notes', content: '', updatedAt: Date.now() },
+];
+
 export interface WidgetState {
   notes: string;
+  noteTabs?: NoteTab[];
+  activeNoteTabId?: string;
   todos: TodoItem[];
   todoLists: TodoList[];
   activeTodoListId: string;
@@ -126,19 +140,12 @@ export interface AiPortal {
   id: string;
   name: string;
   url: string;
-  /**
-   * Icon source. Priority:
-   *  1. 'auto'           → fetch favicon via Google S2 service
-   *  2. URL (http/https) → use directly as <img src>
-   *  3. emoji/char       → render as text (legacy fallback)
-   */
   icon: string;
   enabled: boolean;
   builtIn?: boolean;
 }
 
 export const DEFAULT_AI_PORTALS: AiPortal[] = [
-  // International
   { id: 'chatgpt',    name: 'ChatGPT',      url: 'https://chat.openai.com',           icon: 'auto', enabled: true,  builtIn: true },
   { id: 'claude',     name: 'Claude',       url: 'https://claude.ai',                 icon: 'auto', enabled: true,  builtIn: true },
   { id: 'gemini',     name: 'Gemini',       url: 'https://gemini.google.com',         icon: 'auto', enabled: true,  builtIn: true },
@@ -147,7 +154,6 @@ export const DEFAULT_AI_PORTALS: AiPortal[] = [
   { id: 'copilot',    name: 'Copilot',      url: 'https://copilot.microsoft.com',     icon: 'auto', enabled: true,  builtIn: true },
   { id: 'mistral',    name: 'Mistral',      url: 'https://chat.mistral.ai',           icon: 'auto', enabled: false, builtIn: true },
   { id: 'meta-ai',    name: 'Meta AI',      url: 'https://www.meta.ai',               icon: 'auto', enabled: false, builtIn: true },
-  // 中國大陸
   { id: 'deepseek',   name: 'DeepSeek',     url: 'https://chat.deepseek.com',         icon: 'auto', enabled: true,  builtIn: true },
   { id: 'kimi',       name: 'Kimi',         url: 'https://kimi.moonshot.cn',          icon: 'auto', enabled: true,  builtIn: true },
   { id: 'wenxin',     name: '文心一言',      url: 'https://yiyan.baidu.com',           icon: 'auto', enabled: true,  builtIn: true },
@@ -158,7 +164,6 @@ export const DEFAULT_AI_PORTALS: AiPortal[] = [
   { id: 'spark',      name: '訊飛星火',      url: 'https://xinghuo.xfyun.cn',         icon: 'auto', enabled: false, builtIn: true },
 ];
 
-/** AI portal button size: 'sm' | 'md' | 'lg' | 'xl' */
 export type AiPortalSize = 'sm' | 'md' | 'lg' | 'xl';
 export const AI_PORTAL_SIZE_DEFAULT: AiPortalSize = 'lg';
 
