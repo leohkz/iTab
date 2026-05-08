@@ -3,6 +3,7 @@ import type { Locale } from './types';
 export const translations = {
   en: {
     space: 'Space',
+    spaces: 'Spaces',
     synced: 'Synced',
     syncing: 'Syncing\u2026',
     searchPlaceholder: 'Search apps, bookmarks, web',
@@ -87,9 +88,17 @@ export const translations = {
     todoWidget: 'To-do widget',
     pomodoroWidget: 'Pomodoro widget',
     notesWidget: 'Notes widget',
+    // Spaces panel
+    rename: 'Rename',
+    addSpace: 'Add Space',
+    spaceName: 'Space name',
+    spaceHint: 'Click colour dot to change \u00b7 Double-click name to rename',
+    // AI Portals
+    aiPortals: 'AI Portals',
   },
   'zh-Hant': {
     space: '\u7a7a\u9593',
+    spaces: 'Spaces',
     synced: '\u5df2\u540c\u6b65',
     syncing: '\u540c\u6b65\u4e2d\u2026',
     searchPlaceholder: '\u641c\u5c0b App\u3001\u66f8\u7c3d\u3001\u7db2\u9801',
@@ -172,9 +181,15 @@ export const translations = {
     todoWidget: '\u5f85\u8fa6\u5c0f\u5de5\u5177',
     pomodoroWidget: '\u756a\u8304\u9418\u5c0f\u5de5\u5177',
     notesWidget: '\u7b46\u8a18\u5c0f\u5de5\u5177',
+    rename: '\u6539\u540d',
+    addSpace: '\u65b0\u589e Space',
+    spaceName: 'Space \u540d\u7a31',
+    spaceHint: '\u9ede\u8272\u584a\u53ef\u66f4\u63db\u984f\u8272 \u00b7 \u96d9\u64ca\u540d\u7a31\u53ef\u6539\u540d',
+    aiPortals: 'AI \u5165\u53e3',
   },
   'zh-Hans': {
     space: '\u7a7a\u95f4',
+    spaces: 'Spaces',
     synced: '\u5df2\u540c\u6b65',
     syncing: '\u540c\u6b65\u4e2d\u2026',
     searchPlaceholder: '\u641c\u7d22 App\u3001\u4e66\u7b7e\u3001\u7f51\u9875',
@@ -257,6 +272,11 @@ export const translations = {
     todoWidget: '\u5f85\u529e\u5c0f\u7ec4\u4ef6',
     pomodoroWidget: '\u756a\u8304\u949f\u5c0f\u7ec4\u4ef6',
     notesWidget: '\u7b14\u8bb0\u5c0f\u7ec4\u4ef6',
+    rename: '\u6539\u540d',
+    addSpace: '\u65b0\u589e Space',
+    spaceName: 'Space \u540d\u79f0',
+    spaceHint: '\u70b9\u8272\u5757\u53ef\u66f4\u6362\u989c\u8272 \u00b7 \u53cc\u51fb\u540d\u79f0\u53ef\u6539\u540d',
+    aiPortals: 'AI \u5165\u53e3',
   },
 } satisfies Record<Locale, Record<string, string>>;
 

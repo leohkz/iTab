@@ -101,7 +101,8 @@ Requirements:
       url: 'https://chat.openai.com',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://cdn.oaistatic.com/assets/favicon-o20kmmos.svg',
+      // PNG version — avoids SVG CORS issues in extension context
+      iconValue: 'https://cdn.oaistatic.com/assets/apple-touch-icon.png',
       iconColor: '',
     },
     {
@@ -128,7 +129,8 @@ Requirements:
       url: 'https://mail.google.com',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico',
+      // Use the publicly accessible Gmail icon from Google's CDN
+      iconValue: 'https://lh3.googleusercontent.com/0rpHlrX8igMtxWBH-9RnHJRpfqwWXc0nAlKrU2bF_zPNRGUJQJpzBmYJMjqbBLsm6mzFJJCk9dRuPqIBbvdR3A',
       iconColor: '',
     },
     {
@@ -146,7 +148,8 @@ Requirements:
       url: 'https://figma.com',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://static.figma.com/app/icon/1/favicon.svg',
+      // PNG version — avoids SVG CORS issues in extension context
+      iconValue: 'https://static.figma.com/app/icon/1/icon-192.png',
       iconColor: '',
     },
     {

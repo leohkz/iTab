@@ -27,7 +27,7 @@ const categories = [
   { id: 'layout',     key: 'layout',     icon: LayoutGrid },
   { id: 'spaces',     key: 'spaces',     icon: Layers },
   { id: 'search',     key: 'search',     icon: Search },
-  { id: 'aiportals',  key: 'aiportals',  icon: BotMessageSquare },
+  { id: 'aiportals',  key: 'aiPortals',  icon: BotMessageSquare },
   { id: 'data',       key: 'data',       icon: Database },
   { id: 'experiments',key: 'experiments',icon: FlaskConical },
 ] as const;
@@ -82,9 +82,10 @@ function ResetConfirmDialog({ t, onConfirm, onCancel }: {
 
 // ── Spaces Panel ────────────────────────────────────────────────────────
 function SpacesPanel({
-  spaces, onAdd, onRename, onRecolor, onDelete,
+  spaces, t, onAdd, onRename, onRecolor, onDelete,
 }: {
   spaces: Space[];
+  t: (key: TranslationKey) => string;
   onAdd: (name: string, accent: string) => void;
   onRename: (id: string, name: string) => void;
   onRecolor: (id: string, accent: string) => void;
@@ -115,7 +116,7 @@ function SpacesPanel({
   return (
     <div className="grid gap-4">
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">Spaces</h4>
+        <h4 className="mb-3 font-black">{t('spaces')}</h4>
         <div className="grid gap-2">
           {spaces.map((space) => (
             <div key={space.id} className="flex items-center gap-3 rounded-xl bg-slate-950/5 px-3 py-2.5">
@@ -125,7 +126,7 @@ function SpacesPanel({
                   value={space.accent}
                   onChange={(e) => onRecolor(space.id, e.target.value)}
                   className="absolute inset-0 cursor-pointer opacity-0"
-                  title="Change colour"
+                  title={t('rename')}
                 >
                   {SPACE_ACCENTS.map((a) => (
                     <option key={a.value} value={a.value}>{a.label}</option>
@@ -145,7 +146,7 @@ function SpacesPanel({
                 <span
                   className="flex-1 cursor-pointer text-sm font-bold hover:text-slate-600"
                   onDoubleClick={() => startEdit(space)}
-                  title="Double-click to rename"
+                  title={t('rename')}
                 >
                   {space.name}
                 </span>
@@ -155,14 +156,14 @@ function SpacesPanel({
                 onClick={() => startEdit(space)}
                 className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
               >
-                改名
+                {t('rename')}
               </button>
               <button
                 type="button"
                 onClick={() => onDelete(space.id)}
                 disabled={spaces.length <= 1}
                 className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
-                title="Delete space"
+                title={t('delete')}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -171,7 +172,7 @@ function SpacesPanel({
         </div>
       </div>
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">新增 Space</h4>
+        <h4 className="mb-3 font-black">{t('addSpace')}</h4>
         <div className="flex items-center gap-2">
           <div className="relative flex-shrink-0">
             <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${newAccent}`} />
@@ -189,7 +190,7 @@ function SpacesPanel({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-            placeholder="Space 名稱"
+            placeholder={t('spaceName')}
             className="h-10 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-bold outline-none focus:border-slate-950"
           />
           <button
@@ -198,10 +199,10 @@ function SpacesPanel({
             disabled={!newName.trim()}
             className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-40"
           >
-            <Plus className="h-4 w-4" /> 新增
+            <Plus className="h-4 w-4" /> {t('add')}
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-400">點色塊可更換顏色 · 雙擊名稱可改名</p>
+        <p className="mt-2 text-xs text-slate-400">{t('spaceHint')}</p>
       </div>
     </div>
   );
@@ -268,7 +269,7 @@ export function SettingsModal({
                   className={['flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black transition duration-200', active === cat.id ? 'bg-slate-950/10 text-slate-950' : 'text-slate-600 hover:bg-slate-950/6'].join(' ')}
                   data-testid={`button-settings-${cat.id}`}>
                   <cat.icon className="h-4 w-4" />
-                  {cat.id === 'spaces' ? 'Spaces' : cat.id === 'aiportals' ? 'AI 入口' : t(cat.key as TranslationKey)}
+                  {t(cat.key as TranslationKey)}
                 </button>
               ))}
             </nav>
@@ -278,7 +279,7 @@ export function SettingsModal({
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">
-                  {active === 'spaces' ? 'SPACES' : active === 'aiportals' ? 'AI 入口' : t(title as TranslationKey)}
+                  {t(title as TranslationKey)}
                 </p>
                 <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h3>
               </div>
@@ -361,6 +362,7 @@ export function SettingsModal({
             {active === 'spaces' && (
               <SpacesPanel
                 spaces={spaces}
+                t={t}
                 onAdd={onAddSpace}
                 onRename={onRenameSpace}
                 onRecolor={onRecolorSpace}
@@ -397,7 +399,7 @@ export function SettingsModal({
                   <h4 className="font-black">{t('addCustomEngine')}</h4>
                   <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
                     <input value={newEngine.name} onChange={(e) => setNewEngine({ ...newEngine, name: e.target.value })} placeholder={t('name')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-name" />
-                    <input value={newEngine.shortcut} onChange={(e) => setNewEngine({ ...newEngine, shortcut: e.target.value })} placeholder="Shortcut" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-shortcut" />
+                    <input value={newEngine.shortcut} onChange={(e) => setNewEngine({ ...newEngine, shortcut: e.target.value })} placeholder={t('shortcut')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-shortcut" />
                     <input value={newEngine.template} onChange={(e) => setNewEngine({ ...newEngine, template: e.target.value })} placeholder="https://example.com?q={q}" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-template" />
                   </div>
                   <button type="button" onClick={addEngine}
