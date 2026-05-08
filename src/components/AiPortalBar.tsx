@@ -3,16 +3,15 @@ import { useRef, useState } from 'react';
 import type { AiPortal, AiPortalSize } from '../types';
 import type { TranslationKey } from '../i18n';
 
-// ── Favicon helper ──────────────────────────────────────────────────────
-// Simple Icons CDN helper — returns branded SVG, no CORS issues in extension
+// ── Favicon helper ─────────────────────────────────────────────────────
 function getIconSrc(icon: string, url: string): string | null {
-  // Already a full URL (Simple Icons CDN, Wikimedia, etc.) — use directly
+  // Already a full URL — use directly
   if (icon.startsWith('http') || icon.startsWith('data:')) return icon;
-  // 'auto' — derive from domain via DuckDuckGo (works in extension context, no CORS)
+  // 'auto' — use Google gstatic (same API as AppIcon, works in extension context)
   if (icon === 'auto') {
     try {
-      const domain = new URL(url).hostname;
-      return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+      const encoded = encodeURIComponent(url);
+      return `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encoded}&size=64`;
     } catch {
       return null;
     }
@@ -20,7 +19,7 @@ function getIconSrc(icon: string, url: string): string | null {
   return null;
 }
 
-// ── Size tokens ─────────────────────────────────────────────────────────
+// ── Size tokens ─────────────────────────────────────────────────────
 const SIZE_MAP: Record<AiPortalSize, { img: number; btn: string; text: string; gap: string; px: string; py: string }> = {
   sm: { img: 18, btn: 'rounded-xl',  text: 'text-xs',  gap: 'gap-2',   px: 'px-3', py: 'py-2' },
   md: { img: 24, btn: 'rounded-xl',  text: 'text-sm',  gap: 'gap-2.5', px: 'px-3', py: 'py-2.5' },
@@ -28,7 +27,7 @@ const SIZE_MAP: Record<AiPortalSize, { img: number; btn: string; text: string; g
   xl: { img: 36, btn: 'rounded-2xl', text: 'text-base',gap: 'gap-3',   px: 'px-5', py: 'py-3.5' },
 };
 
-// ── Glass style helper ───────────────────────────────────────────────────
+// ── Glass style helper ───────────────────────────────────────────────────────
 function glassStyle(glass: number, alphaScale = 1): React.CSSProperties {
   const alpha = Math.min(0.45, Math.max(0.08, (glass / 250))) * alphaScale;
   const blur  = Math.round(4 + glass / 10);
@@ -39,7 +38,7 @@ function glassStyle(glass: number, alphaScale = 1): React.CSSProperties {
   };
 }
 
-// ── PortalIcon ───────────────────────────────────────────────────────────
+// ── PortalIcon ───────────────────────────────────────────────────────────────────
 function PortalIcon({ icon, url, name, size }: { icon: string; url: string; name: string; size: number }) {
   const src = getIconSrc(icon, url);
   const [errored, setErrored] = useState(false);
@@ -69,7 +68,7 @@ function PortalIcon({ icon, url, name, size }: { icon: string; url: string; name
   );
 }
 
-// ── AiPortalBar (main component) ────────────────────────────────────────
+// ── AiPortalBar (main component) ──────────────────────────────────────────────────────
 type Props = {
   portals: AiPortal[];
   size?: AiPortalSize;
@@ -147,7 +146,7 @@ export function AiPortalBar({ portals, size = 'lg', glass, t }: Props) {
   );
 }
 
-// ── Settings Panel (used inside SettingsModal) ───────────────────────────
+// ── Settings Panel (used inside SettingsModal) ──────────────────────────────────────────────────────
 type PanelProps = {
   portals: AiPortal[];
   size: AiPortalSize;
