@@ -7,6 +7,11 @@ export const recentTabs: AppConfig['apps'] = [];
 
 const DEFAULT_META = { enabled: true, minimised: false, pinned: false, expanded: false };
 
+// Simple Icons CDN — open-source SVG brand icons, no CORS issues
+// https://simpleicons.org  |  https://cdn.simpleicons.org/{slug}/{color}
+const SI = (slug: string, color = '000000') =>
+  `https://cdn.simpleicons.org/${slug}/${color}`;
+
 export const defaultConfig: AppConfig = {
   spaces: [...DEFAULT_SPACES],
   currentSpaceId: 'work',
@@ -27,7 +32,7 @@ export const defaultConfig: AppConfig = {
 
 Style: Cinematic, shot on Sony A7R IV, 85mm f/1.4 lens
 Lighting: Golden hour, soft side lighting, subtle lens flare
-Mood: [MOOD — e.g. serene / dramatic / mysterious]
+Mood: [MOOD \u2014 e.g. serene / dramatic / mysterious]
 Color palette: Warm tones, slight film grain, muted shadows
 Composition: Rule of thirds, shallow depth of field, bokeh background
 Aspect ratio: 16:9
@@ -72,13 +77,13 @@ Output format: Markdown`,
       content: `You are a world-class copywriter who specialises in viral social media content.
 
 Product / Topic: [DESCRIBE YOUR PRODUCT OR TOPIC]
-Target audience: [WHO ARE THEY — age, interests, pain points]
+Target audience: [WHO ARE THEY \u2014 age, interests, pain points]
 Platform: [Instagram / LinkedIn / Twitter / Facebook]
 Goal: [Awareness / Engagement / Sales / Sign-ups]
 
 Write 3 variations of a post using these frameworks:
-1. AIDA (Attention → Interest → Desire → Action)
-2. PAS (Problem → Agitate → Solution)
+1. AIDA (Attention \u2192 Interest \u2192 Desire \u2192 Action)
+2. PAS (Problem \u2192 Agitate \u2192 Solution)
 3. Hook + Story + CTA
 
 Requirements:
@@ -101,8 +106,8 @@ Requirements:
       url: 'https://chat.openai.com',
       folderId: null,
       iconType: 'url',
-      // PNG version — avoids SVG CORS issues in extension context
-      iconValue: 'https://cdn.oaistatic.com/assets/apple-touch-icon.png',
+      // Wikimedia Commons — ChatGPT official logo PNG (freely licensed)
+      iconValue: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/ChatGPT-Logo.svg/1280px-ChatGPT-Logo.svg.png',
       iconColor: '',
     },
     {
@@ -111,7 +116,8 @@ Requirements:
       url: 'https://notion.so',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://www.notion.so/images/favicon.ico',
+      // Simple Icons — notion (black)
+      iconValue: SI('notion', '000000'),
       iconColor: '',
     },
     {
@@ -120,7 +126,8 @@ Requirements:
       url: 'https://youtube.com',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://www.youtube.com/s/desktop/3f6a3383/img/favicon_144x144.png',
+      // Simple Icons — youtube (red)
+      iconValue: SI('youtube', 'FF0000'),
       iconColor: '',
     },
     {
@@ -129,8 +136,8 @@ Requirements:
       url: 'https://mail.google.com',
       folderId: null,
       iconType: 'url',
-      // Use the publicly accessible Gmail icon from Google's CDN
-      iconValue: 'https://lh3.googleusercontent.com/0rpHlrX8igMtxWBH-9RnHJRpfqwWXc0nAlKrU2bF_zPNRGUJQJpzBmYJMjqbBLsm6mzFJJCk9dRuPqIBbvdR3A',
+      // Simple Icons — gmail (red)
+      iconValue: SI('gmail', 'EA4335'),
       iconColor: '',
     },
     {
@@ -139,7 +146,8 @@ Requirements:
       url: 'https://perplexity.ai',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://www.perplexity.ai/favicon.ico',
+      // Simple Icons — perplexity (teal)
+      iconValue: SI('perplexity', '1FB8CD'),
       iconColor: '',
     },
     {
@@ -148,8 +156,8 @@ Requirements:
       url: 'https://figma.com',
       folderId: null,
       iconType: 'url',
-      // PNG version — avoids SVG CORS issues in extension context
-      iconValue: 'https://static.figma.com/app/icon/1/icon-192.png',
+      // Simple Icons — figma (brand orange-red)
+      iconValue: SI('figma', 'F24E1E'),
       iconColor: '',
     },
     {
@@ -158,7 +166,8 @@ Requirements:
       url: 'https://github.com',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://github.githubassets.com/favicons/favicon.svg',
+      // Simple Icons — github (black)
+      iconValue: SI('github', '181717'),
       iconColor: '',
     },
     {
@@ -167,7 +176,8 @@ Requirements:
       url: 'https://linear.app',
       folderId: null,
       iconType: 'url',
-      iconValue: 'https://linear.app/favicon.ico',
+      // Simple Icons — linear (indigo)
+      iconValue: SI('linear', '5E6AD2'),
       iconColor: '',
     },
   ],
