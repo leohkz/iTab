@@ -13,7 +13,7 @@ import { AiPortalBar } from './components/AiPortalBar';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
-import { DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS, AI_PORTAL_SIZE_DEFAULT } from './types';
+import { DEFAULT_NOTE_TABS, DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS, AI_PORTAL_SIZE_DEFAULT } from './types';
 
 type EditorState = {
   open: boolean;
@@ -40,10 +40,22 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
     listId: t.listId ?? 'inbox',
   }));
 
+  // Migrate old plain-string notes → noteTabs
+  const noteTabs = (() => {
+    if (raw.noteTabs && raw.noteTabs.length > 0) return raw.noteTabs;
+    // Legacy: had content in notes string — carry it over to first tab
+    if (raw.notes && raw.notes.trim()) {
+      return [{ id: 'note-default', name: 'Notes', content: raw.notes, updatedAt: Date.now() }];
+    }
+    return [...DEFAULT_NOTE_TABS].map(t => ({ ...t, updatedAt: Date.now() }));
+  })();
+
   const widgets: WidgetState = {
     ...fb,
     ...raw,
     todos,
+    noteTabs,
+    activeNoteTabId: raw.activeNoteTabId ?? noteTabs[0]?.id ?? 'note-default',
     todoLists:        (raw.todoLists && raw.todoLists.length > 0) ? raw.todoLists : [...DEFAULT_TODO_LISTS],
     activeTodoListId: raw.activeTodoListId ?? 'today',
     todoMeta:         { ...DEFAULT_META, ...(raw.todoMeta     ?? {}) },

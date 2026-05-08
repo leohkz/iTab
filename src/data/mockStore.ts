@@ -1,5 +1,5 @@
 import type { AppConfig } from '../types';
-import { DEFAULT_SPACES, DEFAULT_TODO_LISTS } from '../types';
+import { DEFAULT_NOTE_TABS, DEFAULT_SPACES, DEFAULT_TODO_LISTS } from '../types';
 
 export const spaces = DEFAULT_SPACES;
 
@@ -41,6 +41,8 @@ export const defaultConfig: AppConfig = {
   ],
   widgets: {
     notes: '',
+    noteTabs: [...DEFAULT_NOTE_TABS].map(t => ({ ...t, updatedAt: Date.now() })),
+    activeNoteTabId: 'note-default',
     todos: [
       { id: 'todo-demo-1', text: 'Review pull request', done: false, listId: 'today' },
       { id: 'todo-demo-2', text: 'Team standup',        done: false, listId: 'today' },
