@@ -6,6 +6,17 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 
 ---
 
+## Install from Release (Recommended)
+
+1. Go to the [**Releases**](https://github.com/leohkz/iTab/releases) page and download the latest `iTab-vX.X.X.zip`
+2. Unzip to any folder
+3. Open Chrome → `chrome://extensions/`
+4. Enable **Developer mode** (top-right toggle)
+5. Click **Load unpacked** → select the unzipped folder
+6. Open a new tab — iTab replaces the default new tab page
+
+---
+
 ## Features
 
 ### 🗂 Spaces
@@ -20,6 +31,12 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 - Drag to reorder shortcuts or drag one onto another to group them into a folder
 - Drag shortcuts out of folders back to the main grid
 - Folder modal opens on click; closes by clicking outside
+- **Apps pinned to the Dock are hidden from the App Grid** (true iPadOS behaviour)
+
+### 🖥 macOS-style Top Bar & Dock
+- Glassmorphism top bar with Space switcher
+- Floating Dock with pinned apps and recent tabs
+- Drag any app shortcut onto the Dock to pin it; removing from Dock restores it to the App Grid
 
 ### 🌐 Website Shortcuts
 - Add any website with a name, URL, and optional custom icon URL
@@ -37,10 +54,12 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 - Multiple search engines: Google, Bing, DuckDuckGo, Perplexity, YouTube, Google Maps
 - Add custom search engines with `{q}` placeholder; enable or disable per engine
 
-### 🖥 macOS-style Top Bar & Dock
-- Glassmorphism top bar with Space switcher
-- Floating Dock with pinned apps and recent tabs
-- Drag any app shortcut onto the Dock to pin it
+### 🤖 AI Portal Bar
+- Quick-access sidebar for AI tools: ChatGPT, Claude, Gemini, Copilot, DeepSeek, Tongyi, and more
+- Hover to expand; click any portal to open in a new tab
+- Icons loaded via Google Favicon API for accurate branding across all domains
+- Fully customisable: reorder, rename, toggle visibility, or add custom AI URLs
+- Adjustable button size (S / M / L / XL)
 
 ### 🎨 Appearance & Themes
 - Three macOS-inspired gradient themes: Sonoma, Ventura, Slate
@@ -61,6 +80,7 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 - **Appearance** — theme, glass intensity
 - **Layout** — grid columns and rows
 - **Search** — default engine, custom engines
+- **AI Portals** — manage portal list, icons, and button size
 - **Bookmarks** — sync Chrome bookmarks (extension mode) or preview import (dev mode)
 - **Data** — export JSON, import JSON, reset to defaults
 - **Experiments** — smart recommendations, recent visits, keyboard shortcuts, conflict warnings
@@ -75,18 +95,16 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 
 | Layer | Technology |
 |---|---|
-| Framework | React 18 + TypeScript |
+| Framework | React 19 + TypeScript |
 | Styling | Tailwind CSS v3 |
-| Build tool | Vite |
+| Build tool | Vite 8 |
 | Extension | Chrome Manifest V3 |
 | Icons | Lucide React |
 | Storage | `chrome.storage.local` (extension) / in-memory (dev) |
 
 ---
 
-## Getting Started
-
-### Development
+## Getting Started (Development)
 
 ```bash
 npm install
@@ -101,7 +119,7 @@ Open `http://localhost:5173` in your browser.
 npm run build
 ```
 
-### Load as Chrome Extension
+### Load as Chrome Extension (from source)
 
 1. Run `npm run build`
 2. Open `chrome://extensions`
@@ -112,11 +130,24 @@ npm run build
 
 ---
 
+## Releasing a New Version
+
+Push a semver tag to trigger the automated release workflow:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions will build the extension, zip the `dist/` folder, and publish it to the [Releases](https://github.com/leohkz/iTab/releases) page automatically.
+
+---
+
 ## Project Structure
 
 ```
 src/
-├── components/       # UI components (AppGrid, Dock, TopBar, ShortcutEditor…)
+├── components/       # UI components (AppGrid, Dock, TopBar, AiPortalBar…)
 ├── data/             # Mock store and default configuration
 ├── lib/              # Utility helpers
 ├── i18n.ts           # Translation dictionary (EN / zh-Hant / zh-Hans)
@@ -126,48 +157,11 @@ src/
 
 ---
 
-## Data Model
-
-```ts
-interface Folder {
-  id: string;
-  name: string;
-  color?: string;
-  spaceId?: string;   // bound to a specific Space; undefined = visible in all Spaces
-}
-
-interface AppShortcut {
-  id: string;
-  name: string;
-  url: string;
-  folderId: string | null;
-  spaceId?: string;
-  iconType: 'api' | 'monogram' | 'custom';
-  iconValue: string;
-  iconColor?: string;
-}
-
-interface Space {
-  id: string;
-  name: string;
-  accent: string;     // Tailwind gradient class for the Space badge
-}
-```
-
----
-
-## Adding a Translation
-
-Add or update labels in `src/i18n.ts`. The UI uses stable translation keys so new locales can be added without touching any component logic.
-
----
-
 ## Licence
 
 MIT
 
 ---
-
 ---
 
 # iTab — 工作空間新分頁
@@ -175,6 +169,17 @@ MIT
 > 一款美觀、專注於生產力的 Chrome 擴充功能，將你的新分頁替換為完全可自訂的工作空間——靈感來自 macOS 與 iPadOS 的設計語言。
 
 技術棧：**React · TypeScript · Tailwind CSS · Vite · Manifest V3**
+
+---
+
+## 從 Release 安裝（推薦）
+
+1. 前往 [**Releases**](https://github.com/leohkz/iTab/releases) 頁面，下載最新的 `iTab-vX.X.X.zip`
+2. 解壓縮到任意資料夾
+3. 開啟 Chrome → `chrome://extensions/`
+4. 右上角開啟**開發人員模式**
+5. 點擊**載入未封裝項目** → 選擇解壓縮後的資料夾
+6. 開啟新分頁——iTab 將取代預設新分頁
 
 ---
 
@@ -192,6 +197,12 @@ MIT
 - 拖曳可重新排序；將一個圖示拖曳到另一個上方可自動建立文件夾
 - 可將捷徑從文件夾拖曳回主格線
 - 點擊文件夾開啟；點擊外部區域關閉
+- **已釘選至 Dock 的應用不再顯示於應用格線**（真實 iPadOS 行為）
+
+### 🖥 macOS 風格頂部列與 Dock
+- 玻璃擬態頂部列，內含空間切換器
+- 浮動 Dock 列，顯示已釘選的應用與最近分頁
+- 將任何應用捷徑拖曳至 Dock 即可釘選；從 Dock 移除後自動回到應用格線
 
 ### 🌐 網站捷徑
 - 可為任何網站新增名稱、網址及自訂圖示 URL
@@ -209,10 +220,12 @@ MIT
 - 內建多款搜尋引擎：Google、Bing、DuckDuckGo、Perplexity、YouTube、Google 地圖
 - 支援自訂搜尋引擎（使用 `{q}` 作為查詢佔位符）；可單獨啟用或停用
 
-### 🖥 macOS 風格頂部列與 Dock
-- 玻璃擬態頂部列，內含空間切換器
-- 浮動 Dock 列，顯示已釘選的應用與最近分頁
-- 將任何應用捷徑拖曳至 Dock 即可釘選
+### 🤖 AI 入口側欄
+- 快速存取 AI 工具：ChatGPT、Claude、Gemini、Copilot、DeepSeek、通義千問等
+- 滑鼠懸停展開；點擊任意入口在新分頁開啟
+- 圖示透過 Google Favicon API 載入，所有域名（包括中國網站）均正確顯示
+- 完全可自訂：重新排序、重新命名、切換顯示、新增自訂 AI 網址
+- 可調整按鈕大小（S / M / L / XL）
 
 ### 🎨 外觀與主題
 - 三款仿 macOS 漸層主題：Sonoma、Ventura、Slate
@@ -233,6 +246,7 @@ MIT
 - **外觀** — 主題、玻璃模糊強度
 - **版面** — 格線欄數與列數
 - **搜尋** — 預設引擎、自訂搜尋引擎
+- **AI 入口** — 管理入口清單、圖示與按鈕大小
 - **書籤** — 同步 Chrome 書籤（擴充功能模式）或預覽匯入（開發模式）
 - **資料** — 匯出 JSON、匯入 JSON、重設預設值
 - **實驗功能** — 智慧推薦、最近瀏覽、鍵盤捷徑、衝突警告
@@ -247,18 +261,16 @@ MIT
 
 | 層級 | 技術 |
 |---|---|
-| 框架 | React 18 + TypeScript |
+| 框架 | React 19 + TypeScript |
 | 樣式 | Tailwind CSS v3 |
-| 建置工具 | Vite |
+| 建置工具 | Vite 8 |
 | 擴充功能 | Chrome Manifest V3 |
 | 圖示庫 | Lucide React |
 | 資料儲存 | `chrome.storage.local`（擴充功能模式）/ 記憶體（開發模式）|
 
 ---
 
-## 快速開始
-
-### 開發環境
+## 快速開始（開發環境）
 
 ```bash
 npm install
@@ -273,7 +285,7 @@ npm run dev
 npm run build
 ```
 
-### 載入為 Chrome 擴充功能
+### 從原始碼載入為 Chrome 擴充功能
 
 1. 執行 `npm run build`
 2. 開啟 `chrome://extensions`
@@ -284,53 +296,30 @@ npm run build
 
 ---
 
+## 發布新版本
+
+推送 semver tag 即可觸發自動 Release 流程：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions 會自動建置擴充功能、將 `dist/` 壓縮為 zip，並發布至 [Releases](https://github.com/leohkz/iTab/releases) 頁面。
+
+---
+
 ## 專案結構
 
 ```
 src/
-├── components/       # UI 元件（AppGrid、Dock、TopBar、ShortcutEditor…）
+├── components/       # UI 元件（AppGrid、Dock、TopBar、AiPortalBar…）
 ├── data/             # 模擬資料與預設設定
 ├── lib/              # 工具函式
 ├── i18n.ts           # 翻譯字典（英文 / 繁中 / 簡中）
 ├── types.ts          # TypeScript 介面定義
 └── App.tsx           # 根元件與狀態管理
 ```
-
----
-
-## 資料模型
-
-```ts
-interface Folder {
-  id: string;
-  name: string;
-  color?: string;
-  spaceId?: string;   // 綁定特定空間；未設定則在所有空間顯示
-}
-
-interface AppShortcut {
-  id: string;
-  name: string;
-  url: string;
-  folderId: string | null;
-  spaceId?: string;
-  iconType: 'api' | 'monogram' | 'custom';
-  iconValue: string;
-  iconColor?: string;
-}
-
-interface Space {
-  id: string;
-  name: string;
-  accent: string;     // 空間徽章的 Tailwind 漸層 class
-}
-```
-
----
-
-## 新增翻譯語言
-
-在 `src/i18n.ts` 中新增或修改翻譯詞條。介面使用穩定的翻譯鍵名，新增語言無需修改任何元件邏輯。
 
 ---
 
