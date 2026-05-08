@@ -43,7 +43,6 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
   // Migrate old plain-string notes → noteTabs
   const noteTabs = (() => {
     if (raw.noteTabs && raw.noteTabs.length > 0) return raw.noteTabs;
-    // Legacy: had content in notes string — carry it over to first tab
     if (raw.notes && raw.notes.trim()) {
       return [{ id: 'note-default', name: 'Notes', content: raw.notes, updatedAt: Date.now() }];
     }
@@ -87,7 +86,7 @@ function isChromeExtensionApiAvailable() {
   return typeof chrome !== 'undefined' && Boolean(chrome.storage?.local);
 }
 
-// ── Glass style helper (shared with left-side buttons in App) ────────────────
+// ── Glass style helper (shared with left-side buttons in App) ────────────────────
 function glassBtn(glass: number, active = false): React.CSSProperties {
   const alpha = Math.min(0.40, Math.max(0.08, glass / 280)) * (active ? 1.8 : 1);
   const blur  = Math.round(4 + glass / 10);
@@ -128,9 +127,14 @@ function NewTab() {
     [config.apps, config.pinnedIds],
   );
 
+  // iPadOS behaviour: apps pinned to Dock are hidden from the main grid
   const currentSpaceApps = useMemo(
-    () => config.apps.filter((app) => !app.spaceId || app.spaceId === config.currentSpaceId),
-    [config.apps, config.currentSpaceId],
+    () => config.apps.filter(
+      (app) =>
+        (!app.spaceId || app.spaceId === config.currentSpaceId) &&
+        !config.pinnedIds.includes(app.id),
+    ),
+    [config.apps, config.currentSpaceId, config.pinnedIds],
   );
 
   const currentSpaceFolders = useMemo(
