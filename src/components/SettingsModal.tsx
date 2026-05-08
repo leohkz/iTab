@@ -415,6 +415,7 @@ export function SettingsModal({
               <AiPortalSettingsPanel
                 portals={config.aiPortals ?? []}
                 size={(config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT) as AiPortalSize}
+                t={t}
                 onChange={(portals: AiPortal[]) => onConfigChange({ ...config, aiPortals: portals })}
                 onSizeChange={(size: AiPortalSize) => onConfigChange({ ...config, aiPortalSize: size })}
               />

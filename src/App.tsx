@@ -381,6 +381,7 @@ function NewTab() {
         portals={aiPortals}
         glass={config.glass}
         size={config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT}
+        t={t}
       />
 
       {/* Prompt Book button */}
