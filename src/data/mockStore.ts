@@ -22,7 +22,7 @@ export const defaultConfig: AppConfig = {
   prompts: [
     {
       id: 'prompt-image-gen',
-      title: '🎨 Cinematic Image Prompt',
+      title: '\uD83C\uDFA8 Cinematic Image Prompt',
       content: `Create a photorealistic image of [SUBJECT].
 
 Style: Cinematic, shot on Sony A7R IV, 85mm f/1.4 lens
@@ -41,7 +41,7 @@ Negative prompt: cartoon, illustration, blurry, watermark, text`,
     },
     {
       id: 'prompt-agent-research',
-      title: '🤖 Deep Research Agent',
+      title: '\uD83E\uDD16 Deep Research Agent',
       content: `You are an expert research analyst. Your task is to conduct deep research on the following topic:
 
 Topic: [INSERT TOPIC]
@@ -68,7 +68,7 @@ Output format: Markdown`,
     },
     {
       id: 'prompt-copywriting',
-      title: '✍️ Viral Social Media Copy',
+      title: '\u270D\uFE0F Viral Social Media Copy',
       content: `You are a world-class copywriter who specialises in viral social media content.
 
 Product / Topic: [DESCRIBE YOUR PRODUCT OR TOPIC]
@@ -95,14 +95,78 @@ Requirements:
     },
   ],
   apps: [
-    { id: 'chatgpt',    name: 'ChatGPT',    url: 'https://chat.openai.com',   folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=chat.openai.com&sz=64',   iconColor: '' },
-    { id: 'notion',     name: 'Notion',     url: 'https://notion.so',         folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=notion.so&sz=64',          iconColor: '' },
-    { id: 'youtube',    name: 'YouTube',    url: 'https://youtube.com',       folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64',        iconColor: '' },
-    { id: 'gmail',      name: 'Gmail',      url: 'https://mail.google.com',   folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=mail.google.com&sz=64',    iconColor: '' },
-    { id: 'perplexity', name: 'Perplexity', url: 'https://perplexity.ai',     folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64',      iconColor: '' },
-    { id: 'figma',      name: 'Figma',      url: 'https://figma.com',         folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=figma.com&sz=64',          iconColor: '' },
-    { id: 'github',     name: 'GitHub',     url: 'https://github.com',        folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=github.com&sz=64',         iconColor: '' },
-    { id: 'linear',     name: 'Linear',     url: 'https://linear.app',        folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=linear.app&sz=64',         iconColor: '' },
+    {
+      id: 'chatgpt',
+      name: 'ChatGPT',
+      url: 'https://chat.openai.com',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://cdn.oaistatic.com/assets/favicon-o20kmmos.svg',
+      iconColor: '',
+    },
+    {
+      id: 'notion',
+      name: 'Notion',
+      url: 'https://notion.so',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://www.notion.so/images/favicon.ico',
+      iconColor: '',
+    },
+    {
+      id: 'youtube',
+      name: 'YouTube',
+      url: 'https://youtube.com',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://www.youtube.com/s/desktop/3f6a3383/img/favicon_144x144.png',
+      iconColor: '',
+    },
+    {
+      id: 'gmail',
+      name: 'Gmail',
+      url: 'https://mail.google.com',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico',
+      iconColor: '',
+    },
+    {
+      id: 'perplexity',
+      name: 'Perplexity',
+      url: 'https://perplexity.ai',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://www.perplexity.ai/favicon.ico',
+      iconColor: '',
+    },
+    {
+      id: 'figma',
+      name: 'Figma',
+      url: 'https://figma.com',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://static.figma.com/app/icon/1/favicon.svg',
+      iconColor: '',
+    },
+    {
+      id: 'github',
+      name: 'GitHub',
+      url: 'https://github.com',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://github.githubassets.com/favicons/favicon.svg',
+      iconColor: '',
+    },
+    {
+      id: 'linear',
+      name: 'Linear',
+      url: 'https://linear.app',
+      folderId: null,
+      iconType: 'url',
+      iconValue: 'https://linear.app/favicon.ico',
+      iconColor: '',
+    },
   ],
   defaultEngine: 'google',
   searchEngines: [
