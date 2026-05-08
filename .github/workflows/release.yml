@@ -1,0 +1,53 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Package dist as zip
+        run: |
+          cd dist
+          zip -r ../iTab-${{ github.ref_name }}.zip .
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: iTab ${{ github.ref_name }}
+          body: |
+            ## iTab ${{ github.ref_name }}
+
+            ### 安裝方法
+            1. 下載 `iTab-${{ github.ref_name }}.zip`
+            2. 解壓縮到任意資料夾
+            3. 打開 Chrome → `chrome://extensions/`
+            4. 開啟右上角「**開發者模式**」
+            5. 點擊「**載入未封裝項目**」→ 選擇解壓縮後的資料夾
+          files: iTab-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false
