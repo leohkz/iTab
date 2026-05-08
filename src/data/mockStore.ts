@@ -19,16 +19,90 @@ export const defaultConfig: AppConfig = {
   showWidgets: true,
   pinnedIds: ['chatgpt', 'notion', 'perplexity'],
   folders: [],
-  prompts: [],
+  prompts: [
+    {
+      id: 'prompt-image-gen',
+      title: '🎨 Cinematic Image Prompt',
+      content: `Create a photorealistic image of [SUBJECT].
+
+Style: Cinematic, shot on Sony A7R IV, 85mm f/1.4 lens
+Lighting: Golden hour, soft side lighting, subtle lens flare
+Mood: [MOOD — e.g. serene / dramatic / mysterious]
+Color palette: Warm tones, slight film grain, muted shadows
+Composition: Rule of thirds, shallow depth of field, bokeh background
+Aspect ratio: 16:9
+Negative prompt: cartoon, illustration, blurry, watermark, text`,
+      tags: [
+        { label: 'Image Gen', color: '#8b5cf6' },
+        { label: 'Midjourney', color: '#ec4899' },
+      ],
+      imageUrl: 'https://images.unsplash.com/photo-1543286386-713bdd548da4?w=400&q=80',
+      createdAt: 1715000000000,
+    },
+    {
+      id: 'prompt-agent-research',
+      title: '🤖 Deep Research Agent',
+      content: `You are an expert research analyst. Your task is to conduct deep research on the following topic:
+
+Topic: [INSERT TOPIC]
+
+Instructions:
+1. Search for the latest information (prioritise sources from the last 12 months)
+2. Identify the top 5 key insights
+3. Find contrarian viewpoints and challenges
+4. Summarise in a structured report with:
+   - Executive Summary (3 sentences)
+   - Key Findings (bullet points)
+   - Data & Statistics
+   - Opposing Views
+   - Actionable Recommendations
+5. Cite sources with URLs where possible
+
+Output format: Markdown`,
+      tags: [
+        { label: 'Agent', color: '#0ea5e9' },
+        { label: 'Research', color: '#10b981' },
+      ],
+      imageUrl: 'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=400&q=80',
+      createdAt: 1715000001000,
+    },
+    {
+      id: 'prompt-copywriting',
+      title: '✍️ Viral Social Media Copy',
+      content: `You are a world-class copywriter who specialises in viral social media content.
+
+Product / Topic: [DESCRIBE YOUR PRODUCT OR TOPIC]
+Target audience: [WHO ARE THEY — age, interests, pain points]
+Platform: [Instagram / LinkedIn / Twitter / Facebook]
+Goal: [Awareness / Engagement / Sales / Sign-ups]
+
+Write 3 variations of a post using these frameworks:
+1. AIDA (Attention → Interest → Desire → Action)
+2. PAS (Problem → Agitate → Solution)
+3. Hook + Story + CTA
+
+Requirements:
+- Each post under 280 characters for Twitter, or up to 2,200 for Instagram
+- Include 5 relevant hashtags
+- Add an emoji strategy (no more than 4 emojis per post)
+- End with a clear, compelling CTA`,
+      tags: [
+        { label: 'Copywriting', color: '#f59e0b' },
+        { label: 'Marketing', color: '#ef4444' },
+      ],
+      imageUrl: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=80',
+      createdAt: 1715000002000,
+    },
+  ],
   apps: [
-    { id: 'chatgpt',    name: 'ChatGPT',    url: 'https://chat.openai.com',   folderId: null, iconType: 'api', iconValue: 'chat.openai.com',   iconColor: '' },
-    { id: 'notion',     name: 'Notion',     url: 'https://notion.so',         folderId: null, iconType: 'api', iconValue: 'notion.so',          iconColor: '' },
-    { id: 'youtube',    name: 'YouTube',    url: 'https://youtube.com',       folderId: null, iconType: 'api', iconValue: 'youtube.com',        iconColor: '' },
-    { id: 'gmail',      name: 'Gmail',      url: 'https://mail.google.com',   folderId: null, iconType: 'api', iconValue: 'mail.google.com',    iconColor: '' },
-    { id: 'perplexity', name: 'Perplexity', url: 'https://perplexity.ai',     folderId: null, iconType: 'api', iconValue: 'perplexity.ai',      iconColor: '' },
-    { id: 'figma',      name: 'Figma',      url: 'https://figma.com',         folderId: null, iconType: 'api', iconValue: 'figma.com',          iconColor: '' },
-    { id: 'github',     name: 'GitHub',     url: 'https://github.com',        folderId: null, iconType: 'api', iconValue: 'github.com',         iconColor: '' },
-    { id: 'linear',     name: 'Linear',     url: 'https://linear.app',        folderId: null, iconType: 'api', iconValue: 'linear.app',         iconColor: '' },
+    { id: 'chatgpt',    name: 'ChatGPT',    url: 'https://chat.openai.com',   folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=chat.openai.com&sz=64',   iconColor: '' },
+    { id: 'notion',     name: 'Notion',     url: 'https://notion.so',         folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=notion.so&sz=64',          iconColor: '' },
+    { id: 'youtube',    name: 'YouTube',    url: 'https://youtube.com',       folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64',        iconColor: '' },
+    { id: 'gmail',      name: 'Gmail',      url: 'https://mail.google.com',   folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=mail.google.com&sz=64',    iconColor: '' },
+    { id: 'perplexity', name: 'Perplexity', url: 'https://perplexity.ai',     folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64',      iconColor: '' },
+    { id: 'figma',      name: 'Figma',      url: 'https://figma.com',         folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=figma.com&sz=64',          iconColor: '' },
+    { id: 'github',     name: 'GitHub',     url: 'https://github.com',        folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=github.com&sz=64',         iconColor: '' },
+    { id: 'linear',     name: 'Linear',     url: 'https://linear.app',        folderId: null, iconType: 'url', iconValue: 'https://www.google.com/s2/favicons?domain=linear.app&sz=64',         iconColor: '' },
   ],
   defaultEngine: 'google',
   searchEngines: [
