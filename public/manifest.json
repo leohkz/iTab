@@ -7,6 +7,10 @@
     "newtab": "index.html"
   },
   "permissions": ["storage", "bookmarks", "tabs"],
+  "host_permissions": [
+    "https://github.com/",
+    "https://api.github.com/"
+  ],
   "optional_host_permissions": ["*://*/*"],
   "icons": {
     "16": "icon16.png",
