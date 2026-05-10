@@ -1,9 +1,19 @@
-import { BotMessageSquare, Database, Download, FlaskConical, LayoutGrid, Layers, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { BotMessageSquare, Cloud, Database, Download, FlaskConical, LayoutGrid, Layers, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppConfig, AiPortal, AiPortalSize, Locale, SearchEngine, SearchEngineId, Space, ThemeName } from '../types';
 import { AI_PORTAL_SIZE_DEFAULT, SPACE_ACCENTS } from '../types';
 import type { TranslationKey } from '../i18n';
 import { AiPortalSettingsPanel } from './AiPortalBar';
+import {
+  downloadFromGist,
+  getStorageItem,
+  GIST_AUTO_KEY,
+  GIST_ID_KEY,
+  GIST_TOKEN_KEY,
+  setStorageItem,
+  uploadToGist,
+  validateToken,
+} from '../lib/gistSync';
 
 type SettingsModalProps = {
   open: boolean;
@@ -29,6 +39,7 @@ const categories = [
   { id: 'search',     key: 'search',     icon: Search },
   { id: 'aiportals',  key: 'aiPortals',  icon: BotMessageSquare },
   { id: 'data',       key: 'data',       icon: Database },
+  { id: 'sync',       key: 'cloudSync',  icon: Cloud },
   { id: 'experiments',key: 'experiments',icon: FlaskConical },
 ] as const;
 
@@ -204,6 +215,224 @@ function SpacesPanel({
         </div>
         <p className="mt-2 text-xs text-slate-400">{t('spaceHint')}</p>
       </div>
+    </div>
+  );
+}
+
+// ── Cloud Sync Panel ─────────────────────────────────────────────────────────
+function CloudSyncPanel({
+  config, t, onConfigChange, onAction,
+}: {
+  config: AppConfig;
+  t: (key: TranslationKey) => string;
+  onConfigChange: (c: AppConfig) => void;
+  onAction: (msg: string) => void;
+}) {
+  const [token, setToken]       = useState('');
+  const [gistId, setGistId]     = useState('');
+  const [autoSync, setAutoSync] = useState(false);
+  const [status, setStatus]     = useState<string | null>(null);
+  const [busy, setBusy]         = useState<'backup' | 'restore' | 'verify' | null>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState(false);
+
+  // Load saved values on mount
+  useEffect(() => {
+    (async () => {
+      setToken(await getStorageItem(GIST_TOKEN_KEY));
+      setGistId(await getStorageItem(GIST_ID_KEY));
+      setAutoSync((await getStorageItem(GIST_AUTO_KEY)) === 'true');
+    })();
+  }, []);
+
+  const saveCredentials = async (t2: string, id: string, auto: boolean) => {
+    await setStorageItem(GIST_TOKEN_KEY, t2);
+    await setStorageItem(GIST_ID_KEY, id);
+    await setStorageItem(GIST_AUTO_KEY, auto ? 'true' : 'false');
+  };
+
+  const handleVerify = async () => {
+    if (!token.trim()) { setStatus(t('gistNoToken')); return; }
+    setBusy('verify'); setStatus(null);
+    try {
+      const login = await validateToken(token.trim());
+      setStatus(t('gistTokenValid') + login);
+    } catch (e) {
+      setStatus(t('gistTokenInvalid'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleBackup = async () => {
+    if (!token.trim()) { setStatus(t('gistNoToken')); return; }
+    setBusy('backup'); setStatus(null);
+    try {
+      const newId = await uploadToGist(token.trim(), gistId.trim(), config);
+      setGistId(newId);
+      await saveCredentials(token.trim(), newId, autoSync);
+      setStatus(t('gistBackupSuccess'));
+      onAction(t('gistBackupSuccess'));
+    } catch (e) {
+      setStatus(t('gistError') + String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleRestoreClick = () => {
+    if (!token.trim()) { setStatus(t('gistNoToken')); return; }
+    if (!gistId.trim()) { setStatus(t('gistNoId')); return; }
+    setRestoreConfirm(true);
+  };
+
+  const handleRestoreConfirmed = async () => {
+    setRestoreConfirm(false);
+    setBusy('restore'); setStatus(null);
+    try {
+      const data = await downloadFromGist(token.trim(), gistId.trim()) as AppConfig;
+      onConfigChange({ ...config, ...data });
+      setStatus(t('gistRestoreSuccess'));
+      onAction(t('gistRestoreSuccess'));
+    } catch (e) {
+      setStatus(t('gistError') + String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleAutoSyncChange = async (val: boolean) => {
+    setAutoSync(val);
+    await saveCredentials(token.trim(), gistId.trim(), val);
+  };
+
+  const statusIsError = status?.startsWith('\u274c') || status?.startsWith(t('gistError').slice(0, 4));
+  const statusIsOk    = status?.startsWith('\u2705');
+
+  return (
+    <div className="grid gap-4">
+      {/* Token */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <h4 className="mb-1 font-black">{t('gistToken')}</h4>
+        <p className="mb-3 text-xs text-slate-500">
+          {t('gistTokenHint')}{' '}
+          <a
+            href="https://github.com/settings/tokens?type=beta"
+            target="_blank" rel="noopener noreferrer"
+            className="font-bold text-slate-700 underline hover:text-slate-950"
+          >
+            {t('gistTokenLink')}
+          </a>
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            onBlur={() => saveCredentials(token.trim(), gistId.trim(), autoSync)}
+            placeholder={t('gistTokenPlaceholder')}
+            className="h-10 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-mono outline-none focus:border-slate-950"
+          />
+          <button
+            type="button"
+            onClick={handleVerify}
+            disabled={busy === 'verify'}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-950/15 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {busy === 'verify' ? t('gistVerifying') : t('gistVerifyToken')}
+          </button>
+        </div>
+      </div>
+
+      {/* Gist ID */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <h4 className="mb-1 font-black">{t('gistId')}</h4>
+        <p className="mb-3 text-xs text-slate-500">{t('gistIdPlaceholder')}</p>
+        <input
+          type="text"
+          value={gistId}
+          onChange={(e) => setGistId(e.target.value)}
+          onBlur={() => saveCredentials(token.trim(), gistId.trim(), autoSync)}
+          placeholder="e.g. a1b2c3d4e5f6..."
+          className="h-10 w-full rounded-xl border border-slate-950/10 px-3 text-sm font-mono outline-none focus:border-slate-950"
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={handleBackup}
+          disabled={!!busy}
+          className="flex h-14 flex-col items-start justify-center rounded-2xl bg-slate-950 px-4 text-white shadow-sm disabled:opacity-50 hover:bg-slate-800"
+        >
+          <span className="text-sm font-black">
+            {busy === 'backup' ? t('gistBackingUp') : t('gistBackup')}
+          </span>
+          <span className="text-xs text-white/60">
+            {gistId ? `ID: ${gistId.slice(0, 10)}...` : 'Creates new Gist'}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={handleRestoreClick}
+          disabled={!!busy}
+          className="flex h-14 flex-col items-start justify-center rounded-2xl bg-white px-4 shadow-sm disabled:opacity-50 hover:bg-slate-50 border border-slate-950/10"
+        >
+          <span className="text-sm font-black">
+            {busy === 'restore' ? t('gistRestoring') : t('gistRestore')}
+          </span>
+          <span className="text-xs text-slate-400">From saved Gist</span>
+        </button>
+      </div>
+
+      {/* Auto sync toggle */}
+      <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+        <div>
+          <h4 className="font-black">{t('gistAutoSync')}</h4>
+          <p className="text-sm font-semibold text-slate-600">{t('gistAutoSyncDesc')}</p>
+        </div>
+        <Toggle checked={autoSync} onChange={handleAutoSyncChange} testId="toggle-gist-auto" />
+      </div>
+
+      {/* Status */}
+      {status && (
+        <div className={[
+          'rounded-2xl px-4 py-3 text-sm font-bold',
+          statusIsOk    ? 'bg-emerald-50 text-emerald-700' :
+          statusIsError ? 'bg-red-50 text-red-700' :
+                          'bg-slate-100 text-slate-700',
+        ].join(' ')}>
+          {status}
+        </div>
+      )}
+
+      {/* History hint */}
+      <p className="text-center text-xs text-slate-400">
+        📚 {t('gistHistory')}
+      </p>
+
+      {/* Restore confirm dialog */}
+      {restoreConfirm && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setRestoreConfirm(false); }}
+        >
+          <div className="w-80 rounded-[1.6rem] bg-white p-6 shadow-2xl">
+            <p className="mb-1 text-base font-black text-slate-800">{t('gistRestore')}?</p>
+            <p className="mb-5 text-sm text-slate-500">{t('gistRestoreConfirm')}</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setRestoreConfirm(false)}
+                className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">
+                {t('cancel')}
+              </button>
+              <button type="button" onClick={handleRestoreConfirmed}
+                className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">
+                {t('gistRestore')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -443,6 +672,15 @@ export function SettingsModal({
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportJson(f); }}
                   data-testid="input-import-json-file" />
               </div>
+            )}
+
+            {active === 'sync' && (
+              <CloudSyncPanel
+                config={config}
+                t={t}
+                onConfigChange={onConfigChange}
+                onAction={onAction}
+              />
             )}
 
             {active === 'experiments' && (
