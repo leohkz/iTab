@@ -2,7 +2,7 @@
 
 > A beautiful, productivity-focused Chrome Extension that replaces your new tab page with a fully customisable workspace — inspired by macOS and iPadOS design.
 
-**[🌐 Live Demo](https://leohkz.github.io/itab/)** &nbsp;·&nbsp; **[📦 Download Latest Release](https://github.com/leohkz/iTab/releases)** &nbsp;·&nbsp; **[⭐ Star on GitHub](https://github.com/leohkz/iTab)**
+**[🌐 Live Demo](https://leohkz.github.io/iTab/)** &nbsp;·&nbsp; **[📦 Download Latest Release](https://github.com/leohkz/iTab/releases)** &nbsp;·&nbsp; **[⭐ Star on GitHub](https://github.com/leohkz/iTab)**
 
 > **⚠️ Demo Notice:** The live demo runs as a web page. Chrome extension APIs (`chrome.storage`, bookmarks, tabs) are unavailable — Cloud Sync login will not work. All other UI and features are fully functional in the preview.
 
@@ -137,7 +137,7 @@ MIT
 
 > 一款美觀、專注於生產力的 Chrome 擴充功能，將你的新分頁替換為完全可自訂的工作空間——靈感來自 macOS 與 iPadOS 的設計語言。
 
-**[🌐 線上預覽 Demo](https://leohkz.github.io/itab/)** &nbsp;·&nbsp; **[📦 下載最新版本](https://github.com/leohkz/iTab/releases)** &nbsp;·&nbsp; **[⭐ GitHub](https://github.com/leohkz/iTab)**
+**[🌐 線上預覽 Demo](https://leohkz.github.io/iTab/)** &nbsp;·&nbsp; **[📦 下載最新版本](https://github.com/leohkz/iTab/releases)** &nbsp;·&nbsp; **[⭐ GitHub](https://github.com/leohkz/iTab)**
 
 > **⚠️ Demo 說明：** 線上預覽以網頁模式運行，Chrome 擴充功能 API（`chrome.storage`、書籤、分頁等）無法使用，**雲端同步登入按鈕將無法運作**。其他所有 UI 介面與功能均可正常展示。
 
