@@ -3,8 +3,12 @@
 export const GIST_TOKEN_KEY  = 'gistToken';
 export const GIST_ID_KEY     = 'gistId';
 export const GIST_AUTO_KEY   = 'gistAutoSync';
+export const GIST_USER_KEY   = 'gistUser';
 const GIST_FILENAME          = 'itab-settings.json';
 const API_BASE               = 'https://api.github.com';
+// GitHub OAuth App client_id for Device Flow (public, no secret needed)
+// Scopes needed: gist
+const DEVICE_CLIENT_ID       = 'Ov23liqzMrFLpyoEaGmV';
 
 function headers(token: string) {
   return {
@@ -34,6 +38,70 @@ export async function setStorageItem(key: string, value: string): Promise<void> 
   localStorage.setItem(key, value);
 }
 
+export async function removeStorageItem(key: string): Promise<void> {
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    return new Promise((resolve) => {
+      chrome.storage.local.remove([key], resolve);
+    });
+  }
+  localStorage.removeItem(key);
+}
+
+// ── Device Flow ───────────────────────────────────────────────────────────────
+export interface DeviceCodeResponse {
+  device_code: string;
+  user_code: string;        // e.g. "ABCD-1234" — show this to user
+  verification_uri: string; // https://github.com/login/device
+  expires_in: number;       // seconds
+  interval: number;         // polling interval in seconds
+}
+
+/** Step 1: Request a device code. Returns the code info to show user. */
+export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
+  const res = await fetch('https://github.com/login/device/code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ client_id: DEVICE_CLIENT_ID, scope: 'gist' }),
+  });
+  if (!res.ok) throw new Error(`Device code request failed: ${res.status}`);
+  return res.json();
+}
+
+/** Step 2: Poll until user authorises or it expires. Resolves with access token. */
+export async function pollDeviceToken(
+  deviceCode: string,
+  intervalSec: number,
+  signal?: AbortSignal,
+): Promise<string> {
+  const poll = (): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const tick = async () => {
+        if (signal?.aborted) { reject(new Error('cancelled')); return; }
+        try {
+          const res = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              client_id: DEVICE_CLIENT_ID,
+              device_code: deviceCode,
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            }),
+          });
+          const data = await res.json();
+          if (data.access_token) { resolve(data.access_token); return; }
+          if (data.error === 'authorization_pending' || data.error === 'slow_down') {
+            const wait = data.error === 'slow_down' ? (intervalSec + 5) * 1000 : intervalSec * 1000;
+            setTimeout(tick, wait);
+          } else {
+            reject(new Error(data.error_description ?? data.error ?? 'unknown error'));
+          }
+        } catch (e) { reject(e); }
+      };
+      setTimeout(tick, intervalSec * 1000);
+    });
+  return poll();
+}
+
 // ── Upload (backup to Gist) ───────────────────────────────────────────────────
 export async function uploadToGist(
   token: string,
@@ -48,7 +116,6 @@ export async function uploadToGist(
   });
 
   if (gistId) {
-    // Update existing gist
     const res = await fetch(`${API_BASE}/gists/${gistId}`, {
       method: 'PATCH',
       headers: headers(token),
@@ -58,7 +125,6 @@ export async function uploadToGist(
     const json = await res.json();
     return json.id as string;
   } else {
-    // Create new gist
     const res = await fetch(`${API_BASE}/gists`, {
       method: 'POST',
       headers: headers(token),
@@ -84,13 +150,11 @@ export async function downloadFromGist(
   const file = json.files?.[GIST_FILENAME];
   if (!file) throw new Error(`File "${GIST_FILENAME}" not found in Gist`);
 
-  // If content is truncated, fetch raw_url
   const raw: string = file.truncated
     ? await (await fetch(file.raw_url)).text()
     : (file.content as string);
 
   const parsed = JSON.parse(raw);
-  // Remove meta fields before returning
   const { _version: _v, _savedAt: _s, ...settings } = parsed;
   return settings;
 }
