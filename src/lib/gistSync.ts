@@ -6,8 +6,6 @@ export const GIST_AUTO_KEY   = 'gistAutoSync';
 export const GIST_USER_KEY   = 'gistUser';
 const GIST_FILENAME          = 'itab-settings.json';
 const API_BASE               = 'https://api.github.com';
-// GitHub OAuth App client_id for Device Flow (public, no secret needed)
-// Scopes needed: gist
 const DEVICE_CLIENT_ID       = 'Ov23liU0ZbkfEAhL4g4a';
 
 function headers(token: string) {
@@ -19,7 +17,7 @@ function headers(token: string) {
   };
 }
 
-// ── Storage helpers (works in extension + dev mode) ──────────────────────────
+// ── Storage helpers ─────────────────────────────────────────────────────────────
 export async function getStorageItem(key: string): Promise<string> {
   if (typeof chrome !== 'undefined' && chrome.storage) {
     return new Promise((resolve) => {
@@ -50,13 +48,12 @@ export async function removeStorageItem(key: string): Promise<void> {
 // ── Device Flow ───────────────────────────────────────────────────────────────
 export interface DeviceCodeResponse {
   device_code: string;
-  user_code: string;        // e.g. "ABCD-1234" — show this to user
-  verification_uri: string; // https://github.com/login/device
-  expires_in: number;       // seconds
-  interval: number;         // polling interval in seconds
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
 }
 
-/** Step 1: Request a device code. Returns the code info to show user. */
 export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
   const res = await fetch('https://github.com/login/device/code', {
     method: 'POST',
@@ -67,7 +64,6 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
   return res.json();
 }
 
-/** Step 2: Poll until user authorises or it expires. Resolves with access token. */
 export async function pollDeviceToken(
   deviceCode: string,
   intervalSec: number,
@@ -102,67 +98,64 @@ export async function pollDeviceToken(
   return poll();
 }
 
+// ── Auto-find existing iTab Gist ───────────────────────────────────────────────
+/**
+ * After login, scan the user's gists for an existing itab-settings.json.
+ * Returns the gist ID if found, or empty string if not found.
+ */
+export async function findExistingGist(token: string): Promise<string> {
+  let page = 1;
+  while (true) {
+    const res = await fetch(`${API_BASE}/gists?per_page=100&page=${page}`, {
+      headers: headers(token),
+    });
+    if (!res.ok) return '';
+    const gists = await res.json() as Array<{ id: string; files: Record<string, unknown> }>;
+    if (gists.length === 0) return '';
+    const found = gists.find((g) => GIST_FILENAME in g.files);
+    if (found) return found.id;
+    if (gists.length < 100) return ''; // last page
+    page++;
+  }
+}
+
 // ── Upload (backup to Gist) ───────────────────────────────────────────────────
-export async function uploadToGist(
-  token: string,
-  gistId: string,
-  data: object,
-): Promise<string> {
+export async function uploadToGist(token: string, gistId: string, data: object): Promise<string> {
   const content = JSON.stringify({ _version: 1, _savedAt: new Date().toISOString(), ...data }, null, 2);
   const body = JSON.stringify({
     description: 'iTab Settings Backup',
     public: false,
     files: { [GIST_FILENAME]: { content } },
   });
-
   if (gistId) {
-    const res = await fetch(`${API_BASE}/gists/${gistId}`, {
-      method: 'PATCH',
-      headers: headers(token),
-      body,
-    });
+    const res = await fetch(`${API_BASE}/gists/${gistId}`, { method: 'PATCH', headers: headers(token), body });
     if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
-    const json = await res.json();
-    return json.id as string;
+    return (await res.json()).id as string;
   } else {
-    const res = await fetch(`${API_BASE}/gists`, {
-      method: 'POST',
-      headers: headers(token),
-      body,
-    });
+    const res = await fetch(`${API_BASE}/gists`, { method: 'POST', headers: headers(token), body });
     if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
-    const json = await res.json();
-    return json.id as string;
+    return (await res.json()).id as string;
   }
 }
 
 // ── Download (restore from Gist) ─────────────────────────────────────────────
-export async function downloadFromGist(
-  token: string,
-  gistId: string,
-): Promise<object> {
-  const res = await fetch(`${API_BASE}/gists/${gistId}`, {
-    method: 'GET',
-    headers: headers(token),
-  });
+export async function downloadFromGist(token: string, gistId: string): Promise<object> {
+  const res = await fetch(`${API_BASE}/gists/${gistId}`, { method: 'GET', headers: headers(token) });
   if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
   const json = await res.json();
   const file = json.files?.[GIST_FILENAME];
   if (!file) throw new Error(`File "${GIST_FILENAME}" not found in Gist`);
-
   const raw: string = file.truncated
     ? await (await fetch(file.raw_url)).text()
     : (file.content as string);
-
   const parsed = JSON.parse(raw);
   const { _version: _v, _savedAt: _s, ...settings } = parsed;
   return settings;
 }
 
-// ── Validate token by calling /user ──────────────────────────────────────────
+// ── Validate token ───────────────────────────────────────────────────────────────
 export async function validateToken(token: string): Promise<string> {
   const res = await fetch(`${API_BASE}/user`, { headers: headers(token) });
   if (!res.ok) throw new Error(`Invalid token (${res.status})`);
-  const json = await res.json();
-  return json.login as string;
+  return (await res.json()).login as string;
 }

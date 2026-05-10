@@ -6,6 +6,7 @@ import type { TranslationKey } from '../i18n';
 import { AiPortalSettingsPanel } from './AiPortalBar';
 import {
   downloadFromGist,
+  findExistingGist,
   getStorageItem,
   GIST_AUTO_KEY,
   GIST_ID_KEY,
@@ -166,20 +167,13 @@ function SpacesPanel({
                   {space.name}
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => startEdit(space)}
-                className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-              >
+              <button type="button" onClick={() => startEdit(space)}
+                className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800">
                 {t('rename')}
               </button>
-              <button
-                type="button"
-                onClick={() => onDelete(space.id)}
-                disabled={spaces.length <= 1}
+              <button type="button" onClick={() => onDelete(space.id)} disabled={spaces.length <= 1}
                 className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
-                title={t('delete')}
-              >
+                title={t('delete')}>
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -191,29 +185,17 @@ function SpacesPanel({
         <div className="flex items-center gap-2">
           <div className="relative flex-shrink-0">
             <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${newAccent}`} />
-            <select
-              value={newAccent}
-              onChange={(e) => setNewAccent(e.target.value)}
-              className="absolute inset-0 cursor-pointer opacity-0"
-            >
-              {SPACE_ACCENTS.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
-              ))}
+            <select value={newAccent} onChange={(e) => setNewAccent(e.target.value)}
+              className="absolute inset-0 cursor-pointer opacity-0">
+              {SPACE_ACCENTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
             </select>
           </div>
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+          <input value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
             placeholder={t('spaceName')}
-            className="h-10 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-bold outline-none focus:border-slate-950"
-          />
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={!newName.trim()}
-            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-40"
-          >
+            className="h-10 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-bold outline-none focus:border-slate-950" />
+          <button type="button" onClick={handleAdd} disabled={!newName.trim()}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-40">
             <Plus className="h-4 w-4" /> {t('add')}
           </button>
         </div>
@@ -232,12 +214,12 @@ function CloudSyncPanel({
   onConfigChange: (c: AppConfig) => void;
   onAction: (msg: string) => void;
 }) {
-  const [token, setToken]         = useState('');
-  const [gistId, setGistId]       = useState('');
-  const [autoSync, setAutoSync]   = useState(false);
-  const [user, setUser]           = useState('');
-  const [status, setStatus]       = useState<string | null>(null);
-  const [busy, setBusy]           = useState<'login' | 'backup' | 'restore' | null>(null);
+  const [token, setToken]           = useState('');
+  const [gistId, setGistId]         = useState('');
+  const [autoSync, setAutoSync]     = useState(false);
+  const [user, setUser]             = useState('');
+  const [status, setStatus]         = useState<string | null>(null);
+  const [busy, setBusy]             = useState<'login' | 'backup' | 'restore' | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<{ userCode: string; verificationUri: string } | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -262,18 +244,28 @@ function CloudSyncPanel({
     try {
       const info = await requestDeviceCode();
       setDeviceInfo({ userCode: info.user_code, verificationUri: info.verification_uri });
-      // open the page automatically
       window.open(info.verification_uri, '_blank');
 
       abortRef.current = new AbortController();
       const accessToken = await pollDeviceToken(info.device_code, info.interval, abortRef.current.signal);
       const login = await validateToken(accessToken);
 
+      // Auto-find existing Gist after login
+      setStatus(t('gistSearching'));
+      const existingId = await findExistingGist(accessToken);
+
       setToken(accessToken); setUser(login);
       await setStorageItem(GIST_TOKEN_KEY, accessToken);
       await setStorageItem(GIST_USER_KEY, login);
+
+      if (existingId) {
+        setGistId(existingId);
+        await setStorageItem(GIST_ID_KEY, existingId);
+        setStatus(t('gistTokenValid') + login + t('gistFoundExisting'));
+      } else {
+        setStatus(t('gistTokenValid') + login);
+      }
       setDeviceInfo(null);
-      setStatus(t('gistTokenValid') + login);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg !== 'cancelled') setStatus(t('gistLoginFailed') + msg);
@@ -344,20 +336,17 @@ function CloudSyncPanel({
 
   return (
     <div className="grid gap-4">
-
-      {/* ── Login / Logout block ── */}
+      {/* Login / Logout */}
       <div className="rounded-2xl bg-white p-4 shadow-sm">
         {isLoggedIn ? (
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="font-black">{t('gistLoggedIn')}</p>
               <p className="text-sm font-semibold text-slate-500">@{user}</p>
+              {gistId && <p className="mt-0.5 font-mono text-xs text-slate-400">Gist: {gistId.slice(0, 12)}…</p>}
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-950/15 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-red-50 hover:text-red-600"
-            >
+            <button type="button" onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-950/15 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-red-50 hover:text-red-600">
               <LogOut className="h-4 w-4" /> {t('gistLogout')}
             </button>
           </div>
@@ -365,7 +354,6 @@ function CloudSyncPanel({
           <div>
             <h4 className="mb-1 font-black">{t('gistLoginTitle')}</h4>
             <p className="mb-3 text-xs text-slate-500">{t('gistLoginDesc')}</p>
-
             {deviceInfo ? (
               <div className="grid gap-3">
                 <div className="rounded-xl bg-slate-950 p-4 text-center">
@@ -379,21 +367,14 @@ function CloudSyncPanel({
                     {deviceInfo.verificationUri}
                   </a>
                 </p>
-                <button
-                  type="button"
-                  onClick={handleCancelLogin}
-                  className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200"
-                >
+                <button type="button" onClick={handleCancelLogin}
+                  className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">
                   {t('cancel')}
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleLogin}
-                disabled={busy === 'login'}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
-              >
+              <button type="button" onClick={handleLogin} disabled={busy === 'login'}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50">
                 <LogIn className="h-4 w-4" />
                 {busy === 'login' ? t('gistLoggingIn') : t('gistLoginBtn')}
               </button>
@@ -402,36 +383,21 @@ function CloudSyncPanel({
         )}
       </div>
 
-      {/* ── Actions (only shown when logged in) ── */}
+      {/* Actions */}
       {isLoggedIn && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={handleBackup}
-              disabled={!!busy}
-              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-slate-950 px-4 text-white shadow-sm disabled:opacity-50 hover:bg-slate-800"
-            >
-              <span className="text-sm font-black">
-                {busy === 'backup' ? t('gistBackingUp') : t('gistBackup')}
-              </span>
-              <span className="text-xs text-white/60">
-                {gistId ? `ID: ${gistId.slice(0, 10)}…` : t('gistWillCreate')}
-              </span>
+            <button type="button" onClick={handleBackup} disabled={!!busy}
+              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-slate-950 px-4 text-white shadow-sm disabled:opacity-50 hover:bg-slate-800">
+              <span className="text-sm font-black">{busy === 'backup' ? t('gistBackingUp') : t('gistBackup')}</span>
+              <span className="text-xs text-white/60">{gistId ? `ID: ${gistId.slice(0, 10)}…` : t('gistWillCreate')}</span>
             </button>
-            <button
-              type="button"
-              onClick={handleRestoreClick}
-              disabled={!!busy}
-              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-white px-4 shadow-sm disabled:opacity-50 hover:bg-slate-50 border border-slate-950/10"
-            >
-              <span className="text-sm font-black">
-                {busy === 'restore' ? t('gistRestoring') : t('gistRestore')}
-              </span>
-              <span className="text-xs text-slate-400">{t('gistFromSaved')}</span>
+            <button type="button" onClick={handleRestoreClick} disabled={!!busy}
+              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-white px-4 shadow-sm disabled:opacity-50 hover:bg-slate-50 border border-slate-950/10">
+              <span className="text-sm font-black">{busy === 'restore' ? t('gistRestoring') : t('gistRestore')}</span>
+              <span className="text-xs text-slate-400">{gistId ? t('gistFromSaved') : t('gistNoIdHint')}</span>
             </button>
           </div>
-
           <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
             <div>
               <h4 className="font-black">{t('gistAutoSync')}</h4>
@@ -442,7 +408,6 @@ function CloudSyncPanel({
         </>
       )}
 
-      {/* Status */}
       {status && (
         <div className={[
           'rounded-2xl px-4 py-3 text-sm font-bold',
@@ -456,12 +421,9 @@ function CloudSyncPanel({
 
       <p className="text-center text-xs text-slate-400">📚 {t('gistHistory')}</p>
 
-      {/* Restore confirm dialog */}
       {restoreConfirm && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
-          onPointerDown={(e) => { if (e.target === e.currentTarget) setRestoreConfirm(false); }}
-        >
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setRestoreConfirm(false); }}>
           <div className="w-80 rounded-[1.6rem] bg-white p-6 shadow-2xl">
             <p className="mb-1 text-base font-black text-slate-800">{t('gistRestore')}?</p>
             <p className="mb-5 text-sm text-slate-500">{t('gistRestoreConfirm')}</p>
@@ -515,16 +477,12 @@ export function SettingsModal({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 grid place-items-center bg-slate-950/42 px-4 backdrop-blur-sm"
+      <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/42 px-4 backdrop-blur-sm"
         role="presentation"
-        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
-        <section
-          role="dialog" aria-modal="true" aria-labelledby="settings-title"
+        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="settings-title"
           className="grid h-[min(44rem,calc(100vh-3rem))] w-[min(66rem,calc(100vw-2rem))] grid-cols-[16rem_1fr] overflow-hidden rounded-[1.45rem] border border-white/35 bg-[#f5f3ee] text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.38),inset_0_1px_0_rgba(255,255,255,0.72)] max-md:grid-cols-1"
-          data-testid="modal-settings"
-        >
+          data-testid="modal-settings">
           <aside className="border-r border-slate-950/10 bg-[#eef3f3] p-4 max-md:hidden">
             <div className="mb-6 flex items-center justify-between gap-3">
               <div>
@@ -552,9 +510,7 @@ export function SettingsModal({
           <div className="overflow-auto bg-[#f6f2ea] p-6">
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">
-                  {t(title as TranslationKey)}
-                </p>
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">{t(title as TranslationKey)}</p>
                 <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h3>
               </div>
               <button type="button" aria-label={t('settings')} onClick={onClose}
@@ -634,14 +590,7 @@ export function SettingsModal({
             )}
 
             {active === 'spaces' && (
-              <SpacesPanel
-                spaces={spaces}
-                t={t}
-                onAdd={onAddSpace}
-                onRename={onRenameSpace}
-                onRecolor={onRecolorSpace}
-                onDelete={onDeleteSpace}
-              />
+              <SpacesPanel spaces={spaces} t={t} onAdd={onAddSpace} onRename={onRenameSpace} onRecolor={onRecolorSpace} onDelete={onDeleteSpace} />
             )}
 
             {active === 'search' && (
@@ -698,18 +647,15 @@ export function SettingsModal({
             {active === 'data' && (
               <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
                 <button type="button" onClick={onExportJson}
-                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-slate-50"
-                  data-testid="button-export-json">
+                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-slate-50" data-testid="button-export-json">
                   <Download className="mb-4 h-5 w-5" /><span className="font-black">{t('exportJson')}</span>
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-slate-50"
-                  data-testid="button-import-json">
+                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-slate-50" data-testid="button-import-json">
                   <Upload className="mb-4 h-5 w-5" /><span className="font-black">{t('importJson')}</span>
                 </button>
                 <button type="button" onClick={() => setShowResetConfirm(true)}
-                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-red-50"
-                  data-testid="button-reset-defaults">
+                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-red-50" data-testid="button-reset-defaults">
                   <RotateCcw className="mb-4 h-5 w-5 text-red-500" />
                   <span className="font-black text-red-600">{t('resetDefaults')}</span>
                 </button>
@@ -720,12 +666,7 @@ export function SettingsModal({
             )}
 
             {active === 'sync' && (
-              <CloudSyncPanel
-                config={config}
-                t={t}
-                onConfigChange={onConfigChange}
-                onAction={onAction}
-              />
+              <CloudSyncPanel config={config} t={t} onConfigChange={onConfigChange} onAction={onAction} />
             )}
 
             {active === 'experiments' && (
@@ -736,11 +677,9 @@ export function SettingsModal({
                       <h4 className="font-black">{t(labelKey)}</h4>
                       <p className="text-sm font-semibold text-slate-600">{t('experimentDesc')}</p>
                     </div>
-                    <Toggle
-                      checked={config.experiments[key]}
+                    <Toggle checked={config.experiments[key]}
                       onChange={(v) => onConfigChange({ ...config, experiments: { ...config.experiments, [key]: v } })}
-                      testId={`toggle-experiment-${key}`}
-                    />
+                      testId={`toggle-experiment-${key}`} />
                   </div>
                 ))}
               </div>
