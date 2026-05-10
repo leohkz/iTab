@@ -8,7 +8,7 @@ const GIST_FILENAME          = 'itab-settings.json';
 const API_BASE               = 'https://api.github.com';
 // GitHub OAuth App client_id for Device Flow (public, no secret needed)
 // Scopes needed: gist
-const DEVICE_CLIENT_ID       = 'Ov23liqzMrFLpyoEaGmV';
+const DEVICE_CLIENT_ID       = 'Ov23liU0ZbkfEAhL4g4a';
 
 function headers(token: string) {
   return {
