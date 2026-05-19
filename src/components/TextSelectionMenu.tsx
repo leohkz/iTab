@@ -12,6 +12,16 @@ type MenuState = {
   text: string;
 };
 
+function getFaviconUrl(template: string | undefined): string {
+  try {
+    if (!template) return '';
+    const hostname = new URL(template.replace('{q}', 'x')).hostname;
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=16`;
+  } catch {
+    return '';
+  }
+}
+
 export function TextSelectionMenu({ engines }: Props) {
   const enabledEngines = engines.filter((e) => e.enabled);
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0, text: '' });
@@ -22,7 +32,6 @@ export function TextSelectionMenu({ engines }: Props) {
       const selected = window.getSelection()?.toString().trim();
       if (!selected) return;
       e.preventDefault();
-      // Keep menu within viewport
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const menuW = 200;
@@ -47,6 +56,7 @@ export function TextSelectionMenu({ engines }: Props) {
   }, [enabledEngines.length]);
 
   const search = (engine: SearchEngine) => {
+    if (!engine.template) return;
     const url = engine.template.replace('{q}', encodeURIComponent(menu.text));
     window.open(url, '_blank');
     setMenu((m) => ({ ...m, visible: false }));
@@ -61,7 +71,7 @@ export function TextSelectionMenu({ engines }: Props) {
       style={{ left: menu.x, top: menu.y }}
     >
       <div className="px-3 py-2 text-[11px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
-        Search: <span className="font-bold text-slate-600 normal-case tracking-normal">&ldquo;{menu.text.length > 24 ? menu.text.slice(0, 24) + '…' : menu.text}&rdquo;</span>
+        Search: <span className="font-bold text-slate-600 normal-case tracking-normal">&ldquo;{menu.text.length > 24 ? menu.text.slice(0, 24) + '\u2026' : menu.text}&rdquo;</span>
       </div>
       {enabledEngines.map((engine) => (
         <button
@@ -70,12 +80,14 @@ export function TextSelectionMenu({ engines }: Props) {
           className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-slate-950/8 transition-colors"
           onClick={() => search(engine)}
         >
-          <img
-            src={`https://www.google.com/s2/favicons?domain=${new URL(engine.template.replace('{q}', 'x')).hostname}&sz=16`}
-            alt=""
-            className="h-4 w-4 rounded"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
+          {getFaviconUrl(engine.template) && (
+            <img
+              src={getFaviconUrl(engine.template)}
+              alt=""
+              className="h-4 w-4 rounded"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
           {engine.name}
           <span className="ml-auto text-xs font-semibold text-slate-400">/{engine.shortcut}</span>
         </button>
