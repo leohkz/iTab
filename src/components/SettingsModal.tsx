@@ -250,7 +250,6 @@ function CloudSyncPanel({
       const accessToken = await pollDeviceToken(info.device_code, info.interval, abortRef.current.signal);
       const login = await validateToken(accessToken);
 
-      // Auto-find existing Gist after login
       setStatus(t('gistSearching'));
       const existingId = await findExistingGist(accessToken);
 
@@ -336,7 +335,6 @@ function CloudSyncPanel({
 
   return (
     <div className="grid gap-4">
-      {/* Login / Logout */}
       <div className="rounded-2xl bg-white p-4 shadow-sm">
         {isLoggedIn ? (
           <div className="flex items-center justify-between gap-3">
@@ -383,7 +381,6 @@ function CloudSyncPanel({
         )}
       </div>
 
-      {/* Actions */}
       {isLoggedIn && (
         <>
           <div className="grid grid-cols-2 gap-3">
@@ -459,6 +456,18 @@ export function SettingsModal({
 
   const updateEngine = (engineId: SearchEngineId, patch: Partial<SearchEngine>) =>
     onConfigChange({ ...config, searchEngines: config.searchEngines.map((e) => e.id === engineId ? { ...e, ...patch } : e) });
+
+  const deleteEngine = (engineId: SearchEngineId) => {
+    const updated = config.searchEngines.filter((e) => e.id !== engineId);
+    onConfigChange({
+      ...config,
+      searchEngines: updated,
+      defaultEngine: config.defaultEngine === engineId
+        ? (updated.find((e) => e.enabled)?.id ?? updated[0]?.id ?? 'google')
+        : config.defaultEngine,
+    });
+    onAction(t('delete'));
+  };
 
   const addEngine = () => {
     if (!newEngine.name.trim() || !newEngine.shortcut.trim() || !newEngine.template.includes('{q}')) {
@@ -614,6 +623,18 @@ export function SettingsModal({
                           <p className="text-sm font-black">{engine.name} <span className="text-slate-500">/{engine.shortcut}</span></p>
                           <p className="truncate text-xs font-semibold text-slate-500">{engine.template}</p>
                         </div>
+                        {/* Only allow deleting custom engines (id starts with 'custom-') */}
+                        {engine.id.startsWith('custom-') && (
+                          <button
+                            type="button"
+                            onClick={() => deleteEngine(engine.id)}
+                            className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"
+                            title={t('delete')}
+                            data-testid={`button-delete-engine-${engine.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

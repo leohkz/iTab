@@ -10,6 +10,7 @@ import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
 import { Widgets, FocusModeOverlay } from './components/Widgets';
 import { AiPortalBar } from './components/AiPortalBar';
+import { TextSelectionMenu } from './components/TextSelectionMenu';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
@@ -40,7 +41,6 @@ function mergeConfigWithDefaults(config: Partial<AppConfig>): AppConfig {
     listId: t.listId ?? 'inbox',
   }));
 
-  // Migrate old plain-string notes → noteTabs
   const noteTabs = (() => {
     if (raw.noteTabs && raw.noteTabs.length > 0) return raw.noteTabs;
     if (raw.notes && raw.notes.trim()) {
@@ -86,7 +86,6 @@ function isChromeExtensionApiAvailable() {
   return typeof chrome !== 'undefined' && Boolean(chrome.storage?.local);
 }
 
-// ── Glass style helper (shared with left-side buttons in App) ────────────────────
 function glassBtn(glass: number, active = false): React.CSSProperties {
   const alpha = Math.min(0.40, Math.max(0.08, glass / 280)) * (active ? 1.8 : 1);
   const blur  = Math.round(4 + glass / 10);
@@ -127,7 +126,6 @@ function NewTab() {
     [config.apps, config.pinnedIds],
   );
 
-  // iPadOS behaviour: apps pinned to Dock are hidden from the main grid
   const currentSpaceApps = useMemo(
     () => config.apps.filter(
       (app) =>
@@ -380,7 +378,6 @@ function NewTab() {
         onWidgetsChange={handleWidgetsChange}
       />
 
-      {/* AI Portal hover bar — size driven by config.aiPortalSize */}
       <AiPortalBar
         portals={aiPortals}
         glass={config.glass}
@@ -388,7 +385,6 @@ function NewTab() {
         t={t}
       />
 
-      {/* Prompt Book button */}
       <button
         type="button"
         onClick={() => setShowPrompts((v) => !v)}
@@ -514,6 +510,9 @@ function NewTab() {
           onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
         />
       )}
+
+      {/* Text selection right-click search menu */}
+      <TextSelectionMenu engines={config.searchEngines} />
 
       <Toast message={toast} />
     </div>
