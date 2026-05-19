@@ -13,6 +13,10 @@ interface SearchEngine {
   enabled: boolean;
 }
 
+interface StoredConfig {
+  searchEngines?: SearchEngine[];
+}
+
 function getFaviconUrl(template: string): string {
   try {
     return `https://www.google.com/s2/favicons?domain=${new URL(template.replace('{q}', 'x')).hostname}&sz=16`;
@@ -54,7 +58,6 @@ function createMenu(engines: SearchEngine[], text: string, x: number, y: number)
     fontFamily:      '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   });
 
-  // Header
   const header = document.createElement('div');
   const label  = text.length > 26 ? text.slice(0, 26) + '\u2026' : text;
   Object.assign(header.style, {
@@ -72,23 +75,22 @@ function createMenu(engines: SearchEngine[], text: string, x: number, y: number)
   header.textContent = `Search: \u201c${label}\u201d`;
   menu.appendChild(header);
 
-  // Engine rows
   engines.forEach((engine) => {
     const btn = document.createElement('button');
     Object.assign(btn.style, {
-      display:        'flex',
-      alignItems:     'center',
-      gap:            '10px',
-      width:          '100%',
-      padding:        '10px 12px',
-      background:     'none',
-      border:         'none',
-      cursor:         'pointer',
-      fontSize:       '13px',
-      fontWeight:     '700',
-      color:          '#1e293b',
-      textAlign:      'left',
-      fontFamily:     'inherit',
+      display:    'flex',
+      alignItems: 'center',
+      gap:        '10px',
+      width:      '100%',
+      padding:    '10px 12px',
+      background: 'none',
+      border:     'none',
+      cursor:     'pointer',
+      fontSize:   '13px',
+      fontWeight: '700',
+      color:      '#1e293b',
+      textAlign:  'left',
+      fontFamily: 'inherit',
     });
     btn.onmouseenter = () => { btn.style.background = 'rgba(15,23,42,0.06)'; };
     btn.onmouseleave = () => { btn.style.background = 'none'; };
@@ -126,26 +128,23 @@ function createMenu(engines: SearchEngine[], text: string, x: number, y: number)
   document.documentElement.appendChild(menu);
 }
 
-// Close menu on outside click
 document.addEventListener('mousedown', (e) => {
   const menu = document.getElementById(MENU_ID);
   if (menu && !menu.contains(e.target as Node)) removeMenu();
 }, true);
 
-// Close on scroll / resize
 window.addEventListener('scroll', removeMenu, true);
 window.addEventListener('resize', removeMenu);
 
-// Show menu on right-click when text is selected
 document.addEventListener('contextmenu', (e) => {
   const selected = window.getSelection()?.toString().trim();
   if (!selected) { removeMenu(); return; }
 
   chrome.storage.local.get(CONFIG_KEY, (result) => {
-    const cfg = result[CONFIG_KEY];
+    const cfg = result[CONFIG_KEY] as StoredConfig | undefined;
     if (!cfg) return;
     const engines: SearchEngine[] = (cfg.searchEngines ?? []).filter(
-      (eng: SearchEngine) => eng.enabled && eng.template,
+      (eng) => eng.enabled && eng.template,
     );
     if (engines.length === 0) return;
 
