@@ -29,18 +29,26 @@ export function TextSelectionMenu({ engines }: Props) {
   const enginesRef = useRef(enabledEngines);
   enginesRef.current = enabledEngines;
 
-  const handleContextMenu = useCallback((e: MouseEvent) => {
-    const selected = window.getSelection()?.toString().trim();
-    if (!selected || enginesRef.current.length === 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const menuW = 220;
-    const menuH = enginesRef.current.length * 44 + 40;
-    const x = Math.min(e.clientX, vw - menuW - 8);
-    const y = Math.min(e.clientY, vh - menuH - 8);
-    setMenu({ visible: true, x, y, text: selected });
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    // Ignore clicks inside our own menu
+    if (menuRef.current?.contains(e.target as Node)) return;
+
+    // Small delay to let the browser finalize the selection
+    setTimeout(() => {
+      const selected = window.getSelection()?.toString().trim();
+      if (!selected || enginesRef.current.length === 0) {
+        setMenu((m) => ({ ...m, visible: false }));
+        return;
+      }
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const menuW = 220;
+      const menuH = enginesRef.current.length * 44 + 40;
+      // Position the toolbar just above the cursor
+      const x = Math.min(e.clientX, vw - menuW - 8);
+      const y = Math.max(8, Math.min(e.clientY - menuH - 12, vh - menuH - 8));
+      setMenu({ visible: true, x, y, text: selected });
+    }, 10);
   }, []);
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -50,14 +58,13 @@ export function TextSelectionMenu({ engines }: Props) {
   }, []);
 
   useEffect(() => {
-    // capture: true ensures we intercept before any other handler
-    document.addEventListener('contextmenu', handleContextMenu, true);
-    document.addEventListener('mousedown', handleMouseDown, true);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousedown', handleMouseDown);
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu, true);
-      document.removeEventListener('mousedown', handleMouseDown, true);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousedown', handleMouseDown);
     };
-  }, [handleContextMenu, handleMouseDown]);
+  }, [handleMouseUp, handleMouseDown]);
 
   const search = (engine: SearchEngine) => {
     if (!engine.template) return;
@@ -71,9 +78,8 @@ export function TextSelectionMenu({ engines }: Props) {
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] min-w-[200px] overflow-hidden rounded-2xl border border-white/20 bg-white/95 shadow-2xl backdrop-blur-xl"
+      className="fixed z-[9999] min-w-[200px] overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl"
       style={{ left: menu.x, top: menu.y }}
-      onContextMenu={(e) => e.preventDefault()}
     >
       <div className="px-3 py-2 text-[11px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
         Search: <span className="font-bold text-slate-600 normal-case tracking-normal">&ldquo;{menu.text.length > 24 ? menu.text.slice(0, 24) + '\u2026' : menu.text}&rdquo;</span>
@@ -83,7 +89,7 @@ export function TextSelectionMenu({ engines }: Props) {
           key={engine.id}
           type="button"
           className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-slate-950/8 transition-colors"
-          onMouseDown={(e) => { e.stopPropagation(); }}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => search(engine)}
         >
           {getFaviconUrl(engine.template) && (
