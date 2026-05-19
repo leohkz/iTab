@@ -10,7 +10,6 @@ import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
 import { Widgets, FocusModeOverlay } from './components/Widgets';
 import { AiPortalBar } from './components/AiPortalBar';
-import { TextSelectionMenu } from './components/TextSelectionMenu';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
 import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
@@ -510,9 +509,6 @@ function NewTab() {
           onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
         />
       )}
-
-      {/* Text selection right-click search menu */}
-      <TextSelectionMenu engines={config.searchEngines} />
 
       <Toast message={toast} />
     </div>
