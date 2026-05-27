@@ -35,7 +35,7 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 - Add fully custom search engines with `{q}` placeholder
 - Delete custom engines directly from the settings panel
 
-### 🖱 Right-Click Search (New in v0.2.0)
+### 🖱 Right-Click Search (New in v1.1.0)
 - Select any text on **any webpage**, right-click, and choose **「iTab 搜索」**
 - All your enabled search engines appear as sub-menu items
 - Powered by Chrome's native `contextMenus` API — works everywhere
@@ -97,8 +97,8 @@ npm run build     # outputs to dist/
 ### Release a new version
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 GitHub Actions automatically builds, zips `dist/`, and publishes to [Releases](https://github.com/leohkz/iTab/releases).
@@ -136,7 +136,7 @@ src/
 
 ## Changelog
 
-### v0.2.0
+### v1.1.0
 - ✅ Right-click search on any webpage via Chrome `contextMenus` API
 - ✅ Delete custom search engines from settings
 - ✅ Background service worker for context menu lifecycle management
@@ -190,7 +190,7 @@ MIT
 - 支援自訂搜尋引擎（以 `{q}` 作為查詢佔位符）
 - 可直接在設定面板刪除自訂搜尋引擎
 
-### 🖱 右鍵搜索（v0.2.0 新功能）
+### 🖱 右鍵搜索（v1.1.0 新功能）
 - 在**任何網頁**選取文字後點擊右鍵，選擇 **「iTab 搜索」**
 - 所有已啟用的搜索引擎以子選單方式列出
 - 使用 Chrome 原生 `contextMenus` API，適用於所有分頁
@@ -252,8 +252,8 @@ npm run build     # 輸出至 dist/
 ### 發布新版本
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 GitHub Actions 自動建置、壓縮 `dist/` 並發布至 [Releases](https://github.com/leohkz/iTab/releases)。
@@ -291,12 +291,12 @@ src/
 
 ## 更新日誌
 
-### v0.2.0
+### v1.1.0
 - ✅ 在任意網頁選取文字右鍵搜索（Chrome `contextMenus` API）
 - ✅ 設定面板可刪除自訂搜尋引擎
 - ✅ Background service worker 管理右鍵選單生命週期
 
-### v0.1.0
+### v1.0.0
 - 🎉 首次發布
 
 ---
