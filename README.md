@@ -33,6 +33,13 @@ Built with **React · TypeScript · Tailwind CSS · Vite · Manifest V3**
 - Search across shortcuts or the web directly
 - Built-in engines: Google, Bing, DuckDuckGo, Perplexity, YouTube, Google Maps
 - Add fully custom search engines with `{q}` placeholder
+- Delete custom engines directly from the settings panel
+
+### 🖱 Right-Click Search (New in v0.2.0)
+- Select any text on **any webpage**, right-click, and choose **「iTab 搜索」**
+- All your enabled search engines appear as sub-menu items
+- Powered by Chrome's native `contextMenus` API — works everywhere
+- Automatically syncs with your iTab search engine settings
 
 ### 🤖 AI Portal Bar
 - One-click access to ChatGPT, Claude, Gemini, Copilot, DeepSeek, and more
@@ -90,8 +97,8 @@ npm run build     # outputs to dist/
 ### Release a new version
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 GitHub Actions automatically builds, zips `dist/`, and publishes to [Releases](https://github.com/leohkz/iTab/releases).
@@ -107,6 +114,7 @@ src/
 ├── lib/          # Utilities (gistSync, etc.)
 ├── i18n.ts       # Translations (EN / zh-Hant / zh-Hans)
 ├── types.ts      # TypeScript interfaces
+├── background.ts # Service worker — context menu & storage sync
 └── App.tsx       # Root component and state
 ```
 
@@ -123,6 +131,18 @@ src/
 | Icons | Lucide React |
 | Storage | `chrome.storage.local` (extension) / in-memory (dev) |
 | Cloud Sync | GitHub Gist via Device Flow OAuth |
+
+---
+
+## Changelog
+
+### v0.2.0
+- ✅ Right-click search on any webpage via Chrome `contextMenus` API
+- ✅ Delete custom search engines from settings
+- ✅ Background service worker for context menu lifecycle management
+
+### v0.1.0
+- 🎉 Initial release
 
 ---
 
@@ -168,6 +188,13 @@ MIT
 - 搜尋全部捷徑或直接查詢網頁
 - 內建引擎：Google、Bing、DuckDuckGo、Perplexity、YouTube、Google 地圖
 - 支援自訂搜尋引擎（以 `{q}` 作為查詢佔位符）
+- 可直接在設定面板刪除自訂搜尋引擎
+
+### 🖱 右鍵搜索（v0.2.0 新功能）
+- 在**任何網頁**選取文字後點擊右鍵，選擇 **「iTab 搜索」**
+- 所有已啟用的搜索引擎以子選單方式列出
+- 使用 Chrome 原生 `contextMenus` API，適用於所有分頁
+- 自動與 iTab 設定中的搜索引擎保持同步
 
 ### 🤖 AI 入口側欄
 - 一鍵存取 ChatGPT、Claude、Gemini、Copilot、DeepSeek 等
@@ -225,8 +252,8 @@ npm run build     # 輸出至 dist/
 ### 發布新版本
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 GitHub Actions 自動建置、壓縮 `dist/` 並發布至 [Releases](https://github.com/leohkz/iTab/releases)。
@@ -242,6 +269,7 @@ src/
 ├── lib/          # 工具函式（gistSync 等）
 ├── i18n.ts       # 翻譯字典（英文 / 繁中 / 簡中）
 ├── types.ts      # TypeScript 介面定義
+├── background.ts # Service worker — 右鍵選單與儲存同步
 └── App.tsx       # 根元件與狀態管理
 ```
 
@@ -258,6 +286,18 @@ src/
 | 圖示庫 | Lucide React |
 | 資料儲存 | `chrome.storage.local`（擴充功能）/ 記憶體（開發模式）|
 | 雲端同步 | GitHub Gist，Device Flow OAuth |
+
+---
+
+## 更新日誌
+
+### v0.2.0
+- ✅ 在任意網頁選取文字右鍵搜索（Chrome `contextMenus` API）
+- ✅ 設定面板可刪除自訂搜尋引擎
+- ✅ Background service worker 管理右鍵選單生命週期
+
+### v0.1.0
+- 🎉 首次發布
 
 ---
 
