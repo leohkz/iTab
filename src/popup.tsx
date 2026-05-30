@@ -220,14 +220,20 @@ function PopupApp() {
 
   return (
     <>
+      {/*
+        Fixed height (600px) is essential: without it, flex children with
+        flex:1 have no reference height and expand forever, causing an outer
+        scrollbar. Chrome popup max-height is ~600px anyway.
+      */}
       <div style={{
-        width: 360, minHeight: 500, maxHeight: 620,
-        display: 'flex', flexDirection: 'column',
+        width: 360,
+        height: 600,          /* fixed — kills the outer scrollbar */
+        display: 'flex',
+        flexDirection: 'column',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
         color: '#f1f5f9',
-        overflowX: 'hidden',
-        overflowY: 'hidden',
+        overflow: 'hidden',   /* nothing leaks out */
       }}>
         {/* Header */}
         <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -266,9 +272,9 @@ function PopupApp() {
             {allTags.length > 0 && (
               <div style={{
                 padding: '6px 14px', display: 'flex', gap: 5,
-                overflowX: 'hidden', /* no horizontal scroll */
-                flexWrap: 'wrap',    /* wrap tags instead */
+                flexWrap: 'wrap',
                 flexShrink: 0,
+                overflowX: 'hidden',
               }}>
                 <button
                   onClick={() => setActiveTag(null)}
@@ -299,7 +305,6 @@ function PopupApp() {
               overflowY: 'auto',
               overflowX: 'hidden',
               padding: '4px 14px 12px',
-              /* thin faint scrollbar */
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(255,255,255,0.15) transparent',
             } as React.CSSProperties}>
