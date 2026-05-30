@@ -35,7 +35,6 @@ export const DEFAULT_TODO_LISTS: TodoList[] = [
   { id: 'completed', name: 'Completed', builtIn: true },
 ];
 
-// ── Notes ────────────────────────────────────────────────────────────────────
 export interface NoteTab {
   id: string;
   name: string;
@@ -135,7 +134,6 @@ export interface SearchEngine {
 export type SearchEngineId = string;
 export type ThemeName = 'sonoma' | 'ventura' | 'slate';
 
-// ── AI Portal ────────────────────────────────────────────────────────────
 export interface AiPortal {
   id: string;
   name: string;
@@ -146,26 +144,30 @@ export interface AiPortal {
 }
 
 export const DEFAULT_AI_PORTALS: AiPortal[] = [
-  { id: 'chatgpt',    name: 'ChatGPT',      url: 'https://chat.openai.com',           icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'claude',     name: 'Claude',       url: 'https://claude.ai',                 icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'gemini',     name: 'Gemini',       url: 'https://gemini.google.com',         icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'perplexity', name: 'Perplexity',   url: 'https://www.perplexity.ai',         icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'grok',       name: 'Grok',         url: 'https://grok.x.ai',                 icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'copilot',    name: 'Copilot',      url: 'https://copilot.microsoft.com',     icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'mistral',    name: 'Mistral',      url: 'https://chat.mistral.ai',           icon: 'auto', enabled: false, builtIn: true },
-  { id: 'meta-ai',    name: 'Meta AI',      url: 'https://www.meta.ai',               icon: 'auto', enabled: false, builtIn: true },
-  { id: 'deepseek',   name: 'DeepSeek',     url: 'https://chat.deepseek.com',         icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'kimi',       name: 'Kimi',         url: 'https://kimi.moonshot.cn',          icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'wenxin',     name: '文心一言',      url: 'https://yiyan.baidu.com',           icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'tongyi',     name: '通義千問',      url: 'https://tongyi.aliyun.com',         icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'doubao',     name: '豆包',          url: 'https://www.doubao.com',            icon: 'auto', enabled: true,  builtIn: true },
-  { id: 'zhipu',      name: '智譜清言',      url: 'https://chatglm.cn',               icon: 'auto', enabled: false, builtIn: true },
-  { id: 'hailuo',     name: '海螺AI',        url: 'https://hailuoai.com',             icon: 'auto', enabled: false, builtIn: true },
-  { id: 'spark',      name: '訊飛星火',      url: 'https://xinghuo.xfyun.cn',         icon: 'auto', enabled: false, builtIn: true },
+  { id: 'chatgpt',    name: 'ChatGPT',    url: 'https://chat.openai.com',           icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'claude',     name: 'Claude',     url: 'https://claude.ai',                 icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'gemini',     name: 'Gemini',     url: 'https://gemini.google.com',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'perplexity', name: 'Perplexity', url: 'https://www.perplexity.ai',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'grok',       name: 'Grok',       url: 'https://grok.x.ai',                 icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'copilot',    name: 'Copilot',    url: 'https://copilot.microsoft.com',     icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'mistral',    name: 'Mistral',    url: 'https://chat.mistral.ai',           icon: 'auto', enabled: false, builtIn: true },
+  { id: 'meta-ai',    name: 'Meta AI',    url: 'https://www.meta.ai',               icon: 'auto', enabled: false, builtIn: true },
+  { id: 'deepseek',   name: 'DeepSeek',   url: 'https://chat.deepseek.com',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'kimi',       name: 'Kimi',       url: 'https://kimi.moonshot.cn',          icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'wenxin',     name: '文心一言',    url: 'https://yiyan.baidu.com',           icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'tongyi',     name: '通義千問',    url: 'https://tongyi.aliyun.com',         icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'doubao',     name: '豆包',        url: 'https://www.doubao.com',            icon: 'auto', enabled: true,  builtIn: true },
+  { id: 'zhipu',      name: '智譜清言',    url: 'https://chatglm.cn',               icon: 'auto', enabled: false, builtIn: true },
+  { id: 'hailuo',     name: '海螺AI',      url: 'https://hailuoai.com',             icon: 'auto', enabled: false, builtIn: true },
+  { id: 'spark',      name: '訊飛星火',    url: 'https://xinghuo.xfyun.cn',         icon: 'auto', enabled: false, builtIn: true },
 ];
 
 export type AiPortalSize = 'sm' | 'md' | 'lg' | 'xl';
 export const AI_PORTAL_SIZE_DEFAULT: AiPortalSize = 'lg';
+
+// Which shortcuts to show in the popup AI tab
+// 'dock' = pinned dock items; 'space:{id}' = apps from a specific space; 'ai' = AI portals only
+export type PopupShortcutSource = 'ai' | 'dock' | `space:${string}`;
 
 export interface AppConfig {
   spaces?: Space[];
@@ -187,6 +189,7 @@ export interface AppConfig {
   prompts: Prompt[];
   aiPortals?: AiPortal[];
   aiPortalSize?: AiPortalSize;
+  popupShortcutSource?: PopupShortcutSource;
   experiments: {
     smartRecommendations: boolean;
     recentVisits: boolean;

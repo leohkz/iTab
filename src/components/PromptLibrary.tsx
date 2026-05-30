@@ -4,7 +4,6 @@ import type { Prompt, PromptTag } from '../types';
 import type { TranslationKey } from '../i18n';
 import { PromptEditor } from './PromptEditor';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 function hexLuminance(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -15,7 +14,6 @@ function tagTextColor(bg: string) {
   return hexLuminance(bg) > 128 ? '#1e293b' : '#ffffff';
 }
 
-// ── Delete confirm dialog ────────────────────────────────────────────────────
 function DeleteConfirm({ title, t, onConfirm, onCancel }: {
   title: string;
   t: (k: TranslationKey) => string;
@@ -35,25 +33,22 @@ function DeleteConfirm({ title, t, onConfirm, onCancel }: {
         <p className="mb-1 text-base font-black text-slate-800">{t('delete')} Prompt?</p>
         <p className="mb-5 text-sm text-slate-500 line-clamp-2">&ldquo;{title}&rdquo;</p>
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">
-            {t('cancel')}
-          </button>
-          <button type="button" onClick={onConfirm} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white hover:bg-red-600">
-            {t('delete')}
-          </button>
+          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
+          <button type="button" onClick={onConfirm} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white hover:bg-red-600">{t('delete')}</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Image Preview Modal ───────────────────────────────────────────────────────
+// ── Preview Modal — works with OR without imageUrl ───────────────────────────
 function PreviewModal({ prompt, t, onClose }: {
   prompt: Prompt;
   t: (k: TranslationKey) => string;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(prompt.content).then(() => {
@@ -62,6 +57,8 @@ function PreviewModal({ prompt, t, onClose }: {
     });
   };
 
+  const hasImage = !!prompt.imageUrl && !imgError;
+
   return (
     <div
       className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/70 backdrop-blur-md"
@@ -69,73 +66,64 @@ function PreviewModal({ prompt, t, onClose }: {
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="relative mx-4 flex w-full max-w-4xl overflow-hidden rounded-[2rem] bg-white shadow-[0_32px_96px_rgba(15,23,42,0.45)]"
-        style={{ maxHeight: '88vh', animation: 'slideUp 0.22s cubic-bezier(0.34,1.3,0.64,1)' }}
+        className="relative mx-4 flex w-full overflow-hidden rounded-[2rem] bg-white shadow-[0_32px_96px_rgba(15,23,42,0.45)]"
+        style={{
+          maxWidth: hasImage ? '56rem' : '36rem',
+          maxHeight: '88vh',
+          flexDirection: hasImage ? 'row' : 'column',
+          animation: 'slideUp 0.22s cubic-bezier(0.34,1.3,0.64,1)',
+        }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
         <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/10 text-slate-700 backdrop-blur-sm transition hover:bg-black/20 hover:text-slate-900"
+          type="button" onClick={onClose}
+          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/10 text-slate-700 backdrop-blur-sm transition hover:bg-black/20"
           aria-label="Close preview"
         >
           <X className="h-5 w-5" />
         </button>
 
-        {/* Left — image (white background, consistent with right panel) */}
-        <div className="flex w-1/2 shrink-0 items-center justify-center bg-white p-6 border-r border-slate-100">
-          <img
-            src={prompt.imageUrl}
-            alt={prompt.title}
-            className="max-h-full max-w-full rounded-2xl object-contain"
-            style={{
-              maxHeight: 'calc(88vh - 3rem)',
-              boxShadow: '0 4px 32px rgba(15,23,42,0.12)',
-            }}
-            onError={(e) => {
-              const el = e.target as HTMLImageElement;
-              el.style.display = 'none';
-              if (el.parentElement) {
-                el.parentElement.innerHTML =
-                  '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:200px;color:#cbd5e1;font-size:3rem">🖼️</div>';
-              }
-            }}
-          />
-        </div>
+        {/* Image panel — only shown when image exists */}
+        {hasImage && (
+          <div className="flex w-1/2 shrink-0 items-center justify-center border-r border-slate-100 bg-white p-6">
+            <img
+              src={prompt.imageUrl}
+              alt={prompt.title}
+              className="max-h-full max-w-full rounded-2xl object-contain"
+              style={{ maxHeight: 'calc(88vh - 3rem)', boxShadow: '0 4px 32px rgba(15,23,42,0.12)' }}
+              onError={() => setImgError(true)}
+            />
+          </div>
+        )}
 
-        {/* Right — prompt info */}
+        {/* No-image placeholder strip — only when no image */}
+        {!hasImage && (
+          <div className="flex h-24 items-center justify-center rounded-t-[2rem] bg-gradient-to-br from-slate-100 to-slate-200">
+            <span className="text-4xl opacity-30">✨</span>
+          </div>
+        )}
+
+        {/* Right / bottom — prompt info */}
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
           <div>
-            <h2 className="text-lg font-black text-slate-900 leading-tight mb-2">{prompt.title}</h2>
+            <h2 className="mb-2 text-lg font-black leading-tight text-slate-900">{prompt.title}</h2>
             {prompt.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-3">
+              <div className="mb-3 flex flex-wrap gap-1">
                 {prompt.tags.map((tag) => (
-                  <span
-                    key={tag.label}
+                  <span key={tag.label}
                     className="rounded-full px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide"
                     style={{ backgroundColor: `${tag.color}22`, color: tag.color, border: `1px solid ${tag.color}55` }}
-                  >
-                    {tag.label}
-                  </span>
+                  >{tag.label}</span>
                 ))}
               </div>
             )}
           </div>
-
           <div className="flex-1 rounded-2xl bg-slate-50 p-4">
-            <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700 select-text">
-              {prompt.content}
-            </p>
+            <p className="select-text whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700">{prompt.content}</p>
           </div>
-
           <button
-            type="button"
-            onClick={handleCopy}
-            className={[
-              'flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition',
-              copied ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white hover:bg-slate-700',
-            ].join(' ')}
+            type="button" onClick={handleCopy}
+            className={['flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition', copied ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white hover:bg-slate-700'].join(' ')}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? t('copied') : t('copyPrompt')}
@@ -146,12 +134,9 @@ function PreviewModal({ prompt, t, onClose }: {
   );
 }
 
-// ── Tag pill ─────────────────────────────────────────────────────────────────
 function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <button type="button" onClick={onClick}
       className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black transition"
       style={{
         backgroundColor: active ? tag.color : `${tag.color}33`,
@@ -161,13 +146,11 @@ function TagPill({ tag, active, onClick }: { tag: PromptTag; active: boolean; on
         outlineOffset: '1px',
       }}
     >
-      <Tag className="h-2.5 w-2.5" />
-      {tag.label}
+      <Tag className="h-2.5 w-2.5" />{tag.label}
     </button>
   );
 }
 
-// ── Prompt Card ──────────────────────────────────────────────────────────────
 function PromptCard({
   prompt, t, onEdit, onDeleteRequest, onPreview,
 }: {
@@ -178,7 +161,6 @@ function PromptCard({
   onPreview: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-
   const handleCopy = () => {
     navigator.clipboard.writeText(prompt.content).then(() => {
       setCopied(true);
@@ -191,8 +173,12 @@ function PromptCard({
       className="group relative flex flex-col overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(15,23,42,0.16)]"
       style={{ animation: 'fadeInUp 0.28s ease both' }}
     >
-      {prompt.imageUrl ? (
-        <div className="relative h-32 w-full overflow-hidden cursor-pointer" onClick={onPreview}>
+      {/* Thumbnail — always clickable to open preview */}
+      <div
+        className="relative h-32 w-full cursor-pointer overflow-hidden"
+        onClick={onPreview}
+      >
+        {prompt.imageUrl ? (
           <img
             src={prompt.imageUrl}
             alt={prompt.title}
@@ -202,60 +188,45 @@ function PromptCard({
               el.style.display = 'none';
               const parent = el.parentElement as HTMLElement;
               parent.classList.add('flex', 'items-center', 'justify-center', 'bg-gradient-to-br', 'from-slate-100', 'to-slate-200');
-              parent.innerHTML = '<span style="font-size:1.5rem;opacity:0.3">✨</span>';
+              parent.innerHTML = '<span style="font-size:1.5rem;opacity:0.3">\u2728</span>';
             }}
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition duration-200 group-hover:bg-black/20">
-            <Eye className="h-7 w-7 text-white opacity-0 drop-shadow transition duration-200 group-hover:opacity-100" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+            <span className="text-3xl opacity-25">✨</span>
           </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition duration-200 group-hover:bg-black/20">
+          <Eye className="h-7 w-7 text-white opacity-0 drop-shadow transition duration-200 group-hover:opacity-100" />
         </div>
-      ) : (
-        <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-          <span className="text-3xl opacity-25">✨</span>
-        </div>
-      )}
+      </div>
+
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="text-sm font-black leading-tight text-slate-900">{prompt.title}</h3>
         {prompt.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {prompt.tags.map((tag) => (
-              <span
-                key={tag.label}
+              <span key={tag.label}
                 className="rounded-full px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-wide"
                 style={{ backgroundColor: `${tag.color}22`, color: tag.color, border: `1px solid ${tag.color}55` }}
-              >
-                {tag.label}
-              </span>
+              >{tag.label}</span>
             ))}
           </div>
         )}
         <p className="line-clamp-3 text-xs font-medium leading-relaxed text-slate-700">{prompt.content}</p>
       </div>
+
       <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5">
         <div className="flex gap-1">
-          <button
-            type="button" onClick={onEdit}
+          <button type="button" onClick={onEdit}
             className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
-            aria-label="Edit"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button" onClick={onDeleteRequest}
+            aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onDeleteRequest}
             className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-            aria-label="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-          {prompt.imageUrl && (
-            <button
-              type="button" onClick={onPreview}
-              className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-violet-50 hover:text-violet-600"
-              aria-label="Preview"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </button>
-          )}
+            aria-label="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onPreview}
+            className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-violet-50 hover:text-violet-600"
+            aria-label="Preview"><Eye className="h-3.5 w-3.5" /></button>
         </div>
         <button
           type="button" onClick={handleCopy}
@@ -269,7 +240,6 @@ function PromptCard({
   );
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
 type PromptLibraryProps = {
   prompts: Prompt[];
   glass: number;
@@ -296,7 +266,6 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
     WebkitBackdropFilter: `blur(${panelBlur}px)`,
   };
 
-  // Collect all unique tags across all prompts
   const allTags = useMemo(() => {
     const map = new Map<string, PromptTag>();
     prompts.forEach((p) => p.tags.forEach((tag) => { if (!map.has(tag.label)) map.set(tag.label, tag); }));
@@ -323,17 +292,13 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-md"
-        style={{ animation: 'fadeIn 0.2s ease' }}
-        onClick={onClose}
-      />
-
+      <div className="fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-md" style={{ animation: 'fadeIn 0.2s ease' }} onClick={onClose} />
       <div
         className="fixed inset-x-4 bottom-4 top-20 z-[61] flex flex-col overflow-hidden rounded-[2rem] border border-white/25 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
         style={{ ...panelStyle, animation: 'slideUp 0.28s cubic-bezier(0.34,1.3,0.64,1)' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="text-xl">✨</span>
@@ -341,66 +306,50 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-black text-slate-500">{filtered.length}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button" onClick={openAdd}
-              className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1.5 text-sm font-black text-white shadow transition hover:bg-slate-700"
-            >
+            <button type="button" onClick={openAdd}
+              className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1.5 text-sm font-black text-white shadow transition hover:bg-slate-700">
               <Plus className="h-4 w-4" />{t('newPrompt')}
             </button>
-            <button
-              type="button" onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
-              aria-label="Close"
-            >
+            <button type="button" onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200">
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
+        {/* Search + Tag filters */}
         <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-100 px-6 py-3">
           <div className="flex min-w-[14rem] items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-400">
             <Search className="h-4 w-4 shrink-0" />
-            <input
-              value={search} onChange={(e) => setSearch(e.target.value)}
+            <input value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder={t('searchPrompts')}
-              className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400"
-            />
+              className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400" />
             {search && <button type="button" onClick={() => setSearch('')} className="shrink-0 text-slate-400 hover:text-slate-700"><X className="h-3.5 w-3.5" /></button>}
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveTag(null)}
-            className={['rounded-full px-3 py-1 text-xs font-black transition', activeTag === null ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'].join(' ')}
-          >
+          <button type="button" onClick={() => setActiveTag(null)}
+            className={['rounded-full px-3 py-1 text-xs font-black transition', activeTag === null ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'].join(' ')}>
             {t('allTags')}
           </button>
           {allTags.map((tag) => (
-            <TagPill
-              key={tag.label}
-              tag={tag}
-              active={activeTag === tag.label}
-              onClick={() => setActiveTag(activeTag === tag.label ? null : tag.label)}
-            />
+            <TagPill key={tag.label} tag={tag} active={activeTag === tag.label} onClick={() => setActiveTag(activeTag === tag.label ? null : tag.label)} />
           ))}
         </div>
 
+        {/* Grid */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
           {filtered.length === 0 ? (
             <div className="flex h-40 items-center justify-center text-sm font-bold text-slate-400">{t('noPrompts')}</div>
           ) : (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filtered.map((p) => (
-                <PromptCard
-                  key={p.id} prompt={p} t={t}
+                <PromptCard key={p.id} prompt={p} t={t}
                   onEdit={() => openEdit(p)}
                   onDeleteRequest={() => setDeletingId(p.id)}
                   onPreview={() => setPreviewPrompt(p)}
                 />
               ))}
-              <button
-                type="button" onClick={openAdd}
-                className="flex min-h-[15rem] flex-col items-center justify-center gap-3 rounded-[1.4rem] border-2 border-dashed border-slate-200 text-slate-300 transition hover:border-slate-400 hover:text-slate-500"
-              >
+              <button type="button" onClick={openAdd}
+                className="flex min-h-[15rem] flex-col items-center justify-center gap-3 rounded-[1.4rem] border-2 border-dashed border-slate-200 text-slate-300 transition hover:border-slate-400 hover:text-slate-500">
                 <Plus className="h-8 w-8" />
                 <span className="text-xs font-black">{t('newPrompt')}</span>
               </button>
@@ -409,36 +358,18 @@ export function PromptLibrary({ prompts, glass, t, onClose, onAdd, onEdit, onDel
         </div>
       </div>
 
-      {/* Image Preview Modal */}
-      {previewPrompt && (
-        <PreviewModal
-          prompt={previewPrompt}
-          t={t}
-          onClose={() => setPreviewPrompt(null)}
-        />
-      )}
+      {previewPrompt && <PreviewModal prompt={previewPrompt} t={t} onClose={() => setPreviewPrompt(null)} />}
 
       {deletingPrompt && (
-        <DeleteConfirm
-          title={deletingPrompt.title}
-          t={t}
+        <DeleteConfirm title={deletingPrompt.title} t={t}
           onConfirm={() => { onDelete(deletingId!); setDeletingId(null); }}
-          onCancel={() => setDeletingId(null)}
-        />
+          onCancel={() => setDeletingId(null)} />
       )}
 
       {editorOpen && (
-        <PromptEditor
-          open={editorOpen}
-          initial={editingPrompt}
-          allTags={allTags}
-          t={t}
-          onSave={(data) => {
-            if (editingPrompt) onEdit(editingPrompt.id, data); else onAdd(data);
-            setEditorOpen(false);
-          }}
-          onClose={() => setEditorOpen(false)}
-        />
+        <PromptEditor open={editorOpen} initial={editingPrompt} allTags={allTags} t={t}
+          onSave={(data) => { if (editingPrompt) onEdit(editingPrompt.id, data); else onAdd(data); setEditorOpen(false); }}
+          onClose={() => setEditorOpen(false)} />
       )}
 
       <style>{`
