@@ -11,73 +11,6 @@ function getFaviconUrl(url: string) {
   catch { return ''; }
 }
 
-// ── Prompt Preview Modal ──────────────────────────────────────────────────────
-function PromptPreview({ prompt, onClose }: { prompt: Prompt; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-  const [imgError, setImgError] = useState(false);
-  const hasImage = !!prompt.imageUrl && !imgError;
-
-  const copy = () => navigator.clipboard.writeText(prompt.content).then(() => {
-    setCopied(true); setTimeout(() => setCopied(false), 1600);
-  });
-
-  return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 999,
-        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: 340, maxHeight: 520, borderRadius: 20,
-          background: '#1e293b', color: '#f1f5f9',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Image or placeholder */}
-        {hasImage ? (
-          <img src={prompt.imageUrl} alt={prompt.title}
-            style={{ width: '100%', height: 140, objectFit: 'cover' }}
-            onError={() => setImgError(true)} />
-        ) : (
-          <div style={{ height: 80, background: 'linear-gradient(135deg,#334155,#1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 32, opacity: 0.3 }}>✨</span>
-          </div>
-        )}
-        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-            <span style={{ fontWeight: 900, fontSize: 14, color: '#fff', lineHeight: 1.3 }}>{prompt.title}</span>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 26, height: 26, cursor: 'pointer', color: '#94a3b8', fontSize: 14, flexShrink: 0 }}>✕</button>
-          </div>
-          {prompt.tags.length > 0 && (
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {prompt.tags.map((tag, i) => (
-                <span key={i} style={{ padding: '1px 7px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: tag.color + '33', color: tag.color }}>{tag.label}</span>
-              ))}
-            </div>
-          )}
-          <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 12px', flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', userSelect: 'text' }}>{prompt.content}</p>
-          </div>
-          <button onClick={copy} style={{
-            padding: '9px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
-            fontWeight: 900, fontSize: 13,
-            background: copied ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.12)',
-            color: copied ? '#86efac' : '#f1f5f9', transition: 'all 0.2s',
-          }}>
-            {copied ? '✓ Copied!' : 'Copy Prompt'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Prompt row item ───────────────────────────────────────────────────────────
 function PromptItem({ prompt, onPreview }: { prompt: Prompt; onPreview: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -102,7 +35,7 @@ function PromptItem({ prompt, onPreview }: { prompt: Prompt; onPreview: () => vo
         onClick={onPreview}
         style={{
           width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-          overflow: 'hidden', cursor: 'pointer', position: 'relative',
+          overflow: 'hidden', cursor: 'pointer',
           background: 'linear-gradient(135deg,#334155,#475569)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
@@ -144,7 +77,7 @@ function PromptItem({ prompt, onPreview }: { prompt: Prompt; onPreview: () => vo
   );
 }
 
-// ── Shortcut item (App or Dock) ───────────────────────────────────────────────
+// ── Shortcut item ─────────────────────────────────────────────────────────────
 function ShortcutItem({ name, url }: { name: string; url: string }) {
   return (
     <button
@@ -168,6 +101,72 @@ function ShortcutItem({ name, url }: { name: string; url: string }) {
   );
 }
 
+// ── Inline Preview Modal ─────────────────────────────────────────────────────
+function PreviewModal({ prompt, onClose }: { prompt: Prompt; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const hasImage = !!prompt.imageUrl && !imgError;
+
+  const copy = () => navigator.clipboard.writeText(prompt.content).then(() => {
+    setCopied(true); setTimeout(() => setCopied(false), 1600);
+  });
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 999,
+        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: 320, maxHeight: 500, borderRadius: 20,
+          background: '#1e293b', color: '#f1f5f9',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {hasImage ? (
+          <img src={prompt.imageUrl} alt={prompt.title}
+            style={{ width: '100%', height: 130, objectFit: 'cover' }}
+            onError={() => setImgError(true)} />
+        ) : (
+          <div style={{ height: 70, background: 'linear-gradient(135deg,#334155,#1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 28, opacity: 0.3 }}>✨</span>
+          </div>
+        )}
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+            <span style={{ fontWeight: 900, fontSize: 13, color: '#fff', lineHeight: 1.3 }}>{prompt.title}</span>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 24, height: 24, cursor: 'pointer', color: '#94a3b8', fontSize: 13, flexShrink: 0 }}>✕</button>
+          </div>
+          {prompt.tags.length > 0 && (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {prompt.tags.map((tag, i) => (
+                <span key={i} style={{ padding: '1px 6px', borderRadius: 5, fontSize: 9, fontWeight: 700, background: tag.color + '33', color: tag.color }}>{tag.label}</span>
+              ))}
+            </div>
+          )}
+          <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: '9px 11px', flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 11, lineHeight: 1.6, color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', userSelect: 'text' }}>{prompt.content}</p>
+          </div>
+          <button onClick={copy} style={{
+            padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+            fontWeight: 900, fontSize: 12,
+            background: copied ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.12)',
+            color: copied ? '#86efac' : '#f1f5f9', transition: 'all 0.2s',
+          }}>
+            {copied ? '✓ Copied!' : 'Copy Prompt'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Popup ────────────────────────────────────────────────────────────────
 function PopupApp() {
   const [tab, setTab] = useState<'prompts' | 'ai'>('prompts');
@@ -176,7 +175,6 @@ function PopupApp() {
   const [apps, setApps] = useState<AppShortcut[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
-  const [currentSpaceId, setCurrentSpaceId] = useState<string>('');
   const [shortcutSource, setShortcutSource] = useState<string>('ai');
   const [search, setSearch] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -191,12 +189,10 @@ function PopupApp() {
       if (cfg.apps) setApps(cfg.apps);
       if (cfg.pinnedIds) setPinnedIds(cfg.pinnedIds);
       if (cfg.spaces) setSpaces(cfg.spaces);
-      if (cfg.currentSpaceId) setCurrentSpaceId(cfg.currentSpaceId);
       if (cfg.popupShortcutSource) setShortcutSource(cfg.popupShortcutSource);
     });
   }, []);
 
-  // Collect all tags for filter bar
   const allTags: PromptTag[] = [];
   const tagSeen = new Set<string>();
   prompts.forEach((p) => p.tags.forEach((tag) => {
@@ -210,7 +206,6 @@ function PopupApp() {
     return p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q);
   });
 
-  // Shortcuts to show in AI tab based on source setting
   const shortcutItems: { id: string; name: string; url: string }[] = (() => {
     if (shortcutSource === 'dock') {
       return pinnedIds
@@ -221,143 +216,136 @@ function PopupApp() {
       const spaceId = shortcutSource.slice(6);
       return apps.filter((a) => a.spaceId === spaceId && !a.folderId);
     }
-    // default: AI portals
     return [];
   })();
 
   const enabledPortals = portals.filter((p) => p.enabled);
 
   return (
-    <div style={{
-      width: 360, minHeight: 500, maxHeight: 620,
-      display: 'flex', flexDirection: 'column',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
-      color: '#f1f5f9', overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.5px', color: '#fff' }}>iTab</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 2, gap: 2 }}>
-          {(['prompts', 'ai'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              padding: '3px 11px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: 700, transition: 'all 0.15s',
-              background: tab === t ? 'rgba(255,255,255,0.18)' : 'transparent',
-              color: tab === t ? '#fff' : 'rgba(255,255,255,0.45)',
-            }}>
-              {t === 'prompts' ? '📚 Prompts' : '🤖 AI'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Prompts Tab ── */}
-      {tab === 'prompts' && (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          {/* Search */}
-          <div style={{ padding: '10px 14px 0' }}>
-            <input
-              placeholder="Search prompts..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: '100%', padding: '7px 12px', borderRadius: 10,
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.08)', color: '#f1f5f9',
-                fontSize: 12, outline: 'none', boxSizing: 'border-box',
-              }}
-            />
+    <>
+      <div style={{
+        width: 360, minHeight: 500, maxHeight: 620,
+        display: 'flex', flexDirection: 'column',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
+        color: '#f1f5f9', overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.5px', color: '#fff' }}>iTab</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 2, gap: 2 }}>
+            {(['prompts', 'ai'] as const).map((t) => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: '3px 11px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 700, transition: 'all 0.15s',
+                background: tab === t ? 'rgba(255,255,255,0.18)' : 'transparent',
+                color: tab === t ? '#fff' : 'rgba(255,255,255,0.45)',
+              }}>
+                {t === 'prompts' ? '📚 Prompts' : '🤖 AI'}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Tag filter bar */}
-          {allTags.length > 0 && (
-            <div style={{ padding: '6px 14px', display: 'flex', gap: 5, overflowX: 'auto', flexShrink: 0 }}>
-              <button
-                onClick={() => setActiveTag(null)}
+        {/* ── Prompts Tab ── */}
+        {tab === 'prompts' && (
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px 0' }}>
+              <input
+                placeholder="Search prompts..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  padding: '2px 9px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)',
-                  background: activeTag === null ? 'rgba(255,255,255,0.2)' : 'transparent',
-                  color: activeTag === null ? '#fff' : 'rgba(255,255,255,0.5)',
-                  fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                  width: '100%', padding: '7px 12px', borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'rgba(255,255,255,0.08)', color: '#f1f5f9',
+                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
                 }}
-              >All</button>
-              {allTags.map((tag) => (
-                <button
-                  key={tag.label}
-                  onClick={() => setActiveTag(activeTag === tag.label ? null : tag.label)}
-                  style={{
-                    padding: '2px 9px', borderRadius: 8, border: `1px solid ${tag.color}`,
-                    background: activeTag === tag.label ? tag.color + '44' : 'transparent',
-                    color: tag.color, fontSize: 10, fontWeight: 700,
-                    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                  }}
-                >{tag.label}</button>
-              ))}
+              />
             </div>
-          )}
 
-          {/* Prompt list */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 14px 12px' }}>
-            {filteredPrompts.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 12, marginTop: 40 }}>
-                {prompts.length === 0 ? 'No prompts saved.\nAdd them in iTab.' : 'No results.'}
-              </div>
-            )}
-            {filteredPrompts.map((p) => (
-              <PromptItem key={p.id} prompt={p} onPreview={() => setPreviewPrompt(p)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── AI Tab ── */}
-      {tab === 'ai' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 12px' }}>
-          {/* AI Portals grid */}
-          <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 8px' }}>AI Portals</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7, marginBottom: 16 }}>
-            {enabledPortals.map((portal) => (
-              <ShortcutItem key={portal.id} name={portal.name} url={portal.url} />
-            ))}
-          </div>
-
-          {/* Space/Dock shortcuts */}
-          {shortcutItems.length > 0 && (
-            <>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 8px' }}>
-                {shortcutSource === 'dock' ? 'Dock' :
-                  spaces.find((s) => `space:${s.id}` === shortcutSource)?.name ?? 'Shortcuts'}
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7 }}>
-                {shortcutItems.map((item) => (
-                  <ShortcutItem key={item.id} name={item.name} url={item.url} />
+            {allTags.length > 0 && (
+              <div style={{ padding: '6px 14px', display: 'flex', gap: 5, overflowX: 'auto', flexShrink: 0 }}>
+                <button
+                  onClick={() => setActiveTag(null)}
+                  style={{
+                    padding: '2px 9px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)',
+                    background: activeTag === null ? 'rgba(255,255,255,0.2)' : 'transparent',
+                    color: activeTag === null ? '#fff' : 'rgba(255,255,255,0.5)',
+                    fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                  }}
+                >All</button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag.label}
+                    onClick={() => setActiveTag(activeTag === tag.label ? null : tag.label)}
+                    style={{
+                      padding: '2px 9px', borderRadius: 8, border: `1px solid ${tag.color}`,
+                      background: activeTag === tag.label ? tag.color + '44' : 'transparent',
+                      color: tag.color, fontSize: 10, fontWeight: 700,
+                      cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                    }}
+                  >{tag.label}</button>
                 ))}
               </div>
-            </>
-          )}
+            )}
 
-          {shortcutSource === 'ai' && shortcutItems.length === 0 && (
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 4 }}>
-              Add Space/Dock shortcuts in iTab Settings → AI Portals
-            </p>
-          )}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 14px 12px' }}>
+              {filteredPrompts.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 12, marginTop: 40 }}>
+                  {prompts.length === 0 ? 'No prompts saved. Add them in iTab.' : 'No results.'}
+                </div>
+              )}
+              {filteredPrompts.map((p) => (
+                <PromptItem key={p.id} prompt={p} onPreview={() => setPreviewPrompt(p)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── AI Tab ── */}
+        {tab === 'ai' && (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 12px' }}>
+            <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 8px' }}>AI Portals</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7, marginBottom: 16 }}>
+              {enabledPortals.map((portal) => (
+                <ShortcutItem key={portal.id} name={portal.name} url={portal.url} />
+              ))}
+            </div>
+
+            {shortcutItems.length > 0 && (
+              <>
+                <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 8px' }}>
+                  {shortcutSource === 'dock' ? 'Dock' :
+                    spaces.find((s) => `space:${s.id}` === shortcutSource)?.name ?? 'Shortcuts'}
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7 }}>
+                  {shortcutItems.map((item) => (
+                    <ShortcutItem key={item.id} name={item.name} url={item.url} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{
+          padding: '7px 14px', borderTop: '1px solid rgba(255,255,255,0.07)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>iTab v1.1.0</span>
+          <button onClick={() => chrome.tabs.create({ url: 'chrome://newtab' })} style={{
+            padding: '3px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+            fontSize: 11, fontWeight: 700,
+            background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)',
+          }}>Open iTab →</button>
         </div>
-      )}
-
-      {/* Footer */}
-      <div style={{
-        padding: '7px 14px', borderTop: '1px solid rgba(255,255,255,0.07)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      }}>
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>iTab v1.1.0</span>
-        <button onClick={() => chrome.tabs.create({ url: 'chrome://newtab' })} style={{
-          padding: '3px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-          fontSize: 11, fontWeight: 700,
-          background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)',
-        }}>Open iTab →</button>
       </div>
-    </div>
+
+      {/* Preview modal — rendered outside main div to avoid overflow:hidden clipping */}
+      {previewPrompt && <PreviewModal prompt={previewPrompt} onClose={() => setPreviewPrompt(null)} />}
+    </>
   );
 }
 
