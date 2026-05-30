@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Workspace New Tab",
+  "name": "iTab",
   "description": "A macOS and iPadOS inspired browser workspace for Chrome's new tab page.",
   "version": "0.3.0",
   "chrome_url_overrides": {

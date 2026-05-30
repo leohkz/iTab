@@ -30,7 +30,6 @@ function PromptItem({ prompt, onPreview }: { prompt: Prompt; onPreview: () => vo
       borderBottom: '1px solid rgba(255,255,255,0.06)',
       alignItems: 'center',
     }}>
-      {/* Thumbnail — always clickable */}
       <div
         onClick={onPreview}
         style={{
@@ -47,9 +46,8 @@ function PromptItem({ prompt, onPreview }: { prompt: Prompt; onPreview: () => vo
         )}
       </div>
 
-      {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 800, fontSize: 12, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontWeight: 600, fontSize: 12, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {prompt.title}
         </div>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
@@ -64,7 +62,6 @@ function PromptItem({ prompt, onPreview }: { prompt: Prompt; onPreview: () => vo
         )}
       </div>
 
-      {/* Copy button */}
       <button onClick={copy} style={{
         flexShrink: 0, padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
         fontSize: 11, fontWeight: 700,
@@ -101,7 +98,7 @@ function ShortcutItem({ name, url }: { name: string; url: string }) {
   );
 }
 
-// ── Inline Preview Modal ─────────────────────────────────────────────────────
+// ── Inline Preview Modal ──────────────────────────────────────────────────────
 function PreviewModal({ prompt, onClose }: { prompt: Prompt; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -140,7 +137,7 @@ function PreviewModal({ prompt, onClose }: { prompt: Prompt; onClose: () => void
         )}
         <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-            <span style={{ fontWeight: 900, fontSize: 13, color: '#fff', lineHeight: 1.3 }}>{prompt.title}</span>
+            <span style={{ fontWeight: 600, fontSize: 13, color: '#fff', lineHeight: 1.3 }}>{prompt.title}</span>
             <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 24, height: 24, cursor: 'pointer', color: '#94a3b8', fontSize: 13, flexShrink: 0 }}>✕</button>
           </div>
           {prompt.tags.length > 0 && (
@@ -228,10 +225,12 @@ function PopupApp() {
         display: 'flex', flexDirection: 'column',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
-        color: '#f1f5f9', overflow: 'hidden',
+        color: '#f1f5f9',
+        overflowX: 'hidden',
+        overflowY: 'hidden',
       }}>
         {/* Header */}
-        <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.5px', color: '#fff' }}>iTab</span>
           <div style={{ marginLeft: 'auto', display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 2, gap: 2 }}>
             {(['prompts', 'ai'] as const).map((t) => (
@@ -250,7 +249,7 @@ function PopupApp() {
         {/* ── Prompts Tab ── */}
         {tab === 'prompts' && (
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px 0' }}>
+            <div style={{ padding: '10px 14px 0', flexShrink: 0 }}>
               <input
                 placeholder="Search prompts..."
                 value={search}
@@ -265,7 +264,12 @@ function PopupApp() {
             </div>
 
             {allTags.length > 0 && (
-              <div style={{ padding: '6px 14px', display: 'flex', gap: 5, overflowX: 'auto', flexShrink: 0 }}>
+              <div style={{
+                padding: '6px 14px', display: 'flex', gap: 5,
+                overflowX: 'hidden', /* no horizontal scroll */
+                flexWrap: 'wrap',    /* wrap tags instead */
+                flexShrink: 0,
+              }}>
                 <button
                   onClick={() => setActiveTag(null)}
                   style={{
@@ -290,7 +294,15 @@ function PopupApp() {
               </div>
             )}
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 14px 12px' }}>
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              padding: '4px 14px 12px',
+              /* thin faint scrollbar */
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(255,255,255,0.15) transparent',
+            } as React.CSSProperties}>
               {filteredPrompts.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 12, marginTop: 40 }}>
                   {prompts.length === 0 ? 'No prompts saved. Add them in iTab.' : 'No results.'}
@@ -305,7 +317,14 @@ function PopupApp() {
 
         {/* ── AI Tab ── */}
         {tab === 'ai' && (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 12px' }}>
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '10px 14px 12px',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.15) transparent',
+          } as React.CSSProperties}>
             <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 8px' }}>AI Portals</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7, marginBottom: 16 }}>
               {enabledPortals.map((portal) => (
@@ -333,6 +352,7 @@ function PopupApp() {
         <div style={{
           padding: '7px 14px', borderTop: '1px solid rgba(255,255,255,0.07)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0,
         }}>
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>iTab v1.1.0</span>
           <button onClick={() => chrome.tabs.create({ url: 'chrome://newtab' })} style={{
@@ -343,10 +363,9 @@ function PopupApp() {
         </div>
       </div>
 
-      {/* Preview modal — rendered outside main div to avoid overflow:hidden clipping */}
       {previewPrompt && <PreviewModal prompt={previewPrompt} onClose={() => setPreviewPrompt(null)} />}
     </>
   );
 }
 
-createRoot(document.getElementById('root')!).render(<PopupApp />);
+createRoot(document.getElementById('popup-root')!).render(<PopupApp />);

@@ -16,3 +16,19 @@
   transform-origin: center bottom;
   display: inline-block;
 }
+
+/* Popup scrollbar — ultra-thin & faint */
+#popup-root ::-webkit-scrollbar {
+  width: 3px;
+  height: 0px; /* hide horizontal scrollbar completely */
+}
+#popup-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+#popup-root ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 99px;
+}
+#popup-root ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
