@@ -1,4 +1,4 @@
-import { BotMessageSquare, Cloud, Database, Download, FlaskConical, LayoutGrid, Layers, LogIn, LogOut, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
+import { BotMessageSquare, Cloud, Database, Download, FlaskConical, LayoutGrid, Layers, LogIn, LogOut, Palette, Plus, RotateCcw, Search, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppConfig, AiPortal, AiPortalSize, Locale, SearchEngine, SearchEngineId, Space, ThemeName } from '../types';
 import { AI_PORTAL_SIZE_DEFAULT, SPACE_ACCENTS } from '../types';
@@ -439,6 +439,25 @@ export function SettingsModal({
                     onChange={(e) => onConfigChange({ ...config, glass: Number(e.target.value) })}
                     className="mt-4 w-full accent-slate-950" data-testid="input-glass" />
                 </div>
+
+                {/* GSAP Animations toggle */}
+                <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100">
+                      <Sparkles className="h-4 w-4 text-violet-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-black">頁面入場動畫</h4>
+                      <p className="text-sm font-semibold text-slate-600">開啟新分頁時播放 GSAP 動畫效果（TopBar、圖標、Dock 依序登場）</p>
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={config.gsapAnimations ?? false}
+                    onChange={(v) => onConfigChange({ ...config, gsapAnimations: v })}
+                    testId="toggle-gsap-animations"
+                  />
+                </div>
+
                 <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
                   {(['sonoma', 'ventura', 'slate'] as ThemeName[]).map((themeName, i) => (
                     <button key={themeName} type="button" onClick={() => onConfigChange({ ...config, theme: themeName })}
@@ -547,7 +566,6 @@ export function SettingsModal({
                   onChange={(portals: AiPortal[]) => onConfigChange({ ...config, aiPortals: portals })}
                   onSizeChange={(size: AiPortalSize) => onConfigChange({ ...config, aiPortalSize: size })}
                 />
-                {/* Popup shortcut source */}
                 <div className="rounded-2xl bg-white p-4 shadow-sm">
                   <h4 className="font-black">📱 Popup 捕捷來源</h4>
                   <p className="mb-3 mt-1 text-sm font-semibold text-slate-600">Popup 的 AI 頁面額外顯示哪個區域的捕捷</p>
