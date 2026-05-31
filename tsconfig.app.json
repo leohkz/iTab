@@ -4,6 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
+    "types": ["vite/client", "chrome"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -20,5 +21,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
+  "files": [
+    "node_modules/gsap/types/index.d.ts"
+  ],
   "include": ["src"]
 }
