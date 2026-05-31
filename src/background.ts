@@ -1,6 +1,7 @@
 // Background service worker
 // Builds context menu entries from stored search engines,
 // and rebuilds them whenever storage changes.
+// Note: "%s" (selected text) is NOT shown in the title per user preference.
 
 const CONFIG_KEY = 'workspace-new-tab-config';
 const PARENT_ID  = 'itab-search-parent';
@@ -27,7 +28,7 @@ function buildMenus(engines: SearchEngine[]) {
       chrome.contextMenus.create({
         id:       `itab-${engine.id}`,
         parentId: PARENT_ID,
-        title:    `${engine.name} 搜索 "%s"`,
+        title:    engine.name,   // no "%s", just the engine name
         contexts: ['selection'],
       });
     });
