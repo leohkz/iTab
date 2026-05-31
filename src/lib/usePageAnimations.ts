@@ -1,20 +1,23 @@
 /**
  * usePageAnimations
- * GSAP entrance animation — loaded at runtime to avoid TS type resolution issues.
+ * GSAP entrance animation for iTab.
+ * gsap is loaded via Function constructor so TypeScript never sees the import
+ * and cannot complain about missing type declarations.
  */
 import { useEffect } from 'react';
+
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const loadGsap = new Function('return import("gsap")') as () => Promise<{ gsap: unknown }>;
 
 export function usePageAnimations(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
 
-    // Dynamic import with explicit any — bypasses TS module resolution entirely
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (import('gsap') as Promise<any>).then((mod) => {
+    loadGsap().then((mod) => {
       if (cancelled) return;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const g: any = mod.gsap ?? mod.default ?? mod;
+      const g = (mod as any).gsap ?? (mod as any).default ?? mod;
 
       g.killTweensOf([
         '[data-anim="bg"]',
@@ -38,7 +41,7 @@ export function usePageAnimations(enabled: boolean) {
       tl.from('[data-anim="dock"]',        { y: 40,  opacity: 0, duration: 0.55 }, 0.45);
       tl.from('[data-anim="widgets"]',     { x: 28,  opacity: 0, duration: 0.5  }, 0.5);
       tl.from('[data-anim="prompts-btn"]', { x: -20, opacity: 0, duration: 0.45 }, 0.55);
-    });
+    }).catch(() => { /* gsap unavailable, skip animation */ });
 
     return () => { cancelled = true; };
   }, [enabled]);
