@@ -38,12 +38,11 @@ function removeAll() {
   removeDot();
 }
 
-// ── Grid-style engine menu ───────────────────────────────────────────────────
 function createMenu(engines: SearchEngine[], text: string, x: number, y: number) {
   removeMenu();
 
   const COLS    = 4;
-  const CELL    = 72; // px per cell
+  const CELL    = 72;
   const PAD     = 10;
   const menuW   = COLS * CELL + PAD * 2;
   const rows    = Math.ceil(engines.length / COLS);
@@ -129,7 +128,6 @@ function createMenu(engines: SearchEngine[], text: string, x: number, y: number)
   document.documentElement.appendChild(menu);
 }
 
-// ── Tiny dot trigger ────────────────────────────────────────────────────────────
 function showDot(text: string, x: number, y: number) {
   removeDot();
   removeMenu();
@@ -150,7 +148,7 @@ function showDot(text: string, x: number, y: number) {
     width:      `${SIZE}px`,
     height:     `${SIZE}px`,
     borderRadius:'50%',
-    background: 'rgba(30,58,138,0.55)',      // deep-blue, semi-transparent
+    background: 'rgba(30,58,138,0.55)',
     border:     '1px solid rgba(99,102,241,0.4)',
     cursor:     'pointer',
     zIndex:     '2147483647',
@@ -170,7 +168,6 @@ function showDot(text: string, x: number, y: number) {
         (eng) => eng.enabled && eng.template,
       );
       if (engines.length === 0) { removeDot(); return; }
-      // Show menu near the dot
       const r = dot.getBoundingClientRect();
       createMenu(engines, text, r.left, r.bottom + 4);
       removeDot();
@@ -179,18 +176,13 @@ function showDot(text: string, x: number, y: number) {
 
   document.documentElement.appendChild(dot);
 
-  // Auto-fade after 4 s if unused
   setTimeout(() => {
     const d = document.getElementById(DOT_ID);
     if (d) { d.style.opacity = '0'; setTimeout(() => d.remove(), 200); }
   }, 4000);
 }
 
-// ── Event listeners ───────────────────────────────────────────────────────────────
-
-// Show dot when user finishes selecting text
 document.addEventListener('mouseup', (e) => {
-  // If click is on our own UI, ignore
   const target = e.target as Element;
   if (target?.id === DOT_ID || target?.id === MENU_ID || target?.closest?.(`#${MENU_ID}`)) return;
 
@@ -200,7 +192,6 @@ document.addEventListener('mouseup', (e) => {
   showDot(selected, e.clientX, e.clientY);
 });
 
-// Close menu/dot if clicking elsewhere
 document.addEventListener('mousedown', (e) => {
   const target = e.target as Element;
   const menu = document.getElementById(MENU_ID);

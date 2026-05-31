@@ -28,7 +28,7 @@ function buildMenus(engines: SearchEngine[]) {
       chrome.contextMenus.create({
         id:       `itab-${engine.id}`,
         parentId: PARENT_ID,
-        title:    engine.name,   // no "%s", just the engine name
+        title:    engine.name,
         contexts: ['selection'],
       });
     });
@@ -42,16 +42,13 @@ function loadAndBuild() {
   });
 }
 
-// Build on install / startup
 chrome.runtime.onInstalled.addListener(loadAndBuild);
 chrome.runtime.onStartup.addListener(loadAndBuild);
 
-// Rebuild whenever config changes
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes[CONFIG_KEY]) loadAndBuild();
 });
 
-// Handle clicks
 chrome.contextMenus.onClicked.addListener((info) => {
   if (!info.menuItemId.toString().startsWith('itab-')) return;
   if (info.menuItemId === PARENT_ID) return;
