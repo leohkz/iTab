@@ -166,7 +166,6 @@ export type AiPortalSize = 'sm' | 'md' | 'lg' | 'xl';
 export const AI_PORTAL_SIZE_DEFAULT: AiPortalSize = 'lg';
 
 // Which shortcuts to show in the popup AI tab
-// 'dock' = pinned dock items; 'space:{id}' = apps from a specific space; 'ai' = AI portals only
 export type PopupShortcutSource = 'ai' | 'dock' | `space:${string}`;
 
 export interface AppConfig {
@@ -190,6 +189,8 @@ export interface AppConfig {
   aiPortals?: AiPortal[];
   aiPortalSize?: AiPortalSize;
   popupShortcutSource?: PopupShortcutSource;
+  /** Enable GSAP entrance animations on new tab open */
+  gsapAnimations?: boolean;
   experiments: {
     smartRecommendations: boolean;
     recentVisits: boolean;

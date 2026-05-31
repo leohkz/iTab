@@ -12,6 +12,7 @@ import { Widgets, FocusModeOverlay } from './components/Widgets';
 import { AiPortalBar } from './components/AiPortalBar';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
+import { usePageAnimations } from './lib/usePageAnimations';
 import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
 import { DEFAULT_NOTE_TABS, DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS, AI_PORTAL_SIZE_DEFAULT } from './types';
 
@@ -138,6 +139,9 @@ function NewTab() {
     () => config.folders.filter((f) => !f.spaceId || f.spaceId === config.currentSpaceId),
     [config.folders, config.currentSpaceId],
   );
+
+  // ── GSAP entrance animation ──────────────────────────────────────
+  usePageAnimations(config.gsapAnimations ?? false);
 
   const updateConfig = (next: AppConfig) => {
     const enabledEngines = next.searchEngines.filter((e) => e.enabled);
@@ -353,11 +357,12 @@ function NewTab() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-      <div className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
+      <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
       <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
 
       <TopBar
+        data-anim="topbar"
         spaces={spaces}
         currentSpaceId={config.currentSpaceId}
         editing={editing}
@@ -378,6 +383,7 @@ function NewTab() {
       />
 
       <AiPortalBar
+        data-anim="aibar"
         portals={aiPortals}
         glass={config.glass}
         size={config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT}
@@ -386,6 +392,7 @@ function NewTab() {
 
       <button
         type="button"
+        data-anim="prompts-btn"
         onClick={() => setShowPrompts((v) => !v)}
         aria-label={t('promptLibrary')}
         className="fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg transition hover:text-white"
@@ -412,6 +419,7 @@ function NewTab() {
         />
       ) : (
         <AppGrid
+          data-anim="appgrid"
           apps={currentSpaceApps}
           folders={currentSpaceFolders}
           editing={editing}
@@ -440,6 +448,7 @@ function NewTab() {
 
       {config.showDock && (
         <Dock
+          data-anim="dock"
           pinnedApps={pinnedApps}
           recentTabs={recentTabs}
           editing={editing}
@@ -452,6 +461,7 @@ function NewTab() {
 
       {config.showWidgets && !showPrompts && (
         <Widgets
+          data-anim="widgets"
           widgets={config.widgets}
           glass={config.glass}
           onChange={handleWidgetsChange}
