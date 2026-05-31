@@ -1,3 +1,4 @@
+/// <reference types="chrome" />
 import { useEffect, useMemo, useState } from 'react';
 import { BookMarked } from 'lucide-react';
 import { AppGrid } from './components/AppGrid';
@@ -140,7 +141,6 @@ function NewTab() {
     [config.folders, config.currentSpaceId],
   );
 
-  // ── GSAP entrance animation ──────────────────────────────────────
   usePageAnimations(config.gsapAnimations ?? false);
 
   const updateConfig = (next: AppConfig) => {
@@ -419,7 +419,6 @@ function NewTab() {
         />
       ) : (
         <AppGrid
-          data-anim="appgrid"
           apps={currentSpaceApps}
           folders={currentSpaceFolders}
           editing={editing}
