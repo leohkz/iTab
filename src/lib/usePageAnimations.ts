@@ -13,14 +13,12 @@
  *  0.55s  Prompt sidebar button fades in
  */
 import { useEffect } from 'react';
-// @ts-expect-error gsap ships its own types; resolved at runtime by Vite
 import { gsap } from 'gsap';
 
 export function usePageAnimations(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
 
-    // Kill any leftover tweens to avoid double-play on HMR
     gsap.killTweensOf([
       '[data-anim="bg"]',
       '[data-anim="topbar"]',
@@ -34,16 +32,16 @@ export function usePageAnimations(enabled: boolean) {
 
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-    tl.from('[data-anim="bg"]',         { opacity: 0, duration: 0.7 }, 0);
-    tl.from('[data-anim="topbar"]',     { y: -32, opacity: 0, duration: 0.55 }, 0.1);
-    tl.from('[data-anim="aibar"]',      { y: -20, opacity: 0, duration: 0.5  }, 0.22);
-    tl.from('[data-anim="app-icon"]',   {
+    tl.from('[data-anim="bg"]',          { opacity: 0, duration: 0.7 }, 0);
+    tl.from('[data-anim="topbar"]',      { y: -32, opacity: 0, duration: 0.55 }, 0.1);
+    tl.from('[data-anim="aibar"]',       { y: -20, opacity: 0, duration: 0.5  }, 0.22);
+    tl.from('[data-anim="app-icon"]',    {
       y: 22, opacity: 0, scale: 0.82, duration: 0.5,
       stagger: { amount: 0.35, from: 'start', grid: 'auto' },
     }, 0.28);
-    tl.from('[data-anim="dock"]',       { y: 40, opacity: 0, duration: 0.55 }, 0.45);
-    tl.from('[data-anim="widgets"]',    { x: 28, opacity: 0, duration: 0.5  }, 0.5);
-    tl.from('[data-anim="prompts-btn"]',{ x: -20, opacity: 0, duration: 0.45 }, 0.55);
+    tl.from('[data-anim="dock"]',        { y: 40, opacity: 0, duration: 0.55 }, 0.45);
+    tl.from('[data-anim="widgets"]',     { x: 28, opacity: 0, duration: 0.5  }, 0.5);
+    tl.from('[data-anim="prompts-btn"]', { x: -20, opacity: 0, duration: 0.45 }, 0.55);
 
     return () => { tl.kill(); };
   }, [enabled]);
