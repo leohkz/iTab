@@ -285,7 +285,21 @@ export function AppGrid({
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onReorder, onMoveToEnd, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
 }: AppGridProps) {
+  // Use a ref as the single source of truth for the dragged id so that
+  // drop handlers always read the latest value regardless of React's
+  // async state batching.
+  const draggedIdRef = useRef<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+
+  const setDragged = (id: string | null) => {
+    draggedIdRef.current = id;
+    setDraggedId(id);
+  };
+
+  // Flag set to true by child drop handlers so the main onDrop fallback
+  // knows the event was already handled and must not interfere.
+  const dropHandledRef = useRef(false);
+
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -363,7 +377,6 @@ export function AppGrid({
 
   const handleDragOverMain = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!draggedId) return;
     const rect = mainRef.current?.getBoundingClientRect();
     if (!rect) return;
     const edgeZone = rect.width * 0.12;
@@ -398,16 +411,18 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
-  // Drop on empty page: move app to very end of global list, then navigate to its new page
+  // Drop on the empty "new page" zone — read from ref, never from state
   const handleDropOnEmptyPage = (e: React.DragEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (!draggedId) return;
-    onMoveToEnd(draggedId);
-    // items.length is the count before reorder; after moving to end the item
-    // lands at index (items.length - 1), which is on page floor((items.length-1)/pageCapacity)
+    dropHandledRef.current = true;
+    const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+    if (!id) return;
+    onMoveToEnd(id);
+    // After move, item is at index (items.length - 1) in the filtered list
     const targetPage = Math.floor((items.length - 1) / pageCapacity);
     setTimeout(() => setCurrentPage(targetPage), 50);
-    setDraggedId(null);
+    setDragged(null);
   };
 
   let pageSlideStyle: React.CSSProperties;
@@ -450,11 +465,15 @@ export function AppGrid({
       onClick={(e) => { if (editing && e.target === mainRef.current) onStopEditing(); }}
       onDragOver={handleDragOverMain}
       onDragLeave={handleDragLeaveMain}
-      onDrop={() => {
-        if (selectedFolderId && draggedId) onMoveOutOfFolder(draggedId);
-        setDraggedId(null);
+      onDrop={(e) => {
+        e.preventDefault();
         setDragOverPageEdge(null);
         if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
+        // If a child handler already dealt with this drop, skip
+        if (dropHandledRef.current) { dropHandledRef.current = false; return; }
+        const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+        if (selectedFolderId && id) onMoveOutOfFolder(id);
+        setDragged(null);
       }}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -513,9 +532,15 @@ export function AppGrid({
                       key={item.id}
                       className={[cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
                       draggable={editing}
-                      onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
+                      onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.stopPropagation(); if (draggedId && draggedId !== item.id) onMoveToFolder(draggedId, item.folder.id); setDraggedId(null); }}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        dropHandledRef.current = true;
+                        const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+                        if (id && id !== item.id) onMoveToFolder(id, item.folder.id);
+                        setDragged(null);
+                      }}
                       onPointerDown={(e) => setLongPress(e.currentTarget)}
                       data-anim="app-icon"
                     >
@@ -556,9 +581,15 @@ export function AppGrid({
                     key={item.id}
                     className={[cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
                     draggable={editing}
-                    onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData('text/plain', item.id); }}
+                    onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                     onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => { e.stopPropagation(); if (draggedId && draggedId !== item.id) onReorder(draggedId, item.id); setDraggedId(null); }}
+                    onDrop={(e) => {
+                      e.stopPropagation();
+                      dropHandledRef.current = true;
+                      const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+                      if (id && id !== item.id) onReorder(id, item.id);
+                      setDragged(null);
+                    }}
                     onPointerDown={(e) => setLongPress(e.currentTarget)}
                     data-testid={`link-app-${item.app.id}`}
                   >
@@ -629,7 +660,13 @@ export function AppGrid({
           role="presentation"
           onPointerDown={(e) => { if (e.target === e.currentTarget) onCloseFolder(); }}
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.stopPropagation(); if (draggedId) onMoveOutOfFolder(draggedId); setDraggedId(null); }}
+          onDrop={(e) => {
+            e.stopPropagation();
+            dropHandledRef.current = true;
+            const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+            if (id) onMoveOutOfFolder(id);
+            setDragged(null);
+          }}
         >
           <section
             role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
@@ -648,7 +685,7 @@ export function AppGrid({
                   key={app.id}
                   className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
                   draggable={editing}
-                  onDragStart={(e) => { setDraggedId(app.id); e.dataTransfer.setData('text/plain', app.id); }}
+                  onDragStart={(e) => { setDragged(app.id); e.dataTransfer.setData('text/plain', app.id); }}
                 >
                   <a
                     href={editing ? undefined : app.url}
