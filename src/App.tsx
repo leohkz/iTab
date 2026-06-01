@@ -141,6 +141,12 @@ function NewTab() {
     [config.folders, config.currentSpaceId],
   );
 
+  // All apps across every space (excluding pinned) — used by Spotlight so search is global
+  const allApps = useMemo(
+    () => config.apps.filter((app) => !config.pinnedIds.includes(app.id)),
+    [config.apps, config.pinnedIds],
+  );
+
   usePageAnimations(config.gsapAnimations ?? false);
 
   const updateConfig = (next: AppConfig) => {
@@ -495,17 +501,24 @@ function NewTab() {
         />
       )}
 
-      {searchOpen && (
-        <SpotlightSearch
-          open={searchOpen}
-          apps={currentSpaceApps}
-          engines={config.searchEngines}
-          defaultEngine={config.defaultEngine ?? 'google'}
-          t={t}
-          onClose={() => setSearchOpen(false)}
-          onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
-        />
-      )}
+      {/*
+        SpotlightSearch is always mounted (never conditionally removed) so its
+        internal query state survives engine switches that trigger config updates.
+        Visibility is controlled via the `open` prop instead.
+        apps = allApps so search covers every Space, not just the current one.
+      */}
+      <SpotlightSearch
+        open={searchOpen}
+        apps={allApps}
+        engines={config.searchEngines}
+        defaultEngine={config.defaultEngine ?? 'google'}
+        todos={config.widgets.todos}
+        noteTabs={config.widgets.noteTabs}
+        prompts={config.prompts ?? []}
+        t={t}
+        onClose={() => setSearchOpen(false)}
+        onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
+      />
 
       {editor.open && (
         <ShortcutEditor
