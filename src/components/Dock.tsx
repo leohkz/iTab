@@ -1,6 +1,7 @@
 import { Minus, Pencil } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { useDroppable, useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
@@ -64,7 +65,6 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-// ── Single sortable dock item ─────────────────────────────────────────────
 function SortableDockItem({
   app, editing, size, onConfirmDelete, onRename,
 }: {
@@ -150,7 +150,6 @@ function SortableDockItem({
   );
 }
 
-// ── Droppable dock zone ───────────────────────────────────────────────────
 function DroppableDock({ children, isOver, style }: {
   children: React.ReactNode;
   isOver: boolean;
@@ -174,7 +173,6 @@ function DroppableDock({ children, isOver, style }: {
   );
 }
 
-// ── Main Dock ─────────────────────────────────────────────────────────────
 export function Dock({
   pinnedApps, recentTabs: _recentTabs, editing, glass,
   activeId, overContainer,
@@ -185,7 +183,6 @@ export function Dock({
   const dockRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
 
-  // Magnification positions
   const sizes = useRef<number[]>([]);
 
   useLayoutEffect(() => {
@@ -244,7 +241,6 @@ export function Dock({
         </SortableContext>
       </div>
 
-      {/* Drop hint when dragging a grid app over the dock */}
       {isDockOver && !editing && activeId && !pinnedIds.includes(activeId) && (
         <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900/70 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
           Drop to pin

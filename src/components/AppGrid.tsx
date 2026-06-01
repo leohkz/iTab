@@ -1,6 +1,7 @@
 import { FolderPlus, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDroppable, useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut, Folder, Space } from '../types';
@@ -434,9 +435,7 @@ export function AppGrid({
   } : {};
 
   const isGridOver = overContainer === GRID_CONTAINER_ID;
-
   const sortableIds = itemsOnPage.map((i) => i.id);
-
   const gridCssVars = {
     '--grid-cols': `repeat(${gridColumns}, minmax(5.8rem, 1fr))`,
     '--grid-max-w': `${gridColumns * 7.5}rem`,
