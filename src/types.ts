@@ -140,7 +140,7 @@ export interface SearchEngine {
 }
 
 export type SearchEngineId = string;
-export type ThemeName = 'sonoma' | 'ventura' | 'slate';
+export type ThemeName = 'sonoma' | 'ventura' | 'slate' | 'dark';
 
 export interface AiPortal {
   id: string;
