@@ -229,6 +229,41 @@ function PageDots({ total, current, onSelect }: { total: number; current: number
   );
 }
 
+// ── Edge drop zones for drag-to-next-page ─────────────────────────────────
+const NEXT_PAGE_ZONE = 'next-page-zone';
+const PREV_PAGE_ZONE = 'prev-page-zone';
+
+function EdgeDropZone({ id, side, active }: { id: string; side: 'left' | 'right'; active: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id, data: { container: id } });
+  return (
+    <div
+      ref={setNodeRef}
+      className="fixed top-0 bottom-0 z-20 flex items-center justify-center"
+      style={{
+        [side]: 0,
+        width: 64,
+        pointerEvents: active ? 'auto' : 'none',
+      }}
+    >
+      {(isOver || active) && (
+        <div
+          className="h-28 w-10 rounded-full transition-all duration-200"
+          style={{
+            background: isOver
+              ? 'rgba(255,255,255,0.32)'
+              : 'rgba(255,255,255,0.10)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: isOver ? '0 0 24px rgba(255,255,255,0.3)' : 'none',
+            transform: isOver ? 'scaleX(1.15)' : 'scaleX(1)',
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 function SortableGridItem({
   item, editing, spaces, currentSpaceId, activeId,
   onDeleteApp, onRenameApp, onMoveToSpace, onOpenFolder, onDeleteFolder, onRenameFolder,
@@ -343,7 +378,7 @@ export function AppGrid({
   activeId, overContainer,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
-  onMoveToSpace,
+  onMoveToSpace, onMoveToPage,
 }: AppGridProps) {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
@@ -374,7 +409,6 @@ export function AppGrid({
       if (!map.has(p)) map.set(p, []);
       map.get(p)!.push({ kind: 'folder', id: folder.id, folder, apps: apps.filter((a) => a.folderId === folder.id) });
     }
-    // sort each page by position field
     for (const items of map.values()) {
       items.sort((a, b) => {
         const posA = a.kind === 'app' ? (a.app.position ?? 0) : (a.folder.pageIndex ?? 0);
@@ -390,7 +424,6 @@ export function AppGrid({
     return Math.max(...itemsByPage.keys()) + 1;
   }, [itemsByPage]);
 
-  // clamp currentPage if items shrink
   useEffect(() => {
     if (currentPage >= totalPages) setCurrentPage(Math.max(0, totalPages - 1));
   }, [totalPages, currentPage]);
@@ -413,6 +446,20 @@ export function AppGrid({
 
   const goNext = useCallback(() => { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }, [currentPage, totalPages, goToPage]);
   const goPrev = useCallback(() => { if (currentPage > 0) goToPage(currentPage - 1); }, [currentPage, goToPage]);
+
+  // ── Handle edge-drop to move to next/prev page ────────────────────────
+  useEffect(() => {
+    if (!activeId || !overContainer) return;
+    if (overContainer === NEXT_PAGE_ZONE) {
+      // navigate to next page (auto-create by moving app there)
+      const nextPage = currentPage + 1;
+      goToPage(nextPage < totalPages ? nextPage : nextPage); // allow creating new page
+    } else if (overContainer === PREV_PAGE_ZONE && currentPage > 0) {
+      goToPage(currentPage - 1);
+    }
+  // We intentionally only react when overContainer changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overContainer]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.target instanceof Element && e.target.closest('a,button,input')) return;
@@ -454,6 +501,8 @@ export function AppGrid({
     '--grid-max-w': `${gridColumns * 7.5}rem`,
   } as React.CSSProperties;
 
+  const isDragging = Boolean(activeId);
+
   return (
     <main
       ref={mainRef}
@@ -472,6 +521,14 @@ export function AppGrid({
         @keyframes spaceSlideFromRight { from { opacity:0; transform:translateX(48px); } to { opacity:1; transform:translateX(0); } }
         @keyframes spaceSlideFromLeft  { from { opacity:0; transform:translateX(-48px); } to { opacity:1; transform:translateX(0); } }
       `}</style>
+
+      {/* Edge drop zones — visible only while dragging in edit mode */}
+      {editing && isDragging && (
+        <>
+          <EdgeDropZone id={PREV_PAGE_ZONE} side="left"  active={currentPage > 0} />
+          <EdgeDropZone id={NEXT_PAGE_ZONE} side="right" active />
+        </>
+      )}
 
       {editing && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4" aria-live="polite">
@@ -535,10 +592,16 @@ export function AppGrid({
         </div>
       </section>
 
-      {/* Page dots – above dock */}
+      {/* Page dots — z-50 so it renders above dock glass (z-40) */}
       {totalPages > 1 && (
-        <div className="fixed bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-1.5"
-          style={{ background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(12px) saturate(1.4)', WebkitBackdropFilter: 'blur(12px) saturate(1.4)', border: '1px solid rgba(255,255,255,0.12)' }}>
+        <div className="fixed z-50 left-1/2 -translate-x-1/2 rounded-full px-3 py-1.5"
+          style={{
+            bottom: '5.2rem', // above dock (bottom-4 + ~64px dock height)
+            background: 'rgba(0,0,0,0.28)',
+            backdropFilter: 'blur(12px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(12px) saturate(1.4)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}>
           <PageDots total={totalPages} current={currentPage} onSelect={goToPage} />
         </div>
       )}
@@ -607,3 +670,5 @@ export function AppGrid({
     </main>
   );
 }
+
+export { NEXT_PAGE_ZONE, PREV_PAGE_ZONE };

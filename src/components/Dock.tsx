@@ -65,13 +65,12 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-// ── Calculates magnified sizes based on mouse position ────────────────────
 function useDockSizes(count: number, editing: boolean) {
   const [mouseX, setMouseX] = useState<number | null>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   const sizes = editing || mouseX === null
-    ? Array(count).fill(BASE) as number[]
+    ? (Array(count).fill(BASE) as number[])
     : itemRefs.current.map((el) => {
         if (!el) return BASE;
         const rect = el.getBoundingClientRect();
@@ -115,13 +114,17 @@ function SortableDockItem({
     position: 'relative',
     touchAction: 'none',
     flexShrink: 0,
+    // Allow icon to visually overflow the glass pill
+    overflow: 'visible',
+    zIndex: 1,
   };
 
   const iconWrapper: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: '100%', height: '100%',
     borderRadius: wrapRadius,
-    overflow: 'hidden', isolation: 'isolate',
+    // No overflow:hidden so magnified icon bleeds outside glass
+    isolation: 'isolate',
   };
 
   const badgeBase: React.CSSProperties = {
@@ -146,7 +149,8 @@ function SortableDockItem({
       {...(editing ? { ...attributes, ...listeners } : {})}
     >
       {editing ? (
-        <span className="app-link animate-jiggle" aria-label={app.name}>
+        <span className="app-link animate-jiggle" aria-label={app.name}
+          style={{ display: 'flex', width: '100%', height: '100%', position: 'relative' }}>
           <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
           <button type="button" aria-label={`Remove ${app.name} from dock`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
@@ -163,6 +167,7 @@ function SortableDockItem({
         </span>
       ) : (
         <a href={app.url} target="_blank" rel="noreferrer" aria-label={`Open ${app.name}`}
+          style={{ display: 'flex', width: '100%', height: '100%' }}
           {...attributes} {...listeners}
         >
           <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
@@ -172,12 +177,11 @@ function SortableDockItem({
   );
 }
 
-function DroppableDock({ children, isOver, onMouseMove, onMouseLeave, style }: {
+function DroppableDock({ children, isOver, onMouseMove, onMouseLeave }: {
   children: React.ReactNode;
   isOver: boolean;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
-  style?: React.CSSProperties;
 }) {
   const { setNodeRef } = useDroppable({
     id: DOCK_CONTAINER_ID,
@@ -187,10 +191,10 @@ function DroppableDock({ children, isOver, onMouseMove, onMouseLeave, style }: {
     <ul
       ref={setNodeRef}
       className={[
-        'relative flex items-end gap-3 px-5 py-3 transition-all duration-200',
+        // overflow-visible so magnified icons bleed upward
+        'relative flex items-end gap-3 px-5 py-3 transition-all duration-200 overflow-visible',
         isOver ? 'scale-[1.03]' : '',
       ].join(' ')}
-      style={style}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
     >
@@ -220,10 +224,14 @@ export function Dock({
   const pinnedIds = pinnedApps.map((a) => a.id);
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2"
+      // overflow-visible so magnified icons are not clipped at the wrapper level
+      style={{ overflow: 'visible' }}
+    >
+      {/* Glass pill — overflow:visible so icons can bleed upward */}
       <div
-        className="overflow-hidden rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
-        style={dockBg}
+        className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
+        style={{ ...dockBg, overflow: 'visible' }}
       >
         <SortableContext items={pinnedIds} strategy={horizontalListSortingStrategy}>
           <DroppableDock
