@@ -62,9 +62,9 @@ const glassBadgeBase: React.CSSProperties = {
   boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.9)',
   border: '1px solid rgba(255,255,255,0.6)',
 };
-const removeBadgeStyle: React.CSSProperties  = { ...glassBadgeBase, top: BADGE_OFFSET, left: BADGE_OFFSET };
-const editBadgeStyle: React.CSSProperties    = { ...glassBadgeBase, top: BADGE_OFFSET, right: BADGE_OFFSET };
-const spaceBadgeStyle: React.CSSProperties   = {
+const removeBadgeStyle: React.CSSProperties = { ...glassBadgeBase, top: BADGE_OFFSET, left: BADGE_OFFSET };
+const editBadgeStyle: React.CSSProperties   = { ...glassBadgeBase, top: BADGE_OFFSET, right: BADGE_OFFSET };
+const spaceBadgeStyle: React.CSSProperties  = {
   position: 'absolute', bottom: BADGE_OFFSET, left: '50%', transform: 'translateX(-50%)',
   zIndex: 20, whiteSpace: 'nowrap', cursor: 'pointer',
   background: 'rgba(255,255,255,0.78)',
@@ -109,7 +109,6 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   );
 }
 
-// Folder preview — same 4.5rem × 4.5rem as a grid icon
 function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?: boolean }) {
   const previewApps = apps.slice(0, 4);
   return (
@@ -241,15 +240,6 @@ function PageDots({ total, current, onSelect }: { total: number; current: number
   );
 }
 
-/**
- * Folder cell.
- *
- * Key design:
- * - `useDroppable` with its own `dropId` is always active — this is what receives
- *   app icons dragged onto the folder regardless of editing mode.
- * - `useSortable` is only active (drag-to-reorder) when editing.
- * - The two refs are merged onto the same outer div so both get pointer events.
- */
 function DroppableFolderItem({
   item, editing, activeId, overContainer,
   onOpenFolder, onDeleteFolder, onRenameFolder,
@@ -271,23 +261,19 @@ function DroppableFolderItem({
   } = useSortable({
     id: item.id,
     data: { container: GRID_CONTAINER_ID },
-    // Folder reordering only when editing; dragging is still allowed always
-    // but we only apply listeners when editing so normal clicks still work.
     disabled: false,
   });
 
-  // Always-active drop zone — receives any dragged app icon
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: dropId,
     data: { container: dropId, folderId: item.folder.id },
   });
 
-  // Merge both refs on the same DOM node
-  const setRef = useCallback((el: HTMLDivElement | null) => {
+  // Merge both refs inline — no useCallback needed, stable identity
+  const mergedRef = (el: HTMLDivElement | null) => {
     setSortableRef(el);
     setDropRef(el);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   const sortableStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -297,16 +283,12 @@ function DroppableFolderItem({
     touchAction: 'none',
   };
 
-  // `overContainer` comes from App's handleDragOver — it is set to the dropId
-  // when the pointer is over this folder.
   const isDropTarget = isOver || overContainer === dropId;
 
   return (
     <div
-      ref={setRef}
+      ref={mergedRef}
       style={sortableStyle}
-      // Spread sortable attributes always; listeners only when editing
-      // so pointer-down is not swallowed in normal (non-edit) mode.
       {...attributes}
       {...(editing ? listeners : {})}
       className={[
@@ -351,15 +333,6 @@ function DroppableFolderItem({
   );
 }
 
-/**
- * App icon cell.
- *
- * useSortable is always enabled (not disabled) so the icon is always
- * draggable — iOS-style. Listeners are only spread when editing so that
- * normal clicks open the URL instead of initiating a drag.
- * The DndContext PointerSensor uses activationConstraint: { distance: 8 }
- * so small taps still register as clicks.
- */
 function SortableGridItem({
   item, editing, spaces, currentSpaceId, activeId, overContainer,
   onDeleteApp, onRenameApp, onMoveToSpace, onOpenFolder, onDeleteFolder, onRenameFolder,
@@ -391,7 +364,6 @@ function SortableGridItem({
     );
   }
 
-  // Always draggable — useSortable never disabled for app icons
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging,
@@ -413,8 +385,6 @@ function SortableGridItem({
     <div
       ref={setNodeRef}
       style={style}
-      // Spread attributes always; listeners only when editing so normal
-      // pointer-down doesn't block click-to-navigate in view mode.
       {...attributes}
       {...(editing ? listeners : {})}
       className={[
@@ -528,8 +498,13 @@ export function AppGrid({
     setTimeout(() => { setCurrentPage(page); setSlideDir(null); setAnimating(false); }, 320);
   }, [currentPage, animating]);
 
-  const goNext = useCallback(() => { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }, [currentPage, totalPages, goToPage]);
-  const goPrev = useCallback(() => { if (currentPage > 0) goToPage(currentPage - 1); }, [currentPage, goToPage]);
+  const goNext = useCallback(() => {
+    if (currentPage < totalPages - 1) goToPage(currentPage + 1);
+  }, [currentPage, totalPages, goToPage]);
+
+  const goPrev = useCallback(() => {
+    if (currentPage > 0) goToPage(currentPage - 1);
+  }, [currentPage, goToPage]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.target instanceof Element && e.target.closest('a,button,input')) return;
