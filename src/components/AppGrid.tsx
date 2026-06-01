@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut, Folder, Space } from '../types';
 import type { TranslationKey } from '../i18n';
-import { GRID_CONTAINER_ID, DOCK_CONTAINER_ID } from '../App';
+import { GRID_CONTAINER_ID } from '../App';
 
 type AppGridProps = {
   apps: AppShortcut[];
@@ -20,9 +20,7 @@ type AppGridProps = {
   pendingNavigatePage?: number | null;
   onNavigated?: () => void;
   t: (key: TranslationKey) => string;
-  /** Active drag ID from DndContext */
   activeId?: string | null;
-  /** Which container the active drag is currently hovering */
   overContainer?: string | null;
   onOpenFolder: (folderId: string) => void;
   onCloseFolder: () => void;
@@ -74,7 +72,6 @@ const spaceBadgeStyle: React.CSSProperties   = {
 };
 const svgSize = BADGE_PX * 0.5;
 
-// ─── Delete confirm ───────────────────────────────────────────────────────────
 function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   title: string; message: string; onConfirm: () => void; onCancel: () => void;
 }) {
@@ -109,7 +106,6 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   );
 }
 
-// ─── Folder preview ───────────────────────────────────────────────────────────
 function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   const previewApps = apps.slice(0, 4);
   return (
@@ -124,7 +120,6 @@ function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   );
 }
 
-// ─── Icon with edit badges ────────────────────────────────────────────────────
 function IconWithBadges({
   app, editing, spaces, currentSpaceId, onDelete, onRename, onMoveToSpace,
 }: {
@@ -187,7 +182,6 @@ function IconWithBadges({
   );
 }
 
-// ─── Folder rename overlay ────────────────────────────────────────────────────
 function FolderRenameOverlay({ name, onSave, onCancel, t }: {
   name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string;
 }) {
@@ -214,7 +208,6 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: {
   );
 }
 
-// ─── Page dots ────────────────────────────────────────────────────────────────
 function PageDots({ total, current, onSelect }: { total: number; current: number; onSelect: (i: number) => void }) {
   if (total <= 1) return null;
   return (
@@ -235,7 +228,6 @@ function PageDots({ total, current, onSelect }: { total: number; current: number
   );
 }
 
-// ─── Sortable grid item ───────────────────────────────────────────────────────
 function SortableGridItem({
   item, editing, spaces, currentSpaceId, activeId,
   onDeleteApp, onRenameApp, onMoveToSpace, onOpenFolder, onDeleteFolder, onRenameFolder,
@@ -331,7 +323,6 @@ function SortableGridItem({
   );
 }
 
-// ─── Droppable grid container ─────────────────────────────────────────────────
 function DroppableGrid({ id, children, isOver }: { id: string; children: React.ReactNode; isOver: boolean }) {
   const { setNodeRef } = useDroppable({ id, data: { container: id } });
   return (
@@ -345,14 +336,13 @@ function DroppableGrid({ id, children, isOver }: { id: string; children: React.R
   );
 }
 
-// ─── Main AppGrid ─────────────────────────────────────────────────────────────
 export function AppGrid({
   apps, folders, editing, selectedFolderId, gridColumns, gridRows,
   currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, t,
   activeId, overContainer,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
-  onReorder, onMoveToEnd: _onMoveToEnd, onMoveToPage, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
+  onMoveToSpace,
 }: AppGridProps) {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
@@ -444,8 +434,6 @@ export function AppGrid({
   } : {};
 
   const isGridOver = overContainer === GRID_CONTAINER_ID;
-  // Also show hint when a dock item is dragged over grid
-  const isDockItemOverGrid = !!activeId && isGridOver;
 
   const sortableIds = itemsOnPage.map((i) => i.id);
 
@@ -484,7 +472,7 @@ export function AppGrid({
       <section key={currentSpaceId} className="w-full max-w-5xl" aria-label="App grid" style={spaceAnimStyle}>
         <div style={pageSlideStyle}>
           <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-            <DroppableGrid id={GRID_CONTAINER_ID} isOver={isDockItemOverGrid}>
+            <DroppableGrid id={GRID_CONTAINER_ID} isOver={isGridOver}>
               {itemsOnPage.map((item) => (
                 <div key={item.id} onPointerDown={(e) => setLongPress(e.currentTarget)}>
                   <SortableGridItem
@@ -503,7 +491,6 @@ export function AppGrid({
                 </div>
               ))}
 
-              {/* Editing: Add / New Folder buttons */}
               {editing && currentPage === totalPages - 1 && (
                 <>
                   <button type="button"
@@ -527,7 +514,6 @@ export function AppGrid({
                 </>
               )}
 
-              {/* Invisible drop slots to fill page capacity */}
               {Array.from({ length: Math.max(0, pageCapacity - itemsOnPage.length - (editing && currentPage === totalPages - 1 ? 2 : 0)) }).map((_, i) => (
                 <div key={`slot-${i}`} aria-hidden="true"
                   style={{ height: 0, minHeight: 0, overflow: 'visible', padding: 0, margin: 0 }} />
@@ -544,7 +530,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Folder modal */}
       {selectedFolder && (
         <div className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
           role="presentation"
