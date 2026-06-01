@@ -291,8 +291,6 @@ export function AppGrid({
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null);
   const [animating, setAnimating] = useState(false);
   const [dragOverPageEdge, setDragOverPageEdge] = useState<'left' | 'right' | null>(null);
-  // Space slide: track enter transform
-  const [spaceEnter, setSpaceEnter] = useState<string>('translateX(0)');
   const mainRef = useRef<HTMLElement>(null);
   const edgeDragTimerRef = useRef<number | null>(null);
 
@@ -324,19 +322,8 @@ export function AppGrid({
     if (currentPage >= totalPages) setCurrentPage(Math.max(0, totalPages - 1));
   }, [totalPages, currentPage]);
 
-  // Reset page + run space slide animation
-  useEffect(() => {
-    setCurrentPage(0);
-    if (spaceDirection) {
-      const from = spaceDirection === 'right' ? 'translateX(40px)' : 'translateX(-40px)';
-      setSpaceEnter(from);
-      const raf = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setSpaceEnter('translateX(0)'));
-      });
-      return () => cancelAnimationFrame(raf);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSpaceId]);
+  // Reset page when space changes
+  useEffect(() => { setCurrentPage(0); }, [currentSpaceId]);
 
   const itemsOnPage = useMemo(() => {
     const start = currentPage * pageCapacity;
@@ -426,11 +413,13 @@ export function AppGrid({
     };
   }
 
-  const spaceTransStyle: React.CSSProperties = {
-    transform: spaceEnter,
-    opacity: spaceEnter === 'translateX(0)' ? 1 : 0,
-    transition: 'transform 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.32s',
-  };
+  // Space slide animation: use CSS keyframe via inline animation string
+  // When spaceDirection exists, slide in from the appropriate side
+  const spaceAnimStyle: React.CSSProperties = spaceDirection ? {
+    animation: spaceDirection === 'right'
+      ? 'spaceSlideFromRight 0.32s cubic-bezier(0.4,0,0.2,1) both'
+      : 'spaceSlideFromLeft 0.32s cubic-bezier(0.4,0,0.2,1) both',
+  } : {};
 
   const cellClass = [
     'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
@@ -460,6 +449,18 @@ export function AppGrid({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
+      {/* CSS keyframes injected inline */}
+      <style>{`
+        @keyframes spaceSlideFromRight {
+          from { opacity: 0; transform: translateX(48px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes spaceSlideFromLeft {
+          from { opacity: 0; transform: translateX(-48px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+
       {editing && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4" aria-live="polite">
           <span className="rounded-full bg-slate-950/60 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80 backdrop-blur-md">
@@ -475,7 +476,13 @@ export function AppGrid({
         <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-16 bg-gradient-to-l from-white/20 to-transparent" />
       )}
 
-      <section className="w-full max-w-5xl" aria-label="App grid" style={spaceTransStyle}>
+      {/* key=currentSpaceId forces remount on space change so animation always fires */}
+      <section
+        key={currentSpaceId}
+        className="w-full max-w-5xl"
+        aria-label="App grid"
+        style={spaceAnimStyle}
+      >
         <div style={pageSlideStyle}>
           {isEmptyPage ? (
             <div
