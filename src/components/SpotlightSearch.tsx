@@ -64,7 +64,6 @@ export function SpotlightSearch({
   );
   const activeEngine = enabledEngines[activeEngineIdx] ?? enabledEngines[0];
 
-  // Switch engine without clearing query
   const switchEngine = useCallback((id: SearchEngineId) => {
     setEngineId(id);
     onEngineChange(id);
@@ -81,40 +80,34 @@ export function SpotlightSearch({
     }
   }, [defaultEngine, open]);
 
-  // Detect shortcut prefix (e.g. "g " for Google)
   const normalized  = query.trim().toLowerCase();
   const engineMatch = enabledEngines.find(e => e.shortcut && normalized.startsWith(`${e.shortcut} `));
   const cleanQuery  = engineMatch ? query.trim().slice((engineMatch.shortcut ?? '').length + 1).trim() : query.trim();
   const displayEngine = engineMatch ?? activeEngine;
 
-  // ── Build result list ──────────────────────────────────────────────────────
   const results = useMemo((): ResultItem[] => {
     if (!normalized) return [];
     const q = normalized;
     const out: ResultItem[] = [];
 
-    // Apps
     apps
       .filter(a => a.name.toLowerCase().includes(q) || a.url.toLowerCase().includes(q))
       .slice(0, 5)
       .forEach(app => out.push({ kind: 'app', app }));
 
-    // Todos
     todos
       .filter(td => !td.done && td.text.toLowerCase().includes(q))
       .slice(0, 3)
       .forEach(item => out.push({ kind: 'todo', item }));
 
-    // Notes
     noteTabs.forEach(tab => {
-      const idx = tab.content.toLowerCase().indexOf(q);
-      if (idx === -1) return;
-      const start   = Math.max(0, idx - 30);
-      const snippet = (start > 0 ? '…' : '') + tab.content.slice(start, idx + q.length + 40).trim() + '…';
+      const pos = tab.content.toLowerCase().indexOf(q);
+      if (pos === -1) return;
+      const start   = Math.max(0, pos - 30);
+      const snippet = (start > 0 ? '…' : '') + tab.content.slice(start, pos + q.length + 40).trim() + '…';
       out.push({ kind: 'note', tab, snippet });
     });
 
-    // Prompts
     prompts
       .filter(p => p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q))
       .slice(0, 3)
@@ -123,7 +116,6 @@ export function SpotlightSearch({
     return out;
   }, [normalized, apps, todos, noteTabs, prompts]);
 
-  // Include web-search action as last item when there's a query
   const hasSearch  = Boolean(cleanQuery && displayEngine);
   const totalItems = results.length + (hasSearch ? 1 : 0);
 
@@ -139,7 +131,6 @@ export function SpotlightSearch({
     if (idx < results.length) {
       const r = results[idx];
       if (r.kind === 'app') { window.open(r.app.url, '_blank', 'noopener,noreferrer'); onClose(); }
-      // todo/note/prompt — just copy to clipboard for now
       if (r.kind === 'todo')   { navigator.clipboard.writeText(r.item.text).catch(() => {}); onClose(); }
       if (r.kind === 'note')   { navigator.clipboard.writeText(r.tab.content).catch(() => {}); onClose(); }
       if (r.kind === 'prompt') { navigator.clipboard.writeText(r.prompt.content).catch(() => {}); onClose(); }
@@ -161,7 +152,6 @@ export function SpotlightSearch({
     }
   }, [onClose, totalItems, cursor, activateItem, submitSearch, switchEngine, enabledEngines, activeEngineIdx]);
 
-  // Scroll cursor into view
   useEffect(() => {
     if (cursor < 0 || !listRef.current) return;
     const el = listRef.current.querySelector<HTMLElement>(`[data-idx="${cursor}"]`);
@@ -192,7 +182,6 @@ export function SpotlightSearch({
             placeholder={t('searchPlaceholder')}
             className="min-w-0 flex-1 bg-white text-lg font-bold tracking-[-0.04em] text-slate-950 placeholder:text-slate-400 focus:outline-none"
           />
-          {/* Active engine name badge */}
           {displayEngine && (
             <span className="shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black text-white">
               {displayEngine.name}
@@ -207,7 +196,7 @@ export function SpotlightSearch({
         {/* ── Engine icon strip ── */}
         <div className="flex items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-5 py-2.5 shrink-0 overflow-x-auto">
           <p className="mr-2 shrink-0 text-[0.6rem] font-black uppercase tracking-[0.18em] text-slate-400">← →</p>
-          {enabledEngines.map((eng, idx) => {
+          {enabledEngines.map((eng) => {
             const isActive = eng.id === displayEngine?.id;
             const faviconUrl = eng.url ? getFavicon(eng.url) : '';
             return (
@@ -230,12 +219,10 @@ export function SpotlightSearch({
                     {eng.name.charAt(0).toUpperCase()}
                   </span>
                 )}
-                {/* Hover tooltip */}
                 <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
                   {eng.name}
                   {eng.shortcut && <span className="ml-1 opacity-60">{eng.shortcut}</span>}
                 </span>
-                {/* Selected idx indicator */}
                 {isActive && (
                   <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-slate-900" />
                 )}
@@ -247,7 +234,6 @@ export function SpotlightSearch({
         {/* ── Results ── */}
         <div ref={listRef} className="overflow-y-auto p-4 flex flex-col gap-4">
 
-          {/* Recent searches */}
           {showRecent && (
             <div>
               <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('recentSearches')}</p>
@@ -272,7 +258,7 @@ export function SpotlightSearch({
               <div>
                 <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
-                  {appItems.map((r, localIdx) => {
+                  {appItems.map((r) => {
                     const globalIdx = results.indexOf(r);
                     const isActive  = cursor === globalIdx;
                     const fav = getFavicon(r.app.url);
@@ -395,11 +381,11 @@ export function SpotlightSearch({
 
           {/* Web search action */}
           {hasSearch && (() => {
-            const idx = results.length;
-            const isActive = cursor === idx;
+            const searchIdx = results.length;
+            const isActive = cursor === searchIdx;
             return (
-              <button type="button" data-idx={idx}
-                onMouseEnter={() => setCursor(idx)}
+              <button type="button" data-idx={searchIdx}
+                onMouseEnter={() => setCursor(searchIdx)}
                 onClick={submitSearch}
                 className={['flex items-center justify-between rounded-xl px-3 py-3 text-left transition duration-200', isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'].join(' ')}>
                 <span className="flex items-center gap-3">
@@ -414,12 +400,10 @@ export function SpotlightSearch({
             );
           })()}
 
-          {/* Empty state */}
           {normalized && results.length === 0 && !hasSearch && (
             <p className="py-6 text-center text-sm font-semibold text-slate-400">{t('noResults')}</p>
           )}
 
-          {/* Default: show app grid when empty query */}
           {!normalized && (
             <div>
               <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
