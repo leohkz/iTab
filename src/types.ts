@@ -92,6 +92,8 @@ export interface AppShortcut {
   spaceId?: string;
   /** iOS-style: which page (0-based) this icon lives on. undefined = legacy, treated as page 0 */
   pageIndex?: number;
+  /** Position within the page (0-based). Used for intra-page drag reorder. */
+  position?: number;
 }
 
 export interface Folder {
@@ -101,6 +103,8 @@ export interface Folder {
   spaceId?: string;
   /** iOS-style: which page (0-based) this folder lives on. */
   pageIndex?: number;
+  /** Position within the page (0-based). Used for intra-page drag reorder. */
+  position?: number;
 }
 
 export const SPACE_ACCENTS = [
