@@ -17,6 +17,12 @@ type AppGridProps = {
   pendingNavigatePage?: number | null;
   onNavigated?: () => void;
   t: (key: TranslationKey) => string;
+  /** The app ID currently being dragged from Dock (external source) */
+  externalDraggingId?: string | null;
+  /** Called when this grid starts dragging an app */
+  onDragStart?: (id: string) => void;
+  /** Called when drag ends */
+  onDragEnd?: () => void;
   onOpenFolder: (folderId: string) => void;
   onCloseFolder: () => void;
   onStartEditing: () => void;
@@ -84,7 +90,7 @@ const spaceBadgeStyle: React.CSSProperties  = {
 
 const svgSize = BADGE_PX * 0.5;
 
-// ─── Delete confirm sheet ─────────────────────────────────────────────────────
+// ─── Delete confirm sheet ────────────────────────────────────────────────────────────────────────────
 function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   title: string; message: string; onConfirm: () => void; onCancel: () => void;
 }) {
@@ -123,7 +129,7 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   );
 }
 
-// ─── Folder preview ──────────────────────────────────────────────────────────
+// ─── Folder preview ────────────────────────────────────────────────────────────────────────────
 function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   const previewApps = apps.slice(0, 4);
   return (
@@ -138,7 +144,7 @@ function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   );
 }
 
-// ─── Icon with edit badges ───────────────────────────────────────────────────
+// ─── Icon with edit badges ─────────────────────────────────────────────────────────────────────
 function IconWithBadges({
   app, editing, spaces, currentSpaceId,
   onDelete, onRename, onMoveToSpace,
@@ -218,7 +224,7 @@ function IconWithBadges({
   );
 }
 
-// ─── Folder rename overlay ───────────────────────────────────────────────────
+// ─── Folder rename overlay ───────────────────────────────────────────────────────────────────────
 function FolderRenameOverlay({ name, onSave, onCancel, t }: {
   name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string;
 }) {
@@ -248,7 +254,7 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: {
   );
 }
 
-// ─── Page dots ───────────────────────────────────────────────────────────────
+// ─── Page dots ─────────────────────────────────────────────────────────────────────────────────
 function PageDots({
   total, current, onSelect,
 }: { total: number; current: number; onSelect: (i: number) => void }) {
@@ -278,10 +284,11 @@ function PageDots({
   );
 }
 
-// ─── Main AppGrid ─────────────────────────────────────────────────────────────
+// ─── Main AppGrid ─────────────────────────────────────────────────────────────────────────────
 export function AppGrid({
   apps, folders, editing, selectedFolderId, gridColumns, gridRows,
   currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, t,
+  externalDraggingId, onDragStart, onDragEnd,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onReorder, onMoveToEnd: _onMoveToEnd, onMoveToPage, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
@@ -306,6 +313,9 @@ export function AppGrid({
   const [dragOverPageEdge, setDragOverPageEdge] = useState<'left' | 'right' | 'new' | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const edgeDragTimerRef = useRef<number | null>(null);
+
+  // ─ Drop-slot hover state: which slot index is currently hovered by an external drag
+  const [externalDropSlot, setExternalDropSlot] = useState<number | null>(null);
 
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
@@ -352,6 +362,11 @@ export function AppGrid({
   }, [pendingNavigatePage, onNavigated]);
 
   useEffect(() => { setCurrentPage(0); }, [currentSpaceId]);
+
+  // Clear external drop slot when external drag ends
+  useEffect(() => {
+    if (!externalDraggingId) setExternalDropSlot(null);
+  }, [externalDraggingId]);
 
   const goToPage = useCallback((page: number) => {
     if (page === currentPage || animating) return;
@@ -426,6 +441,7 @@ export function AppGrid({
     if (mainRef.current && !mainRef.current.contains(e.relatedTarget as Node)) {
       setDragOverPageEdge(null);
       clearEdgeTimer();
+      setExternalDropSlot(null);
     }
   };
 
@@ -472,20 +488,29 @@ export function AppGrid({
       : 'spaceSlideFromLeft 0.32s cubic-bezier(0.4,0,0.2,1) both',
   } : {};
 
+  // The "active" drag ID: prefer local, fall back to external (Dock drag)
+  const activeDraggingId = draggedId ?? externalDraggingId ?? null;
+
   const cellClass = [
     'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
     editing ? 'cursor-grab' : '',
   ].join(' ');
 
-  const isDragging = !!draggedId;
+  const isDragging = !!activeDraggingId;
 
   // Extra editing buttons count on last page
   const editingExtraCount = (editing && currentPage === totalPages - 1) ? 2 : 0;
   // Total visible items = actual items + editing buttons
   const visibleCount = itemsOnPage.length + editingExtraCount;
-  // Invisible drop slots fill up to pageCapacity (they have zero visual height)
-  // so they never push the grid height beyond what items actually occupy.
+  // Invisible drop slots fill up to pageCapacity
   const invisibleDropSlots = Math.max(0, pageCapacity - visibleCount);
+
+  // When an external drag is happening, compute how items shift to make room
+  // iOS-style: items at index >= externalDropSlot shift right by one cell
+  const getExternalShift = (itemIndex: number): boolean => {
+    if (!externalDraggingId || externalDropSlot === null) return false;
+    return itemIndex >= externalDropSlot;
+  };
 
   return (
     <main
@@ -502,6 +527,7 @@ export function AppGrid({
       onDrop={(e) => {
         e.preventDefault();
         clearEdgeTimer();
+        setExternalDropSlot(null);
         if (dragOverPageEdge === 'new') { handleNewPageEdgeDrop(e); return; }
         setDragOverPageEdge(null);
         if (dropHandledRef.current) { dropHandledRef.current = false; return; }
@@ -514,6 +540,7 @@ export function AppGrid({
           }
         }
         setDragged(null);
+        onDragEnd?.();
       }}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -576,20 +603,34 @@ export function AppGrid({
             style={{ gridTemplateColumns, maxWidth: `${gridColumns * 7.5}rem` }}
           >
             {/* Visible items */}
-            {itemsOnPage.map((item) => {
+            {itemsOnPage.map((item, itemIndex) => {
+              // iOS-style: shift item right if an external drag is hovering before it
+              const shifted = getExternalShift(itemIndex);
+              const itemStyle: React.CSSProperties = externalDraggingId ? {
+                transform: shifted ? 'translateX(8px) scale(0.96)' : 'none',
+                transition: 'transform 0.18s cubic-bezier(0.34,1.2,0.64,1)',
+              } : {};
+
               if (item.kind === 'folder') {
                 return (
                   <div
                     key={item.id}
-                    className={[cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
+                    className={[cellClass, activeDraggingId === item.id ? 'opacity-45' : ''].join(' ')}
+                    style={itemStyle}
                     draggable={editing}
-                    onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); }}
-                    onDragOver={(e) => e.preventDefault()}
+                    onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); onDragStart?.(item.id); }}
+                    onDragEnd={() => { setDragged(null); onDragEnd?.(); }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (externalDraggingId && !editing) setExternalDropSlot(itemIndex);
+                    }}
                     onDrop={(e) => {
                       e.stopPropagation(); dropHandledRef.current = true;
+                      setExternalDropSlot(null);
                       const id = readId(e);
                       if (id && id !== item.id) onMoveToFolder(id, item.folder.id);
                       setDragged(null);
+                      onDragEnd?.();
                     }}
                     onPointerDown={(e) => setLongPress(e.currentTarget)}
                     data-anim="app-icon"
@@ -629,15 +670,22 @@ export function AppGrid({
               return (
                 <div
                   key={item.id}
-                  className={[cellClass, draggedId === item.id ? 'opacity-45' : ''].join(' ')}
+                  className={[cellClass, activeDraggingId === item.id ? 'opacity-45' : ''].join(' ')}
+                  style={itemStyle}
                   draggable={editing}
-                  onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); }}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); onDragStart?.(item.id); }}
+                  onDragEnd={() => { setDragged(null); onDragEnd?.(); }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (externalDraggingId && !editing) setExternalDropSlot(itemIndex);
+                  }}
                   onDrop={(e) => {
                     e.stopPropagation(); dropHandledRef.current = true;
+                    setExternalDropSlot(null);
                     const id = readId(e);
                     if (id && id !== item.id) onReorder(id, item.id);
                     setDragged(null);
+                    onDragEnd?.();
                   }}
                   onPointerDown={(e) => setLongPress(e.currentTarget)}
                   data-testid={`link-app-${item.app.id}`}
@@ -695,12 +743,17 @@ export function AppGrid({
                 key={`drop-${i}`}
                 aria-hidden="true"
                 style={{ height: 0, minHeight: 0, overflow: 'visible', padding: 0, margin: 0 }}
-                onDragOver={(e) => e.preventDefault()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (externalDraggingId && !editing) setExternalDropSlot(itemsOnPage.length + i);
+                }}
                 onDrop={(e) => {
                   e.stopPropagation(); dropHandledRef.current = true;
+                  setExternalDropSlot(null);
                   const id = readId(e);
                   if (id) onMoveToPage(id, currentPage);
                   setDragged(null);
+                  onDragEnd?.();
                 }}
               />
             ))}
@@ -733,6 +786,7 @@ export function AppGrid({
             const id = readId(e);
             if (id) onMoveOutOfFolder(id);
             setDragged(null);
+            onDragEnd?.();
           }}
         >
           <section
@@ -752,7 +806,8 @@ export function AppGrid({
                   key={app.id}
                   className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
                   draggable={editing}
-                  onDragStart={(e) => { setDragged(app.id); e.dataTransfer.setData('text/plain', app.id); }}
+                  onDragStart={(e) => { setDragged(app.id); e.dataTransfer.setData('text/plain', app.id); onDragStart?.(app.id); }}
+                  onDragEnd={() => { setDragged(null); onDragEnd?.(); }}
                 >
                   <a
                     href={editing ? undefined : app.url}
