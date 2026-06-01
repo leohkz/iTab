@@ -1,6 +1,6 @@
 import { FolderPlus, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AppIcon } from './AppIcon';
@@ -22,7 +22,6 @@ type AppGridProps = {
   spaceDirection?: 'left' | 'right' | null;
   pendingNavigatePage?: number | null;
   onNavigated?: () => void;
-  /** Called whenever the visible page index changes */
   onPageChange?: (page: number) => void;
   t: (key: TranslationKey) => string;
   activeId?: string | null;
@@ -301,7 +300,6 @@ function DroppableFolderItem({
       <button
         type="button"
         onClick={(e) => {
-          // Bug fix: 編輯模式也可以點擊打開 folder（只是不能拖拽 folder 本身）
           e.stopPropagation();
           onOpenFolder(item.folder.id);
         }}
@@ -331,6 +329,61 @@ function DroppableFolderItem({
           {item.folder.name}
         </span>
       </button>
+    </div>
+  );
+}
+
+/** Draggable app item inside the folder popup (editing mode only) */
+function DraggableFolderApp({
+  app, folderId, editing, spaces, currentSpaceId, activeId,
+  onDelete, onRename, onMoveToSpace,
+}: {
+  app: AppShortcut;
+  folderId: string;
+  editing: boolean;
+  spaces: Space[];
+  currentSpaceId: string;
+  activeId?: string | null;
+  onDelete: () => void;
+  onRename: () => void;
+  onMoveToSpace: (spaceId: string | undefined) => void;
+}) {
+  const containerId = `${FOLDER_DROP_PREFIX}${folderId}`;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: app.id,
+    data: { container: containerId },
+    disabled: !editing,
+  });
+
+  const style: React.CSSProperties = {
+    transform: transform ? `translate(${transform.x}px,${transform.y}px)` : undefined,
+    opacity: isDragging || activeId === app.id ? 0.35 : 1,
+    touchAction: 'none',
+    cursor: editing ? 'grab' : 'default',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...(editing ? listeners : {})}
+      className="relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2"
+    >
+      <a
+        href={editing ? undefined : app.url}
+        target="_blank" rel="noreferrer"
+        onClick={(e) => { if (editing) e.preventDefault(); }}
+        className="flex flex-col items-center gap-2 rounded-[1.4rem] p-1 transition duration-200 hover:bg-white/12"
+      >
+        <IconWithBadges
+          app={app} editing={editing} spaces={spaces} currentSpaceId={currentSpaceId}
+          onDelete={onDelete}
+          onRename={onRename}
+          onMoveToSpace={onMoveToSpace}
+        />
+        <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
+      </a>
     </div>
   );
 }
@@ -558,6 +611,18 @@ export function AppGrid({
     '--grid-max-w': `${gridColumns * 7.5}rem`,
   } as React.CSSProperties;
 
+  // folder popup 拖出時自動關閉 folder
+  const prevActiveIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const wasInFolder = selectedFolder && prevActiveIdRef.current &&
+      selectedFolderApps.some((a) => a.id === prevActiveIdRef.current);
+    const dragEnded = prevActiveIdRef.current !== null && activeId === null;
+    if (wasInFolder && dragEnded) {
+      onCloseFolder();
+    }
+    prevActiveIdRef.current = activeId ?? null;
+  }, [activeId, selectedFolder, selectedFolderApps, onCloseFolder]);
+
   return (
     <main
       ref={mainRef}
@@ -649,7 +714,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Bug 5 fix: folder popup 加深背景 + 動畫 */}
       {selectedFolder && (
         <div
           className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/40 px-6"
@@ -671,7 +735,7 @@ export function AppGrid({
               boxShadow: '0 30px 90px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18)',
               animation: 'folderPanelIn 0.26s cubic-bezier(0.34,1.56,0.64,1) both',
             }}
-            onPointerDown={(e) => e.stopPropagation()}
+            // 不 stopPropagation，讓 dnd-kit PointerSensor 可以收到 pointerdown
           >
             <div className="mb-6 text-center">
               <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
@@ -679,22 +743,18 @@ export function AppGrid({
             </div>
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (
-                <div key={app.id}
-                  className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
-                >
-                  <a href={editing ? undefined : app.url} target="_blank" rel="noreferrer"
-                    onClick={(e) => { if (editing) e.preventDefault(); }}
-                    className="flex flex-col items-center gap-2 rounded-[1.4rem] p-1 transition duration-200 hover:bg-white/12"
-                  >
-                    <IconWithBadges
-                      app={app} editing={editing} spaces={spaces} currentSpaceId={currentSpaceId}
-                      onDelete={() => setDeletingAppId(app.id)}
-                      onRename={() => onRenameApp(app.id)}
-                      onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
-                    />
-                    <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
-                  </a>
-                </div>
+                <DraggableFolderApp
+                  key={app.id}
+                  app={app}
+                  folderId={selectedFolder.id}
+                  editing={editing}
+                  spaces={spaces}
+                  currentSpaceId={currentSpaceId}
+                  activeId={activeId}
+                  onDelete={() => setDeletingAppId(app.id)}
+                  onRename={() => onRenameApp(app.id)}
+                  onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
+                />
               ))}
               {editing && (
                 <button type="button" onClick={() => onAddShortcut(selectedFolder.id)}
