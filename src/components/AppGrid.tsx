@@ -398,6 +398,23 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
+  // Drop on empty page: move dragged item to end of list, then jump to its new page
+  const handleDropOnEmptyPage = (e: React.DragEvent) => {
+    e.stopPropagation();
+    if (!draggedId) return;
+    const otherItems = items.filter((it) => it.id !== draggedId);
+    const lastItem = otherItems[otherItems.length - 1];
+    if (lastItem) {
+      onReorder(draggedId, lastItem.id);
+    }
+    // After reorder, item lands at end → new realPageCount = ceil((items.length)/pageCapacity)
+    // Navigate to the last real page
+    const newRealPageCount = Math.max(1, Math.ceil(items.length / pageCapacity));
+    const targetPage = newRealPageCount - 1;
+    setTimeout(() => setCurrentPage(targetPage), 50);
+    setDraggedId(null);
+  };
+
   let pageSlideStyle: React.CSSProperties;
   if (animating && slideDir) {
     pageSlideStyle = {
@@ -413,8 +430,6 @@ export function AppGrid({
     };
   }
 
-  // Space slide animation: use CSS keyframe via inline animation string
-  // When spaceDirection exists, slide in from the appropriate side
   const spaceAnimStyle: React.CSSProperties = spaceDirection ? {
     animation: spaceDirection === 'right'
       ? 'spaceSlideFromRight 0.32s cubic-bezier(0.4,0,0.2,1) both'
@@ -449,7 +464,6 @@ export function AppGrid({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
-      {/* CSS keyframes injected inline */}
       <style>{`
         @keyframes spaceSlideFromRight {
           from { opacity: 0; transform: translateX(48px); }
@@ -476,7 +490,6 @@ export function AppGrid({
         <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-16 bg-gradient-to-l from-white/20 to-transparent" />
       )}
 
-      {/* key=currentSpaceId forces remount on space change so animation always fires */}
       <section
         key={currentSpaceId}
         className="w-full max-w-5xl"
@@ -489,7 +502,7 @@ export function AppGrid({
               className="mx-auto flex items-center justify-center rounded-[2.3rem] border-2 border-dashed border-white/25"
               style={{ maxWidth: `${gridColumns * 7.5}rem`, minHeight: `${gridRows * 7.4}rem` }}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.stopPropagation(); }}
+              onDrop={handleDropOnEmptyPage}
             >
               <p className="text-sm font-bold text-white/30">Drag apps here to add a new page</p>
             </div>
