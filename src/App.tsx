@@ -7,9 +7,11 @@ import {
   useSensor,
   useSensors,
   closestCenter,
+  rectIntersection,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import { BookMarked } from 'lucide-react';
 import { AppGrid, FOLDER_DROP_PREFIX } from './components/AppGrid';
@@ -131,9 +133,50 @@ function nextAvailablePage(
   return page;
 }
 
-// CONTAINER IDs for dnd-kit
 export const GRID_CONTAINER_ID = 'app-grid';
 export const DOCK_CONTAINER_ID = 'dock';
+
+// ── iOS-style collision detection ────────────────────────────────────────
+// When dragging over a folder: only report the folder drop zone when the
+// dragged item's centre overlaps the inner 50% of the folder rect.
+// Otherwise fall back to closestCenter so normal grid sorting still works.
+const iosFolderCollision: CollisionDetection = (args) => {
+  const { droppableContainers, active, pointerCoordinates } = args;
+  if (!pointerCoordinates) return closestCenter(args);
+
+  // Separate folder-drop zones from everything else
+  const folderDrops = droppableContainers.filter((c) =>
+    typeof c.id === 'string' && c.id.startsWith(FOLDER_DROP_PREFIX),
+  );
+
+  // Check if pointer is inside the centre 55% of any folder
+  for (const droppable of folderDrops) {
+    const rect = droppable.rect.current;
+    if (!rect) continue;
+    const cx = rect.left + rect.width  * 0.225;
+    const cy = rect.top  + rect.height * 0.225;
+    const cw = rect.width  * 0.55;
+    const ch = rect.height * 0.55;
+    const { x, y } = pointerCoordinates;
+    if (x >= cx && x <= cx + cw && y >= cy && y <= cy + ch) {
+      // Also ensure we're not trying to drop a folder onto a folder
+      const activeId = active.id as string;
+      const folderId = (droppable.id as string).slice(FOLDER_DROP_PREFIX.length);
+      if (activeId !== folderId) {
+        return [{ id: droppable.id }];
+      }
+    }
+  }
+
+  // Exclude folder-drop zones from regular sorting so they don’t push items
+  const nonFolderDrops = droppableContainers.filter((c) =>
+    typeof c.id !== 'string' || !c.id.startsWith(FOLDER_DROP_PREFIX),
+  );
+  return closestCenter({ ...args, droppableContainers: nonFolderDrops });
+};
+
+// Edge zone width (px) — drag into this band to trigger page flip
+const EDGE_ZONE = 96;
 
 function NewTab() {
   const [config, setConfig] = useState<AppConfig>(() => cloneDefaultConfig());
@@ -150,6 +193,36 @@ function NewTab() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overContainer, setOverContainer] = useState<string | null>(null);
+
+  // ── page-flip on drag-to-edge ─────────────────────────────────────────
+  const pageFlipTimerRef = useRef<number | null>(null);
+  // We store the "current page" in a ref so the interval callback can read
+  // the latest value without stale closure.
+  const currentPageRef = useRef(0);
+  // Expose a setter so AppGrid can sync its page state upward
+  const [externalPage, setExternalPage] = useState<number | null>(null);
+
+  const clearPageFlip = () => {
+    if (pageFlipTimerRef.current !== null) {
+      window.clearTimeout(pageFlipTimerRef.current);
+      pageFlipTimerRef.current = null;
+    }
+  };
+
+  const schedulePageFlip = (direction: 'prev' | 'next', totalPages: number) => {
+    if (pageFlipTimerRef.current !== null) return; // already scheduled
+    pageFlipTimerRef.current = window.setTimeout(() => {
+      pageFlipTimerRef.current = null;
+      const cur = currentPageRef.current;
+      if (direction === 'next' && cur < totalPages - 1) {
+        setExternalPage(cur + 1);
+        currentPageRef.current = cur + 1;
+      } else if (direction === 'prev' && cur > 0) {
+        setExternalPage(cur - 1);
+        currentPageRef.current = cur - 1;
+      }
+    }, 600);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -196,6 +269,14 @@ function NewTab() {
     () => config.apps.find((a) => a.id === activeId) ?? null,
     [config.apps, activeId],
   );
+
+  // Total pages (for edge-flip)
+  const totalPages = useMemo(() => {
+    const spaceItems = currentSpaceApps.filter((a) => !a.folderId);
+    const all: Array<{ pageIndex?: number }> = [...spaceItems, ...currentSpaceFolders];
+    if (all.length === 0) return 1;
+    return Math.max(...all.map((i) => i.pageIndex ?? 0)) + 1;
+  }, [currentSpaceApps, currentSpaceFolders]);
 
   usePageAnimations(config.gsapAnimations ?? false);
 
@@ -522,6 +603,21 @@ function NewTab() {
   const handleDragStart = ({ active }: DragStartEvent) => {
     setActiveId(active.id as string);
     setOverContainer(active.data.current?.container ?? null);
+    clearPageFlip();
+  };
+
+  const handleDragMove = (event: { activatorEvent: Event }) => {
+    // activatorEvent is the original pointerdown; we need the live pointer position
+    // dnd-kit exposes it via a MouseEvent / PointerEvent on the activator
+    if (!activeId) return;
+    // Read from the native pointer event attached to the drag
+    const nativeEvent = event.activatorEvent as PointerEvent;
+    // dnd-kit also fires a synthetic mousemove — use document.elementFromPoint as fallback
+    const x = (nativeEvent as PointerEvent & { _currentX?: number })._currentX
+      ?? (event as unknown as { delta: { x: number } }).delta?.x;
+    // We can’t easily get live x from dnd-kit’s DragMoveEvent without patching.
+    // Use the pointer’s clientX from the native window event instead.
+    void x; // unused — we handle via onPointerMove on the container below
   };
 
   const handleDragOver = ({ over }: DragOverEvent) => {
@@ -531,6 +627,7 @@ function NewTab() {
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    clearPageFlip();
     setActiveId(null);
     setOverContainer(null);
     if (!over || !active) return;
@@ -543,10 +640,8 @@ function NewTab() {
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
 
     // ── Drop onto a folder ─────────────────────────────────────────────
-    // toContainer is `folder-drop-<folderId>` when hovering a folder cell
     if (typeof toContainer === 'string' && toContainer.startsWith(FOLDER_DROP_PREFIX)) {
       const folderId = toContainer.slice(FOLDER_DROP_PREFIX.length);
-      // Don't drop a folder onto itself or drop a folder item onto another folder
       const draggedIsFolder = config.folders.some((f) => f.id === draggedId);
       if (!draggedIsFolder && folderId !== draggedId) {
         moveToFolder(draggedId, folderId);
@@ -595,6 +690,15 @@ function NewTab() {
       return;
     }
 
+    // ── Drop on page-flip edge zone → move app to flipped page ─────────
+    if (typeof toContainer === 'string' && (toContainer === 'edge-prev' || toContainer === 'edge-next')) {
+      const targetPage = toContainer === 'edge-next'
+        ? currentPageRef.current + 1
+        : currentPageRef.current - 1;
+      if (targetPage >= 0) moveAppToPage(draggedId, targetPage);
+      return;
+    }
+
     // ── Grid internal reorder ──────────────────────────────────────────
     if (draggedId !== overId && overId !== GRID_CONTAINER_ID) {
       reorderItems(draggedId, overId);
@@ -602,18 +706,69 @@ function NewTab() {
   };
   // ───────────────────────────────────────────────────────────────────────
 
+  // Native pointer-move listener to detect edge hover during drag
+  useEffect(() => {
+    if (!activeId) { clearPageFlip(); return; }
+    const onMove = (e: PointerEvent) => {
+      const w = window.innerWidth;
+      if (e.clientX < EDGE_ZONE) {
+        schedulePageFlip('prev', totalPages);
+      } else if (e.clientX > w - EDGE_ZONE) {
+        schedulePageFlip('next', totalPages);
+      } else {
+        clearPageFlip();
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      clearPageFlip();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, totalPages]);
+
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={iosFolderCollision}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+      <div
+        className="relative min-h-screen overflow-hidden bg-slate-950 text-white"
+      >
         <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
         <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
+
+        {/* Edge flip indicators — shown while dragging */}
+        {activeId && totalPages > 1 && (
+          <>
+            {currentPageRef.current > 0 && (
+              <div
+                className="pointer-events-none fixed left-0 top-0 z-[60] h-full flex items-center justify-center"
+                style={{ width: EDGE_ZONE }}
+              >
+                <div className="rounded-2xl bg-white/10 px-2 py-4 text-white/80 text-xs font-black backdrop-blur-md border border-white/20 flex flex-col items-center gap-1">
+                  <span style={{ fontSize: 20 }}>‹</span>
+                  <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>Prev</span>
+                </div>
+              </div>
+            )}
+            {currentPageRef.current < totalPages - 1 && (
+              <div
+                className="pointer-events-none fixed right-0 top-0 z-[60] h-full flex items-center justify-center"
+                style={{ width: EDGE_ZONE }}
+              >
+                <div className="rounded-2xl bg-white/10 px-2 py-4 text-white/80 text-xs font-black backdrop-blur-md border border-white/20 flex flex-col items-center gap-1">
+                  <span style={{ fontSize: 20 }}>›</span>
+                  <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>Next</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <TopBar
           data-anim="topbar"
@@ -682,8 +837,12 @@ function NewTab() {
             currentSpaceId={config.currentSpaceId}
             spaces={spaces}
             spaceDirection={spaceDirection}
-            pendingNavigatePage={pendingNavigatePage}
-            onNavigated={() => setPendingNavigatePage(null)}
+            pendingNavigatePage={pendingNavigatePage ?? externalPage}
+            onNavigated={() => {
+              setPendingNavigatePage(null);
+              setExternalPage(null);
+            }}
+            onPageChange={(p) => { currentPageRef.current = p; }}
             t={t}
             activeId={activeId}
             overContainer={overContainer}
