@@ -14,7 +14,6 @@ type AppGridProps = {
   currentSpaceId: string;
   spaces: Space[];
   spaceDirection?: 'left' | 'right' | null;
-  /** When set, AppGrid navigates to this page then calls onNavigated() */
   pendingNavigatePage?: number | null;
   onNavigated?: () => void;
   t: (key: TranslationKey) => string;
@@ -321,14 +320,12 @@ export function AppGrid({
   // Build items per page using pageIndex (iOS-style: items stay on their page)
   const itemsByPage = useMemo(() => {
     const map = new Map<number, GridItem[]>();
-    // Apps without folderId
     for (const app of apps) {
       if (app.folderId) continue;
       const p = app.pageIndex ?? 0;
       if (!map.has(p)) map.set(p, []);
       map.get(p)!.push({ kind: 'app', id: app.id, app });
     }
-    // Folders
     for (const folder of folders) {
       const p = folder.pageIndex ?? 0;
       if (!map.has(p)) map.set(p, []);
@@ -347,7 +344,6 @@ export function AppGrid({
 
   const itemsOnPage = itemsByPage.get(currentPage) ?? [];
 
-  // Navigate to pendingNavigatePage when App.tsx signals it
   useEffect(() => {
     if (pendingNavigatePage != null) {
       setCurrentPage(pendingNavigatePage);
@@ -433,7 +429,6 @@ export function AppGrid({
     }
   };
 
-  // Drop onto right-edge "new page" zone
   const handleNewPageEdgeDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
     dropHandledRef.current = true;
@@ -441,7 +436,7 @@ export function AppGrid({
     clearEdgeTimer();
     const id = readId(e);
     if (!id) { setDragged(null); return; }
-    const newPage = totalPages; // next page after the last
+    const newPage = totalPages;
     onMoveToPage(id, newPage);
     setDragged(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -484,8 +479,13 @@ export function AppGrid({
 
   const isDragging = !!draggedId;
 
-  // How many slots to show on this page (fill up to capacity with empties)
-  const slotsToShow = Math.max(pageCapacity, itemsOnPage.length);
+  // Extra editing buttons count on last page
+  const editingExtraCount = (editing && currentPage === totalPages - 1) ? 2 : 0;
+  // Total visible items = actual items + editing buttons
+  const visibleCount = itemsOnPage.length + editingExtraCount;
+  // Invisible drop slots fill up to pageCapacity (they have zero visual height)
+  // so they never push the grid height beyond what items actually occupy.
+  const invisibleDropSlots = Math.max(0, pageCapacity - visibleCount);
 
   return (
     <main
@@ -505,7 +505,6 @@ export function AppGrid({
         if (dragOverPageEdge === 'new') { handleNewPageEdgeDrop(e); return; }
         setDragOverPageEdge(null);
         if (dropHandledRef.current) { dropHandledRef.current = false; return; }
-        // Dropped on background: move to current page (no-op if already here), or out of folder
         const id = readId(e);
         if (id) {
           if (selectedFolderId) {
@@ -542,7 +541,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Left edge indicator */}
       {isDragging && dragOverPageEdge === 'left' && currentPage > 0 && (
         <div className="pointer-events-none fixed left-0 top-0 z-50 h-full w-20 flex items-center justify-start pl-3"
           style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.22), transparent)', animation: 'edgePulse 0.8s ease-in-out infinite' }}
@@ -553,7 +551,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Right edge indicator */}
       {isDragging && (dragOverPageEdge === 'right' || dragOverPageEdge === 'new') && (
         <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-20 flex items-center justify-end pr-3"
           style={{ background: 'linear-gradient(to left, rgba(255,255,255,0.22), transparent)', animation: 'edgePulse 0.8s ease-in-out infinite' }}
@@ -565,7 +562,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Invisible drop target for new-page right edge */}
       {isDragging && dragOverPageEdge === 'new' && (
         <div className="fixed right-0 top-0 z-[60] h-full w-20"
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -577,9 +573,9 @@ export function AppGrid({
         <div style={pageSlideStyle}>
           <div
             className="mx-auto grid gap-x-7 gap-y-8 rounded-[2.3rem] p-6"
-            style={{ gridTemplateColumns, maxWidth: `${gridColumns * 7.5}rem`, minHeight: `${gridRows * 7.4}rem` }}
+            style={{ gridTemplateColumns, maxWidth: `${gridColumns * 7.5}rem` }}
           >
-            {/* Render actual items */}
+            {/* Visible items */}
             {itemsOnPage.map((item) => {
               if (item.kind === 'folder') {
                 return (
@@ -666,21 +662,7 @@ export function AppGrid({
               );
             })}
 
-            {/* Empty drop slots for the remainder of this page */}
-            {Array.from({ length: Math.max(0, slotsToShow - itemsOnPage.length - (editing && currentPage === totalPages - 1 ? 2 : 0)) }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className={cellClass}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.stopPropagation(); dropHandledRef.current = true;
-                  const id = readId(e);
-                  if (id) onMoveToPage(id, currentPage);
-                  setDragged(null);
-                }}
-              />
-            ))}
-
+            {/* Editing: Add / New Folder buttons on last page */}
             {editing && currentPage === totalPages - 1 && (
               <>
                 <button type="button"
@@ -703,6 +685,25 @@ export function AppGrid({
                 </button>
               </>
             )}
+
+            {/*
+              Invisible drop slots: zero visual size but accept drag-and-drop.
+              These never add rows to the grid, so the grid height = actual content.
+            */}
+            {Array.from({ length: invisibleDropSlots }).map((_, i) => (
+              <div
+                key={`drop-${i}`}
+                aria-hidden="true"
+                style={{ height: 0, minHeight: 0, overflow: 'visible', padding: 0, margin: 0 }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.stopPropagation(); dropHandledRef.current = true;
+                  const id = readId(e);
+                  if (id) onMoveToPage(id, currentPage);
+                  setDragged(null);
+                }}
+              />
+            ))}
           </div>
         </div>
       </section>
