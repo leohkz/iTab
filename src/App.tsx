@@ -179,8 +179,28 @@ function NewTab() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+      const ctrl = event.ctrlKey || event.metaKey;
+
+      // Ctrl+Tab / Ctrl+Shift+Tab — cycle through spaces
+      if (ctrl && event.key === 'Tab' && !searchOpen && !settingsOpen) {
+        event.preventDefault();
+        setConfig((current) => {
+          const allSpaces = (current.spaces && current.spaces.length > 0) ? current.spaces : [...DEFAULT_SPACES];
+          if (allSpaces.length < 2) return current;
+          const idx = allSpaces.findIndex((s) => s.id === current.currentSpaceId);
+          const next = event.shiftKey
+            ? allSpaces[(idx - 1 + allSpaces.length) % allSpaces.length]
+            : allSpaces[(idx + 1) % allSpaces.length];
+          const updated = { ...current, currentSpaceId: next.id };
+          if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: updated });
+          return updated;
+        });
+        return;
+      }
+
+      const isCommandK = ctrl && event.key.toLowerCase() === 'k';
       if (isCommandK && config.experiments.keyboardShortcuts) { event.preventDefault(); setSearchOpen(true); }
+
       if (event.key === 'Escape') {
         if (config.widgets.focusModeActive) {
           updateConfig({ ...config, widgets: { ...config.widgets, focusModeActive: false } });
@@ -192,7 +212,7 @@ function NewTab() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.experiments.keyboardShortcuts, config.widgets.focusModeActive]);
+  }, [config.experiments.keyboardShortcuts, config.widgets.focusModeActive, searchOpen, settingsOpen]);
 
   useEffect(() => {
     if (!config.widgets.pomodoroRunning) return;
@@ -501,12 +521,6 @@ function NewTab() {
         />
       )}
 
-      {/*
-        SpotlightSearch is always mounted (never conditionally removed) so its
-        internal query state survives engine switches that trigger config updates.
-        Visibility is controlled via the `open` prop instead.
-        apps = allApps so search covers every Space, not just the current one.
-      */}
       <SpotlightSearch
         open={searchOpen}
         apps={allApps}
