@@ -301,7 +301,8 @@ function DroppableFolderItem({
       <button
         type="button"
         onClick={(e) => {
-          if (editing) { e.stopPropagation(); return; }
+          // Bug fix: 編輯模式也可以點擊打開 folder（只是不能拖拽 folder 本身）
+          e.stopPropagation();
           onOpenFolder(item.folder.id);
         }}
         className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
@@ -574,6 +575,8 @@ export function AppGrid({
       <style>{`
         @keyframes spaceSlideFromRight { from { opacity:0; transform:translateX(48px); } to { opacity:1; transform:translateX(0); } }
         @keyframes spaceSlideFromLeft  { from { opacity:0; transform:translateX(-48px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes folderOverlayIn     { from { opacity:0; } to { opacity:1; } }
+        @keyframes folderPanelIn       { from { opacity:0; transform:scale(0.92) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
       `}</style>
 
       {editing && (
@@ -646,18 +649,33 @@ export function AppGrid({
         </div>
       )}
 
+      {/* Bug 5 fix: folder popup 加深背景 + 動畫 */}
       {selectedFolder && (
-        <div className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
+        <div
+          className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/40 px-6"
+          style={{
+            backdropFilter: 'blur(28px) saturate(1.6)',
+            WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
+            animation: 'folderOverlayIn 0.2s ease both',
+          }}
           role="presentation"
           onPointerDown={(e) => { if (e.target === e.currentTarget) onCloseFolder(); }}
         >
-          <section role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
-            className="w-[min(34rem,calc(100vw-2rem))] rounded-[2.4rem] border border-white/35 bg-white/38 p-6 text-white shadow-[0_30px_90px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-2xl"
+          <section
+            role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
+            className="w-[min(34rem,calc(100vw-2rem))] rounded-[2.4rem] border border-white/40 p-6 text-white"
+            style={{
+              background: 'rgba(20,24,40,0.72)',
+              backdropFilter: 'blur(48px) saturate(2)',
+              WebkitBackdropFilter: 'blur(48px) saturate(2)',
+              boxShadow: '0 30px 90px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18)',
+              animation: 'folderPanelIn 0.26s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="mb-6 text-center">
               <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
-              <p className="mt-1 text-sm font-semibold text-white/68">{selectedFolderApps.length} {t('websites')}</p>
+              <p className="mt-1 text-sm font-semibold text-white/60">{selectedFolderApps.length} {t('websites')}</p>
             </div>
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (

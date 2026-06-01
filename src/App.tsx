@@ -264,7 +264,7 @@ function NewTab() {
     return Math.max(...all.map((i) => i.pageIndex ?? 0)) + 1;
   }, [currentSpaceApps, currentSpaceFolders]);
 
-  usePageAnimations(config.gsapAnimations ?? false);
+  usePageAnimations(false);
 
   const updateConfig = (next: AppConfig) => {
     const enabledEngines = next.searchEngines.filter((e) => e.enabled);
@@ -451,17 +451,24 @@ function NewTab() {
 
   const moveToFolder = (appId: string, folderId: string) => {
     if (!config.apps.some((app) => app.id === appId)) return;
-    const targetFolder = config.folders.find((f) => f.id === folderId);
-    const folderPage = targetFolder?.pageIndex ?? 0;
+    // Bug 2 fix: folder 內的 app 不需要 pageIndex（設為 undefined），避免與主 grid 排序衝突
     updateConfig({ ...config, apps: config.apps.map((app) =>
-      app.id === appId ? { ...app, folderId, pageIndex: folderPage } : app,
+      app.id === appId ? { ...app, folderId, pageIndex: undefined } : app,
     ) });
     notify('Moved to folder');
   };
 
   const moveOutOfFolder = (appId: string) => {
+    // Bug 1 fix: 移出 folder 時重新分配 pageIndex 到主 grid
+    const app = config.apps.find((a) => a.id === appId);
+    if (!app) return;
+    const capacity = config.gridColumns * config.gridRows;
+    const spaceItems = config.apps.filter(
+      (a) => (!a.spaceId || a.spaceId === config.currentSpaceId) && !config.pinnedIds.includes(a.id) && !a.folderId && a.id !== appId,
+    );
+    const page = nextAvailablePage(spaceItems, capacity);
     updateConfig({ ...config, apps: config.apps.map((a) =>
-      a.id === appId ? { ...a, folderId: null } : a,
+      a.id === appId ? { ...a, folderId: null, pageIndex: page } : a,
     ) });
     notify('Moved to Home Screen');
   };
@@ -610,6 +617,16 @@ function NewTab() {
     const toContainer   = over.data.current?.container ?? over.id;
 
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
+
+    // Bug 1 fix: 從 folder 內拖出到主 grid
+    if (
+      typeof fromContainer === 'string' &&
+      fromContainer.startsWith(FOLDER_DROP_PREFIX) &&
+      toContainer === GRID_CONTAINER_ID
+    ) {
+      moveOutOfFolder(draggedId);
+      return;
+    }
 
     if (typeof toContainer === 'string' && toContainer.startsWith(FOLDER_DROP_PREFIX)) {
       const folderId = toContainer.slice(FOLDER_DROP_PREFIX.length);
