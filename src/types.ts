@@ -196,7 +196,6 @@ export interface AppConfig {
   aiPortals?: AiPortal[];
   aiPortalSize?: AiPortalSize;
   popupShortcutSource?: PopupShortcutSource;
-  gsapAnimations?: boolean;
   experiments: {
     smartRecommendations: boolean;
     recentVisits: boolean;

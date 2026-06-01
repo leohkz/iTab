@@ -330,7 +330,6 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  // Derive site URL from template for favicon
   const siteUrl = engine.url ?? (engine.template ? engine.template.replace('{q}', '').replace(/[?&]q?=?$/, '') : '');
 
   return (
@@ -338,7 +337,6 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
       <div className="grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-3 p-3">
         <Toggle checked={engine.enabled} onChange={(v) => onUpdate({ enabled: v })} testId={`toggle-engine-${engine.id}`} />
 
-        {/* Favicon */}
         <button type="button" title={t('iconUrl')} onClick={() => setExpanded(e => !e)}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm hover:ring-2 hover:ring-slate-300 transition">
           <FaviconImg
@@ -372,7 +370,6 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
         )}
       </div>
 
-      {/* Expanded: custom icon URL input */}
       {expanded && (
         <div className="border-t border-slate-950/8 bg-white px-4 py-3">
           <label className="block text-xs font-black text-slate-600 mb-1.5">
@@ -522,22 +519,6 @@ export function SettingsModal({
                   <input type="range" min="30" max="95" value={config.glass}
                     onChange={(e) => onConfigChange({ ...config, glass: Number(e.target.value) })}
                     className="mt-4 w-full accent-slate-950" data-testid="input-glass" />
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100">
-                      <Sparkles className="h-4 w-4 text-violet-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-black">頁面入場動畫</h4>
-                      <p className="text-sm font-semibold text-slate-600">開啟新分頁時播放 GSAP 動畫效果（TopBar、圖標、Dock 依序登場）</p>
-                    </div>
-                  </div>
-                  <Toggle
-                    checked={config.gsapAnimations ?? false}
-                    onChange={(v) => onConfigChange({ ...config, gsapAnimations: v })}
-                    testId="toggle-gsap-animations"
-                  />
                 </div>
                 <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
                   {(['sonoma', 'ventura', 'slate'] as ThemeName[]).map((themeName, i) => (
