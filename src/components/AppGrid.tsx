@@ -8,6 +8,9 @@ import type { AppShortcut, Folder, Space } from '../types';
 import type { TranslationKey } from '../i18n';
 import { GRID_CONTAINER_ID } from '../App';
 
+// Container-id prefix used to identify folder drop zones
+export const FOLDER_DROP_PREFIX = 'folder-drop-';
+
 type AppGridProps = {
   apps: AppShortcut[];
   folders: Folder[];
@@ -46,6 +49,7 @@ type GridItem =
   | { kind: 'app'; id: string; app: AppShortcut }
   | { kind: 'folder'; id: string; folder: Folder; apps: AppShortcut[] };
 
+// grid icon is h-[4.5rem] w-[4.5rem] (72px) — folder matches exactly
 const ICON_PX = 72;
 const BADGE_PX = Math.round(ICON_PX * 0.28);
 const BADGE_OFFSET = -Math.round(BADGE_PX * 0.35);
@@ -107,15 +111,24 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   );
 }
 
-function FolderPreview({ apps }: { apps: AppShortcut[] }) {
+// Folder preview — same 4.5rem × 4.5rem as a grid icon
+function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?: boolean }) {
   const previewApps = apps.slice(0, 4);
   return (
-    <span className="grid h-[5.4rem] w-[5.4rem] grid-cols-2 grid-rows-2 place-items-center gap-2 rounded-[1.55rem] border border-white/35 bg-white/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_18px_40px_rgba(17,24,39,0.2)] backdrop-blur-sm">
+    <span
+      className="grid h-[4.5rem] w-[4.5rem] grid-cols-2 grid-rows-2 place-items-center gap-1.5 rounded-[1.35rem] border border-white/35 bg-white/40 p-2.5 backdrop-blur-sm"
+      style={{
+        boxShadow: isDropOver
+          ? 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2), 0 0 0 3px rgba(255,255,255,0.55)'
+          : 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2)',
+        transition: 'box-shadow 120ms',
+      }}
+    >
       {Array.from({ length: 4 }).map((_, i) => {
         const app = previewApps[i];
         return app
           ? <AppIcon key={app.id} app={app} size="mini" />
-          : <span key={`e-${i}`} className="h-6 w-6 rounded-[0.48rem] bg-white/22" />;
+          : <span key={`e-${i}`} className="h-5 w-5 rounded-[0.38rem] bg-white/22" />;
       })}
     </span>
   );
@@ -229,8 +242,92 @@ function PageDots({ total, current, onSelect }: { total: number; current: number
   );
 }
 
+/**
+ * Folder cell — droppable so app icons can be dragged into it.
+ * When `editing` is false we still allow drops so iOS-style drag-to-folder
+ * works without needing to enter edit mode first.
+ */
+function DroppableFolderItem({
+  item, editing, activeId, overContainer,
+  onOpenFolder, onDeleteFolder, onRenameFolder,
+}: {
+  item: GridItem & { kind: 'folder' };
+  editing: boolean;
+  activeId?: string | null;
+  overContainer?: string | null;
+  onOpenFolder: (id: string) => void;
+  onDeleteFolder: (id: string) => void;
+  onRenameFolder: (id: string) => void;
+}) {
+  const dropId = `${FOLDER_DROP_PREFIX}${item.folder.id}`;
+
+  // sortable handles dragging the folder itself when editing
+  const { attributes, listeners, setNodeRef: setSortableRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+    data: { container: GRID_CONTAINER_ID },
+    disabled: !editing,
+  });
+
+  // droppable so OTHER icons can be dragged into this folder
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: dropId,
+    data: { container: dropId, folderId: item.folder.id },
+  });
+
+  // Merge both refs
+  const setRef = (el: HTMLDivElement | null) => {
+    setSortableRef(el);
+    setDropRef(el);
+  };
+
+  const sortableStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging || activeId === item.id ? 0.35 : 1,
+    position: 'relative',
+    touchAction: 'none',
+  };
+
+  // show drop highlight when another icon is hovering over this folder
+  const isDropTarget = isOver && overContainer === dropId;
+
+  return (
+    <div ref={setRef} style={sortableStyle}
+      className={['group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
+      {...(editing ? { ...attributes, ...listeners } : {})}
+      data-anim="app-icon"
+    >
+      <button type="button"
+        onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
+        className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+      >
+        <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')} style={{ isolation: 'isolate' }}>
+          <FolderPreview apps={item.apps} isDropOver={isDropTarget} />
+          {editing && (
+            <>
+              <button type="button" aria-label="Delete folder"
+                onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
+                style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}>
+                <Trash2 style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 2.5 }} />
+              </button>
+              <button type="button" aria-label="Rename folder"
+                onClick={(e) => { e.stopPropagation(); onRenameFolder(item.folder.id); }}
+                style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}>
+                <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
+              </button>
+            </>
+          )}
+        </span>
+        <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+          {item.folder.name}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function SortableGridItem({
-  item, editing, spaces, currentSpaceId, activeId,
+  item, editing, spaces, currentSpaceId, activeId, overContainer,
   onDeleteApp, onRenameApp, onMoveToSpace, onOpenFolder, onDeleteFolder, onRenameFolder,
 }: {
   item: GridItem;
@@ -238,6 +335,7 @@ function SortableGridItem({
   spaces: Space[];
   currentSpaceId: string;
   activeId?: string | null;
+  overContainer?: string | null;
   onDeleteApp: (id: string) => void;
   onRenameApp: (id: string) => void;
   onMoveToSpace: (id: string, spaceId: string | undefined) => void;
@@ -245,6 +343,20 @@ function SortableGridItem({
   onDeleteFolder: (id: string) => void;
   onRenameFolder: (id: string) => void;
 }) {
+  if (item.kind === 'folder') {
+    return (
+      <DroppableFolderItem
+        item={item}
+        editing={editing}
+        activeId={activeId}
+        overContainer={overContainer}
+        onOpenFolder={onOpenFolder}
+        onDeleteFolder={onDeleteFolder}
+        onRenameFolder={onRenameFolder}
+      />
+    );
+  }
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { container: GRID_CONTAINER_ID },
@@ -263,41 +375,6 @@ function SortableGridItem({
     'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
     editing ? 'cursor-grab' : '',
   ].join(' ');
-
-  if (item.kind === 'folder') {
-    return (
-      <div ref={setNodeRef} style={style} className={cellClass}
-        {...(editing ? { ...attributes, ...listeners } : {})}
-        data-anim="app-icon"
-      >
-        <button type="button"
-          onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
-          className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-        >
-          <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')} style={{ isolation: 'isolate' }}>
-            <FolderPreview apps={item.apps} />
-            {editing && (
-              <>
-                <button type="button" aria-label="Delete folder"
-                  onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
-                  style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}>
-                  <Trash2 style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 2.5 }} />
-                </button>
-                <button type="button" aria-label="Rename folder"
-                  onClick={(e) => { e.stopPropagation(); onRenameFolder(item.folder.id); }}
-                  style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}>
-                  <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
-                </button>
-              </>
-            )}
-          </span>
-          <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
-            {item.folder.name}
-          </span>
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div ref={setNodeRef} style={style} className={cellClass}
@@ -491,6 +568,7 @@ export function AppGrid({
                     spaces={spaces}
                     currentSpaceId={currentSpaceId}
                     activeId={activeId}
+                    overContainer={overContainer}
                     onDeleteApp={(id) => setDeletingAppId(id)}
                     onRenameApp={onRenameApp}
                     onMoveToSpace={onMoveToSpace}

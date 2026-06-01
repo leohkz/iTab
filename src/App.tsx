@@ -12,7 +12,7 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/core';
 import { BookMarked } from 'lucide-react';
-import { AppGrid } from './components/AppGrid';
+import { AppGrid, FOLDER_DROP_PREFIX } from './components/AppGrid';
 import { Dock } from './components/Dock';
 import { AppIcon } from './components/AppIcon';
 import { PromptLibrary } from './components/PromptLibrary';
@@ -20,7 +20,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ShortcutEditor } from './components/ShortcutEditor';
 import { SpotlightSearch } from './components/SpotlightSearch';
 import { Toast } from './components/Toast';
-import { TopBar } from './components/TopBar';
+import { TopBar, SPACE_DROP_PREFIX } from './components/TopBar';
 import { Widgets, FocusModeOverlay } from './components/Widgets';
 import { AiPortalBar } from './components/AiPortalBar';
 import { defaultConfig, recentTabs } from './data/mockStore';
@@ -148,11 +148,8 @@ function NewTab() {
     open: false, mode: 'add', appId: null, folderId: null,
   });
 
-  // ── dnd-kit drag state ─────────────────────────────────────────────────
   const [activeId, setActiveId] = useState<string | null>(null);
-  // Track which container the dragged item is currently hovering over
   const [overContainer, setOverContainer] = useState<string | null>(null);
-  // ───────────────────────────────────────────────────────────────────────
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -195,7 +192,6 @@ function NewTab() {
     [config.apps, config.pinnedIds],
   );
 
-  // The dragged app object (for DragOverlay)
   const activeApp = useMemo(
     () => config.apps.find((a) => a.id === activeId) ?? null,
     [config.apps, activeId],
@@ -546,18 +542,34 @@ function NewTab() {
 
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
 
+    // ── Drop onto a folder ─────────────────────────────────────────────
+    // toContainer is `folder-drop-<folderId>` when hovering a folder cell
+    if (typeof toContainer === 'string' && toContainer.startsWith(FOLDER_DROP_PREFIX)) {
+      const folderId = toContainer.slice(FOLDER_DROP_PREFIX.length);
+      // Don't drop a folder onto itself or drop a folder item onto another folder
+      const draggedIsFolder = config.folders.some((f) => f.id === draggedId);
+      if (!draggedIsFolder && folderId !== draggedId) {
+        moveToFolder(draggedId, folderId);
+      }
+      return;
+    }
+
+    // ── Drop onto a Space tab ──────────────────────────────────────────
+    if (typeof toContainer === 'string' && toContainer.startsWith(SPACE_DROP_PREFIX)) {
+      const spaceId = over.data.current?.spaceId as string | undefined;
+      if (spaceId) moveToSpace(draggedId, spaceId);
+      return;
+    }
+
     // ── Grid → Dock ────────────────────────────────────────────────────
     if (toContainer === DOCK_CONTAINER_ID) {
       if (!isDraggedPinned) {
-        // Find insert index from overId (the dock item being hovered)
         if (overId === DOCK_CONTAINER_ID) {
           pinApp(draggedId);
         } else {
-          // Insert before the hovered dock item
           const targetIdx = config.pinnedIds.indexOf(overId);
           const insertAt = targetIdx >= 0 ? targetIdx : config.pinnedIds.length;
           pinApp(draggedId);
-          // Reorder after pin so it lands at the right spot
           setTimeout(() => reorderPinnedApp(draggedId, insertAt), 0);
         }
       }
@@ -775,7 +787,6 @@ function NewTab() {
         <Toast message={toast} />
       </div>
 
-      {/* Global drag overlay — renders the floating icon while dragging */}
       <DragOverlay dropAnimation={null}>
         {activeApp ? (
           <div style={{ width: 72, height: 72, opacity: 0.85, transform: 'scale(1.08)', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.35))' }}>
