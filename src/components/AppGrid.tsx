@@ -22,6 +22,8 @@ type AppGridProps = {
   spaceDirection?: 'left' | 'right' | null;
   pendingNavigatePage?: number | null;
   onNavigated?: () => void;
+  /** Called whenever the visible page index changes */
+  onPageChange?: (page: number) => void;
   t: (key: TranslationKey) => string;
   activeId?: string | null;
   overContainer?: string | null;
@@ -269,7 +271,6 @@ function DroppableFolderItem({
     data: { container: dropId, folderId: item.folder.id },
   });
 
-  // Merge both refs inline — no useCallback needed, stable identity
   const mergedRef = (el: HTMLDivElement | null) => {
     setSortableRef(el);
     setDropRef(el);
@@ -428,7 +429,7 @@ function DroppableGrid({ id, children, isOver }: { id: string; children: React.R
 
 export function AppGrid({
   apps, folders, editing, selectedFolderId, gridColumns, gridRows,
-  currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, t,
+  currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, onPageChange, t,
   activeId, overContainer,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
@@ -485,18 +486,28 @@ export function AppGrid({
   const itemsOnPage = itemsByPage.get(currentPage) ?? [];
 
   useEffect(() => {
-    if (pendingNavigatePage != null) { setCurrentPage(pendingNavigatePage); onNavigated?.(); }
-  }, [pendingNavigatePage, onNavigated]);
+    if (pendingNavigatePage != null) {
+      const target = Math.max(0, Math.min(pendingNavigatePage, totalPages - 1));
+      setCurrentPage(target);
+      onPageChange?.(target);
+      onNavigated?.();
+    }
+  }, [pendingNavigatePage, onNavigated, onPageChange, totalPages]);
 
-  useEffect(() => { setCurrentPage(0); }, [currentSpaceId]);
+  useEffect(() => { setCurrentPage(0); onPageChange?.(0); }, [currentSpaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goToPage = useCallback((page: number) => {
     if (page === currentPage || animating) return;
     const dir = page > currentPage ? 'left' : 'right';
     setSlideDir(dir);
     setAnimating(true);
-    setTimeout(() => { setCurrentPage(page); setSlideDir(null); setAnimating(false); }, 320);
-  }, [currentPage, animating]);
+    setTimeout(() => {
+      setCurrentPage(page);
+      onPageChange?.(page);
+      setSlideDir(null);
+      setAnimating(false);
+    }, 320);
+  }, [currentPage, animating, onPageChange]);
 
   const goNext = useCallback(() => {
     if (currentPage < totalPages - 1) goToPage(currentPage + 1);
