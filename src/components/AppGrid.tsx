@@ -126,7 +126,7 @@ function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?:
       {Array.from({ length: 4 }).map((_, i) => {
         const app = previewApps[i];
         return app
-          ? <AppIcon key={app.id} app={app} size="mini" />
+          ? <AppIcon key={app.id} app={app} size="folder" />
           : <span key={`e-${i}`} className="h-5 w-5 rounded-[0.38rem] bg-white/22" />;
       })}
     </span>
@@ -735,7 +735,6 @@ export function AppGrid({
               boxShadow: '0 30px 90px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18)',
               animation: 'folderPanelIn 0.26s cubic-bezier(0.34,1.56,0.64,1) both',
             }}
-            // 不 stopPropagation，讓 dnd-kit PointerSensor 可以收到 pointerdown
           >
             <div className="mb-6 text-center">
               <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>

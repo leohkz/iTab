@@ -9,7 +9,7 @@ type Props = {
   engines: SearchEngine[];
   defaultEngine: string;
   todos: TodoItem[];
-  noteTabs: NoteTab[];
+  noteTabs?: NoteTab[];
   prompts: Prompt[];
   t: (key: TranslationKey) => string;
   dark?: boolean;
@@ -60,7 +60,7 @@ function AppFavicon({ app, dark }: { app: AppShortcut; dark: boolean }) {
 }
 
 export function SpotlightSearch({
-  open, apps, engines, defaultEngine, todos, noteTabs, prompts, t, dark = false, onClose, onEngineChange,
+  open, apps, engines, defaultEngine, todos, noteTabs = [], prompts, t, dark = false, onClose, onEngineChange,
 }: Props) {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -91,7 +91,7 @@ export function SpotlightSearch({
     todos.filter((td) => !td.done && td.text.toLowerCase().includes(q))
       .slice(0, 3).forEach((todo) => out.push({ kind: 'todo', todo }));
 
-    (noteTabs ?? []).forEach((tab) => {
+    noteTabs.forEach((tab) => {
       const idx = tab.content.toLowerCase().indexOf(q);
       if (idx !== -1) {
         const start = Math.max(0, idx - 30);
@@ -210,9 +210,9 @@ export function SpotlightSearch({
                 {results.some((r) => r.kind === 'app') && (
                   <>
                     <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest ${sectionLabel}`}>
-                      {t('apps')}
+                      Apps
                     </div>
-                    {results.filter((r): r is Extract<ResultItem, { kind: 'app' }> => r.kind === 'app').map((item, i) => {
+                    {results.filter((r): r is Extract<ResultItem, { kind: 'app' }> => r.kind === 'app').map((item) => {
                       const globalIdx = results.indexOf(item);
                       return (
                         <button
@@ -268,7 +268,7 @@ export function SpotlightSearch({
                 {results.some((r) => r.kind === 'todo') && (
                   <>
                     <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest mt-1 ${sectionLabel}`}>
-                      {t('todos')}
+                      To-Do
                     </div>
                     {results.filter((r): r is Extract<ResultItem, { kind: 'todo' }> => r.kind === 'todo').map((item) => {
                       const globalIdx = results.indexOf(item);
@@ -296,7 +296,7 @@ export function SpotlightSearch({
                 {results.some((r) => r.kind === 'note') && (
                   <>
                     <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest mt-1 ${sectionLabel}`}>
-                      {t('notes')}
+                      Notes
                     </div>
                     {results.filter((r): r is Extract<ResultItem, { kind: 'note' }> => r.kind === 'note').map((item) => {
                       const globalIdx = results.indexOf(item);
