@@ -43,34 +43,71 @@ export function TopBar({
   onToggleTheme,
   onWidgetsChange,
 }: TopBarProps) {
+  const currentIdx = spaces.findIndex((s) => s.id === currentSpaceId);
+
+  const switchNext = () => {
+    if (spaces.length < 2) return;
+    onSpaceChange(spaces[(currentIdx + 1) % spaces.length].id);
+  };
+
   return (
     <header className="fixed inset-x-0 top-0 z-40">
       <div className="flex items-center justify-between px-5 pt-3 pb-2">
-        {/* Space switcher */}
-        <nav aria-label="Spaces" className="flex gap-1">
-          {spaces.map((space) => (
-            <button
-              key={space.id}
-              type="button"
-              onClick={() => onSpaceChange(space.id)}
-              className={[
-                'rounded-full px-3 py-1 text-xs font-bold transition',
-                currentSpaceId === space.id
-                  ? 'bg-white/28 text-white shadow'
-                  : 'text-white/60 hover:bg-white/12 hover:text-white',
-              ].join(' ')}
-              aria-current={currentSpaceId === space.id ? 'page' : undefined}
-            >
-              {space.name}
-            </button>
-          ))}
-        </nav>
+        {/* Space switcher + hint button */}
+        <div className="flex items-center gap-2">
+          <nav aria-label="Spaces" className="flex gap-1">
+            {spaces.map((space) => (
+              <button
+                key={space.id}
+                type="button"
+                onClick={() => onSpaceChange(space.id)}
+                className={[
+                  'rounded-full px-3 py-1 text-xs font-bold transition',
+                  currentSpaceId === space.id
+                    ? 'bg-white/28 text-white shadow'
+                    : 'text-white/60 hover:bg-white/12 hover:text-white',
+                ].join(' ')}
+                aria-current={currentSpaceId === space.id ? 'page' : undefined}
+              >
+                {space.name}
+              </button>
+            ))}
+          </nav>
+
+          {/* Cycle button with keyboard hint tooltip */}
+          {spaces.length > 1 && (
+            <div className="group relative">
+              <button
+                type="button"
+                onClick={switchNext}
+                aria-label="Switch to next space"
+                className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[0.6rem] font-black text-white/50 transition hover:bg-white/20 hover:text-white/80"
+              >
+                <span>⇥</span>
+              </button>
+              {/* Tooltip */}
+              <div className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-900/90 px-3 py-2 text-[0.65rem] font-semibold text-white opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100 z-50">
+                <p className="mb-1 font-black tracking-wide text-white/60 uppercase text-[0.55rem]">Switch Space</p>
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-white/80">Next space</span>
+                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl Tab</kbd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-white/80">Prev space</span>
+                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl ⇧ Tab</kbd>
+                  </div>
+                </div>
+                {/* arrow */}
+                <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900/90" />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Right controls */}
         <div className="flex items-center gap-2">
-          {/* Widget mini icons — appear when any widget is minimised */}
           <WidgetMiniIcons widgets={widgets} onChange={onWidgetsChange} />
-
           <button
             type="button"
             aria-label="Toggle theme"
