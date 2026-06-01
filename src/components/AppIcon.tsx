@@ -1,75 +1,75 @@
 import { useState } from 'react';
 import type { AppShortcut } from '../types';
+import { getFaviconUrl, getInitials } from '../lib/favicon';
 
-type Props = {
+type AppIconProps = {
   app: AppShortcut;
-  size?: 'grid' | 'dock' | 'folder';
-  dark?: boolean;
+  size?: 'grid' | 'dock' | 'mini';
 };
 
-function getFaviconUrl(url: string): string {
-  try {
-    const encoded = encodeURIComponent(url);
-    return `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encoded}&size=64`;
-  } catch {
-    return '';
-  }
+// grid: 72px × 30% ≈ 21.6px → rounded-[1.35rem]
+// dock: 52px × 30% ≈ 16px  → rounded-[16px]  (fixed so it looks correct at base size)
+// mini: 24px × 30% ≈ 7px   → rounded-[0.48rem]
+const sizeClasses = {
+  grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
+  dock: 'h-full w-full rounded-[16px]',
+  mini: 'h-6 w-6 rounded-[0.48rem]',
+};
+
+const monogramSizes = {
+  grid: 'text-xl',
+  dock: 'text-sm',
+  mini: 'text-[0.62rem]',
+};
+
+const faviconSizes = {
+  grid: 'h-[62%] w-[62%]',
+  dock: 'h-[60%] w-[60%]',
+  mini: 'h-[70%] w-[70%]',
+};
+
+function autoAccent(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360} 72% 55%)`;
 }
 
-export function AppIcon({ app, size = 'grid', dark = false }: Props) {
-  const [imgError, setImgError] = useState(false);
+export function AppIcon({ app, size = 'grid' }: AppIconProps) {
+  const [failed, setFailed] = useState(app.iconType === 'monogram');
+  const iconSource = app.iconType === 'custom' ? app.iconValue : getFaviconUrl(app.iconValue || app.url);
+  const accent = app.iconColor ?? autoAccent(app.url || app.name);
 
-  const sizeClass =
-    size === 'dock' ? 'w-12 h-12 rounded-2xl text-2xl' :
-    size === 'folder' ? 'w-8 h-8 rounded-xl text-base' :
-    'w-14 h-14 rounded-[18px] text-2xl';
-
-  const bgClass = dark
-    ? 'bg-[#2c2c2e] shadow-[0_2px_8px_rgba(0,0,0,0.5)]'
-    : 'bg-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]';
-
-  if (app.iconType === 'emoji' && app.iconValue) {
-    return (
-      <div className={`${sizeClass} ${bgClass} flex items-center justify-center flex-shrink-0`}>
-        <span>{app.iconValue}</span>
-      </div>
-    );
-  }
-
-  if (app.iconType === 'letter') {
-    const color = app.iconColor ?? '#6366f1';
-    return (
-      <div
-        className={`${sizeClass} flex items-center justify-center flex-shrink-0 font-black text-white shadow-[0_2px_8px_rgba(0,0,0,0.2)]`}
-        style={{ backgroundColor: color }}
-      >
-        <span>{(app.iconValue ?? app.name).charAt(0).toUpperCase()}</span>
-      </div>
-    );
-  }
-
-  const faviconUrl = getFaviconUrl(app.url);
-
-  if (!imgError && faviconUrl) {
-    return (
-      <div className={`${sizeClass} ${bgClass} flex items-center justify-center flex-shrink-0 overflow-hidden`}>
-        <img
-          src={faviconUrl}
-          alt={app.name}
-          className="w-3/4 h-3/4 object-contain"
-          onError={() => setImgError(true)}
-        />
-      </div>
-    );
-  }
-
-  const color = app.iconColor ?? '#6366f1';
   return (
-    <div
-      className={`${sizeClass} flex items-center justify-center flex-shrink-0 font-black text-white shadow-[0_2px_8px_rgba(0,0,0,0.2)]`}
-      style={{ backgroundColor: color }}
+    <span
+      className={[
+        'relative flex shrink-0 items-center justify-center overflow-hidden',
+        'bg-[#2c2c2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_4px_14px_rgba(0,0,0,0.45)]',
+        sizeClasses[size],
+      ].join(' ')}
+      style={{ isolation: 'isolate', transform: 'translateZ(0)' }}
+      data-testid={`icon-${app.id}`}
     >
-      <span>{app.name.charAt(0).toUpperCase()}</span>
-    </div>
+      {!failed ? (
+        <img
+          src={iconSource}
+          alt=""
+          className={`object-contain ${faviconSizes[size]}`}
+          decoding="async"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span
+          className={[
+            'flex h-full w-full items-center justify-center font-black tracking-[-0.04em] text-white',
+            monogramSizes[size],
+          ].join(' ')}
+          style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in oklab, ${accent} 70%, #111827))` }}
+          aria-hidden="true"
+        >
+          {getInitials(app.name)}
+        </span>
+      )}
+    </span>
   );
 }

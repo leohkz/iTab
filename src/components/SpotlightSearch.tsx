@@ -1,364 +1,435 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
-import { Search, Clock, FileText, CheckSquare, Zap, Globe, BookOpen } from 'lucide-react';
-import type { AppShortcut, SearchEngine, TodoItem, NoteTab, Prompt } from '../types';
+import { ArrowRight, Clock, FileText, Globe2, Hash, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import type { AppShortcut, SearchEngine, SearchEngineId, TodoItem, NoteTab, Prompt } from '../types';
 import type { TranslationKey } from '../i18n';
+import { FaviconImg } from './FaviconImg';
 
-type Props = {
-  open: boolean;
-  apps: AppShortcut[];
-  engines: SearchEngine[];
-  defaultEngine: string;
-  todos: TodoItem[];
-  noteTabs?: NoteTab[];
-  prompts: Prompt[];
-  t: (key: TranslationKey) => string;
-  dark?: boolean;
-  onClose: () => void;
-  onEngineChange: (engineId: string) => void;
-};
+const RECENT_KEY = 'itab-spotlight-recent';
+const MAX_RECENT = 8;
 
 type ResultItem =
   | { kind: 'app';    app: AppShortcut }
-  | { kind: 'engine'; engine: SearchEngine }
-  | { kind: 'todo';   todo: TodoItem }
+  | { kind: 'todo';   item: TodoItem }
   | { kind: 'note';   tab: NoteTab; snippet: string }
   | { kind: 'prompt'; prompt: Prompt };
 
-function getFaviconUrl(url: string): string {
-  try {
-    const encoded = encodeURIComponent(url);
-    return `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encoded}&size=64`;
-  } catch {
-    return '';
-  }
+type SpotlightSearchProps = {
+  open: boolean;
+  apps: AppShortcut[];
+  engines: SearchEngine[];
+  defaultEngine: SearchEngineId;
+  todos?: TodoItem[];
+  noteTabs?: NoteTab[];
+  prompts?: Prompt[];
+  t: (key: TranslationKey) => string;
+  onClose: () => void;
+  onEngineChange: (engine: SearchEngineId) => void;
+};
+
+function buildSearchUrl(engine: SearchEngine, query: string) {
+  return (engine.template ?? '{q}').replaceAll('{q}', encodeURIComponent(query));
 }
 
-function AppFavicon({ app, dark }: { app: AppShortcut; dark: boolean }) {
-  const [err, setErr] = useState(false);
-  const src = getFaviconUrl(app.url);
-  const fallbackBg = app.iconColor ?? '#6366f1';
-
-  const containerCls = dark
-    ? 'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-[#3a3a3c]'
-    : 'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-slate-100';
-
-  if (!err && src) {
-    return (
-      <div className={containerCls}>
-        <img src={src} alt={app.name} className="w-5 h-5 object-contain" onError={() => setErr(true)} />
-      </div>
-    );
+function getEngineSiteUrl(engine: SearchEngine): string {
+  if (engine.url) return engine.url;
+  if (engine.template) {
+    try { return new URL(engine.template.replace('{q}', '')).origin; } catch { /* ignore */ }
   }
-  return (
-    <div
-      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-black"
-      style={{ backgroundColor: fallbackBg }}
-    >
-      {app.name.charAt(0).toUpperCase()}
-    </div>
-  );
+  return '';
+}
+
+function loadRecent(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); } catch { return []; }
+}
+
+function saveRecent(q: string) {
+  if (!q.trim()) return;
+  const list = [q, ...loadRecent().filter(r => r !== q)].slice(0, MAX_RECENT);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(list));
 }
 
 export function SpotlightSearch({
-  open, apps, engines, defaultEngine, todos, noteTabs = [], prompts, t, dark = false, onClose, onEngineChange,
-}: Props) {
-  const [query, setQuery] = useState('');
-  const [activeIdx, setActiveIdx] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef  = useRef<HTMLDivElement>(null);
+  open, apps, engines, defaultEngine,
+  todos = [], noteTabs = [], prompts = [],
+  t, onClose, onEngineChange,
+}: SpotlightSearchProps) {
+  const inputRef   = useRef<HTMLInputElement | null>(null);
+  const listRef    = useRef<HTMLDivElement | null>(null);
+  const [query, setQuery]       = useState('');
+  const [engineId, setEngineId] = useState<SearchEngineId>(defaultEngine);
+  const [cursor, setCursor]     = useState(-1);
+  const [recent, setRecent]     = useState<string[]>([]);
 
-  const activeEngines = useMemo(() => engines.filter((e) => e.enabled), [engines]);
-  const currentEngine = useMemo(
-    () => activeEngines.find((e) => e.id === defaultEngine) ?? activeEngines[0],
-    [activeEngines, defaultEngine],
+  const enabledEngines = useMemo(() => engines.filter(e => e.enabled), [engines]);
+
+  const activeEngineIdx = useMemo(
+    () => Math.max(0, enabledEngines.findIndex(e => e.id === engineId)),
+    [enabledEngines, engineId],
   );
+  const activeEngine = enabledEngines[activeEngineIdx] ?? enabledEngines[0];
+
+  const switchEngine = useCallback((id: SearchEngineId) => {
+    setEngineId(id);
+    onEngineChange(id);
+    inputRef.current?.focus();
+  }, [onEngineChange]);
 
   useEffect(() => {
-    if (open) { setQuery(''); setActiveIdx(0); setTimeout(() => inputRef.current?.focus(), 50); }
-  }, [open]);
+    if (open) {
+      setQuery('');
+      setCursor(-1);
+      setEngineId(defaultEngine);
+      setRecent(loadRecent());
+      window.setTimeout(() => inputRef.current?.focus(), 60);
+    }
+  }, [defaultEngine, open]);
+
+  const normalized  = query.trim().toLowerCase();
+  const engineMatch = enabledEngines.find(e => e.shortcut && normalized.startsWith(`${e.shortcut} `));
+  const cleanQuery  = engineMatch ? query.trim().slice((engineMatch.shortcut ?? '').length + 1).trim() : query.trim();
+  const displayEngine = engineMatch ?? activeEngine;
 
   const results = useMemo((): ResultItem[] => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+    if (!normalized) return [];
+    const q = normalized;
     const out: ResultItem[] = [];
 
-    apps.filter((a) => a.name.toLowerCase().includes(q) || a.url.toLowerCase().includes(q))
-      .slice(0, 5).forEach((app) => out.push({ kind: 'app', app }));
+    apps
+      .filter(a => a.name.toLowerCase().includes(q) || a.url.toLowerCase().includes(q))
+      .slice(0, 5)
+      .forEach(app => out.push({ kind: 'app', app }));
 
-    engines.filter((e) => e.enabled && (e.name.toLowerCase().includes(q) || (e.shortcut && e.shortcut.includes(q))))
-      .slice(0, 3).forEach((engine) => out.push({ kind: 'engine', engine }));
+    todos
+      .filter(td => !td.done && td.text.toLowerCase().includes(q))
+      .slice(0, 3)
+      .forEach(item => out.push({ kind: 'todo', item }));
 
-    todos.filter((td) => !td.done && td.text.toLowerCase().includes(q))
-      .slice(0, 3).forEach((todo) => out.push({ kind: 'todo', todo }));
-
-    noteTabs.forEach((tab) => {
-      const idx = tab.content.toLowerCase().indexOf(q);
-      if (idx !== -1) {
-        const start = Math.max(0, idx - 30);
-        const snippet = (start > 0 ? '…' : '') + tab.content.slice(start, idx + q.length + 40);
-        out.push({ kind: 'note', tab, snippet });
-      }
+    noteTabs.forEach(tab => {
+      const pos = tab.content.toLowerCase().indexOf(q);
+      if (pos === -1) return;
+      const start   = Math.max(0, pos - 30);
+      const snippet = (start > 0 ? '…' : '') + tab.content.slice(start, pos + q.length + 40).trim() + '…';
+      out.push({ kind: 'note', tab, snippet });
     });
 
-    (prompts ?? []).filter((p) =>
-      p.title.toLowerCase().includes(q) ||
-      p.content.toLowerCase().includes(q) ||
-      (p.tags ?? []).some((tg) => tg.label.toLowerCase().includes(q)),
-    ).slice(0, 3).forEach((prompt) => out.push({ kind: 'prompt', prompt }));
+    prompts
+      .filter(p => p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q))
+      .slice(0, 3)
+      .forEach(prompt => out.push({ kind: 'prompt', prompt }));
 
     return out;
-  }, [query, apps, engines, todos, noteTabs, prompts]);
+  }, [normalized, apps, todos, noteTabs, prompts]);
 
-  useEffect(() => { setActiveIdx(0); }, [results.length]);
+  const hasSearch  = Boolean(cleanQuery && displayEngine);
+  const totalItems = results.length + (hasSearch ? 1 : 0);
 
-  const execSearch = (engine: SearchEngine, q: string) => {
-    const tmpl = engine.template ?? engine.url ?? `https://www.google.com/search?q={query}`;
-    window.open(tmpl.replace('{query}', encodeURIComponent(q)), '_blank');
+  const submitSearch = useCallback(() => {
+    if (!cleanQuery || !displayEngine) return;
+    saveRecent(cleanQuery);
+    setRecent(loadRecent());
+    window.open(buildSearchUrl(displayEngine, cleanQuery), '_blank', 'noopener,noreferrer');
     onClose();
-  };
+  }, [cleanQuery, displayEngine, onClose]);
 
-  const activateResult = (item: ResultItem) => {
-    if (item.kind === 'app')    { window.open(item.app.url, '_blank'); onClose(); }
-    if (item.kind === 'engine') { if (query.trim()) execSearch(item.engine, query.trim()); }
-    if (item.kind === 'todo')   { onClose(); }
-    if (item.kind === 'note')   { onClose(); }
-    if (item.kind === 'prompt') {
-      navigator.clipboard?.writeText(item.prompt.content).catch(() => {});
-      onClose();
+  const activateItem = useCallback((idx: number) => {
+    if (idx < results.length) {
+      const r = results[idx];
+      if (r.kind === 'app') { window.open(r.app.url, '_blank', 'noopener,noreferrer'); onClose(); }
+      if (r.kind === 'todo')   { navigator.clipboard.writeText(r.item.text).catch(() => {}); onClose(); }
+      if (r.kind === 'note')   { navigator.clipboard.writeText(r.tab.content).catch(() => {}); onClose(); }
+      if (r.kind === 'prompt') { navigator.clipboard.writeText(r.prompt.content).catch(() => {}); onClose(); }
+    } else if (idx === results.length && hasSearch) {
+      submitSearch();
     }
-  };
+  }, [results, hasSearch, submitSearch, onClose]);
 
-  const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape')     { onClose(); return; }
-    if (e.key === 'ArrowDown')  { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, (results.length || 1) - 1)); }
-    if (e.key === 'ArrowUp')    { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') { onClose(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, totalItems - 1)); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setCursor(c => Math.max(c - 1, -1)); return; }
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (results.length > 0) { activateResult(results[activeIdx]); }
-      else if (query.trim() && currentEngine) { execSearch(currentEngine, query.trim()); onClose(); }
+      if (cursor >= 0 && cursor < totalItems) activateItem(cursor);
+      else submitSearch();
     }
-  };
+  }, [onClose, totalItems, cursor, activateItem, submitSearch]);
+
+  useEffect(() => {
+    if (cursor < 0 || !listRef.current) return;
+    const el = listRef.current.querySelector<HTMLElement>(`[data-idx="${cursor}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [cursor]);
 
   if (!open) return null;
 
-  // ── dark / light tokens ──
-  const overlay   = dark ? 'bg-black/60' : 'bg-black/30';
-  const container = dark ? 'bg-[#1c1c1e] border border-white/10' : 'bg-white border border-black/8';
-  const inputCls  = dark ? 'text-white placeholder:text-white/30' : 'text-slate-900 placeholder:text-slate-400';
-  const engineBar = dark ? 'bg-[#2c2c2e] border-t border-white/8' : 'bg-slate-50 border-t border-slate-200';
-  const engineBtn = (active: boolean) => dark
-    ? (active ? 'bg-blue-600 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white')
-    : (active ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800');
-  const resultHover = dark ? 'hover:bg-white/8' : 'hover:bg-slate-100';
-  const resultActive = dark ? 'bg-white/15' : 'bg-slate-200';
-  const sectionLabel = dark ? 'text-white/30' : 'text-slate-400';
-  const primaryText  = dark ? 'text-white' : 'text-slate-900';
-  const secondaryText = dark ? 'text-white/50' : 'text-slate-500';
-  const divider      = dark ? 'border-white/8' : 'border-slate-100';
-  const searchIcon   = dark ? 'text-white/30' : 'text-slate-400';
-  const noResultText = dark ? 'text-white/40' : 'text-slate-400';
-  const snippetText  = dark ? 'text-white/40' : 'text-slate-400';
+  const showRecent = !normalized && recent.length > 0;
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-start justify-center pt-[15vh] ${overlay}`}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 backdrop-blur-md"
+      role="presentation"
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        className={`w-full max-w-2xl mx-4 rounded-2xl shadow-2xl overflow-hidden ${container}`}
-        style={{ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+      <section
+        role="dialog" aria-modal="true" aria-label="Spotlight search"
+        className="w-[min(44rem,calc(100vw-2rem))] max-h-[80vh] overflow-hidden rounded-[1.7rem] border border-white/10 bg-[#1c1c1e] shadow-[0_32px_90px_rgba(0,0,0,0.8)] flex flex-col"
       >
-        {/* Search input row */}
-        <div className={`flex items-center gap-3 px-4 py-3.5 border-b ${divider}`}>
-          <Search className={`w-5 h-5 flex-shrink-0 ${searchIcon}`} />
+        {/* ── Input row ── */}
+        <div className="flex items-center gap-3 border-b border-white/8 bg-[#1c1c1e] px-5 py-4 shrink-0">
+          <Search className="h-5 w-5 shrink-0 text-white/40" />
           <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder={t('search')}
-            className={`flex-1 bg-transparent outline-none text-base font-medium ${inputCls}`}
+            ref={inputRef} value={query}
+            onChange={e => { setQuery(e.target.value); setCursor(-1); }}
+            onKeyDown={onKeyDown}
+            placeholder={t('searchPlaceholder')}
+            className="min-w-0 flex-1 bg-transparent text-lg font-bold tracking-[-0.04em] text-white placeholder:text-white/30 focus:outline-none"
           />
+          {displayEngine && (
+            <span className="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-black text-white/60 ring-1 ring-white/10">
+              {displayEngine.name}
+            </span>
+          )}
+          <button type="button" onClick={onClose} aria-label={t('cancel')}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/60 transition duration-200 hover:bg-white/20">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {/* Engine selector */}
-        <div className={`flex items-center gap-1 px-3 py-2 ${engineBar}`}>
-          {activeEngines.map((eng) => (
-            <button
-              key={eng.id}
-              type="button"
-              onClick={() => onEngineChange(eng.id)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                engineBtn(eng.id === defaultEngine)
-              }`}
-            >
-              {eng.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Results */}
-        {query.trim() && (
-          <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-2">
-            {results.length === 0 ? (
-              <div className={`px-4 py-8 text-center text-sm ${noResultText}`}>
-                {t('noResults')} — press Enter to search
-              </div>
-            ) : (
-              <>
-                {/* Apps */}
-                {results.some((r) => r.kind === 'app') && (
-                  <>
-                    <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest ${sectionLabel}`}>
-                      Apps
-                    </div>
-                    {results.filter((r): r is Extract<ResultItem, { kind: 'app' }> => r.kind === 'app').map((item) => {
-                      const globalIdx = results.indexOf(item);
-                      return (
-                        <button
-                          key={item.app.id}
-                          type="button"
-                          onClick={() => activateResult(item)}
-                          onMouseEnter={() => setActiveIdx(globalIdx)}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition ${
-                            globalIdx === activeIdx ? resultActive : resultHover
-                          }`}
-                        >
-                          <AppFavicon app={item.app} dark={dark} />
-                          <div className="min-w-0">
-                            <div className={`text-sm font-bold truncate ${primaryText}`}>{item.app.name}</div>
-                            <div className={`text-xs truncate ${secondaryText}`}>{item.app.url}</div>
-                          </div>
-                          <Globe className={`w-4 h-4 flex-shrink-0 ml-auto ${secondaryText}`} />
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {/* Search engines */}
-                {results.some((r) => r.kind === 'engine') && (
-                  <>
-                    <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest mt-1 ${sectionLabel}`}>
-                      {t('searchEngines')}
-                    </div>
-                    {results.filter((r): r is Extract<ResultItem, { kind: 'engine' }> => r.kind === 'engine').map((item) => {
-                      const globalIdx = results.indexOf(item);
-                      return (
-                        <button
-                          key={item.engine.id}
-                          type="button"
-                          onClick={() => activateResult(item)}
-                          onMouseEnter={() => setActiveIdx(globalIdx)}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition ${
-                            globalIdx === activeIdx ? resultActive : resultHover
-                          }`}
-                        >
-                          <div className={dark ? 'w-8 h-8 rounded-xl bg-[#3a3a3c] flex items-center justify-center' : 'w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center'}>
-                            <Zap className={`w-4 h-4 ${secondaryText}`} />
-                          </div>
-                          <div className={`text-sm font-bold ${primaryText}`}>{item.engine.name}</div>
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {/* Todos */}
-                {results.some((r) => r.kind === 'todo') && (
-                  <>
-                    <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest mt-1 ${sectionLabel}`}>
-                      To-Do
-                    </div>
-                    {results.filter((r): r is Extract<ResultItem, { kind: 'todo' }> => r.kind === 'todo').map((item) => {
-                      const globalIdx = results.indexOf(item);
-                      return (
-                        <button
-                          key={item.todo.id}
-                          type="button"
-                          onClick={() => activateResult(item)}
-                          onMouseEnter={() => setActiveIdx(globalIdx)}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition ${
-                            globalIdx === activeIdx ? resultActive : resultHover
-                          }`}
-                        >
-                          <div className={dark ? 'w-8 h-8 rounded-xl bg-[#3a3a3c] flex items-center justify-center' : 'w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center'}>
-                            <CheckSquare className={`w-4 h-4 ${secondaryText}`} />
-                          </div>
-                          <div className={`text-sm font-medium ${primaryText}`}>{item.todo.text}</div>
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {/* Notes */}
-                {results.some((r) => r.kind === 'note') && (
-                  <>
-                    <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest mt-1 ${sectionLabel}`}>
-                      Notes
-                    </div>
-                    {results.filter((r): r is Extract<ResultItem, { kind: 'note' }> => r.kind === 'note').map((item) => {
-                      const globalIdx = results.indexOf(item);
-                      return (
-                        <button
-                          key={item.tab.id}
-                          type="button"
-                          onClick={() => activateResult(item)}
-                          onMouseEnter={() => setActiveIdx(globalIdx)}
-                          className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition ${
-                            globalIdx === activeIdx ? resultActive : resultHover
-                          }`}
-                        >
-                          <div className={dark ? 'w-8 h-8 rounded-xl bg-[#3a3a3c] flex items-center justify-center flex-shrink-0' : 'w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0'}>
-                            <FileText className={`w-4 h-4 ${secondaryText}`} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className={`text-sm font-bold ${primaryText}`}>{item.tab.name}</div>
-                            <div className={`text-xs truncate ${snippetText}`}>{item.snippet}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {/* Prompts */}
-                {results.some((r) => r.kind === 'prompt') && (
-                  <>
-                    <div className={`px-4 py-1 text-xs font-black uppercase tracking-widest mt-1 ${sectionLabel}`}>
-                      {t('promptLibrary')}
-                    </div>
-                    {results.filter((r): r is Extract<ResultItem, { kind: 'prompt' }> => r.kind === 'prompt').map((item) => {
-                      const globalIdx = results.indexOf(item);
-                      return (
-                        <button
-                          key={item.prompt.id}
-                          type="button"
-                          onClick={() => activateResult(item)}
-                          onMouseEnter={() => setActiveIdx(globalIdx)}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition ${
-                            globalIdx === activeIdx ? resultActive : resultHover
-                          }`}
-                        >
-                          <div className={dark ? 'w-8 h-8 rounded-xl bg-[#3a3a3c] flex items-center justify-center' : 'w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center'}>
-                            <BookOpen className={`w-4 h-4 ${secondaryText}`} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className={`text-sm font-bold ${primaryText}`}>{item.prompt.title}</div>
-                            <div className={`text-xs truncate ${snippetText}`}>{item.prompt.content.slice(0, 60)}</div>
-                          </div>
-                          <Clock className={`w-3.5 h-3.5 flex-shrink-0 ml-auto ${secondaryText}`} />
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-              </>
-            )}
+        {/* ── Engine icon strip ── */}
+        <div className="border-b border-white/8 bg-[#2c2c2e] shrink-0" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+          <div className="flex items-center gap-1.5 px-5 pt-2.5 pb-8 min-w-max">
+            {enabledEngines.map((eng) => {
+              const isActive = eng.id === displayEngine?.id;
+              const siteUrl  = getEngineSiteUrl(eng);
+              return (
+                <button
+                  key={eng.id} type="button"
+                  title={eng.name}
+                  onClick={() => switchEngine(eng.id)}
+                  className={[
+                    'group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition duration-150',
+                    isActive
+                      ? 'bg-white/15 ring-2 ring-white/30 ring-offset-1 ring-offset-[#2c2c2e]'
+                      : 'bg-white/8 hover:bg-white/15',
+                  ].join(' ')}
+                >
+                  <FaviconImg
+                    siteUrl={siteUrl}
+                    customIcon={eng.icon}
+                    name={eng.name}
+                    size={18}
+                    className="rounded-[3px]"
+                  />
+                  <span className="pointer-events-none absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
+                    {eng.name}
+                    {eng.shortcut && <span className="ml-1 opacity-60">/{eng.shortcut}</span>}
+                  </span>
+                  {isActive && (
+                    <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white/50" />
+                  )}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+        </div>
+
+        {/* ── Results ── */}
+        <div ref={listRef} className="overflow-y-auto p-4 flex flex-col gap-4">
+
+          {showRecent && (
+            <div>
+              <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('recentSearches')}</p>
+              <div className="flex flex-wrap gap-2">
+                {recent.map((r, i) => (
+                  <button key={i} type="button"
+                    onClick={() => setQuery(r)}
+                    className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-sm font-semibold text-white/70 hover:bg-white/15 transition">
+                    <Clock className="h-3 w-3 text-white/30" />
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* App shortcuts — icon grid */}
+          {normalized && (() => {
+            const appItems = results.filter(r => r.kind === 'app') as { kind: 'app'; app: AppShortcut }[];
+            if (!appItems.length) return null;
+            return (
+              <div>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('appsAndShortcuts')}</p>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
+                  {appItems.map((r) => {
+                    const globalIdx = results.indexOf(r);
+                    const isActive  = cursor === globalIdx;
+                    return (
+                      <a key={r.app.id}
+                        href={r.app.url} target="_blank" rel="noreferrer"
+                        data-idx={globalIdx}
+                        onClick={() => { saveRecent(cleanQuery); setRecent(loadRecent()); onClose(); }}
+                        onMouseEnter={() => setCursor(globalIdx)}
+                        className={[
+                          'flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center transition duration-150 cursor-pointer',
+                          isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80',
+                        ].join(' ')}
+                      >
+                        <div className="h-10 w-10 overflow-hidden rounded-xl bg-[#3a3a3c] flex items-center justify-center shrink-0">
+                          <FaviconImg
+                            siteUrl={r.app.url}
+                            customIcon={r.app.iconType === 'url' ? r.app.iconValue : undefined}
+                            name={r.app.name}
+                            size={28}
+                            className="rounded-lg"
+                          />
+                        </div>
+                        <span className={['text-[0.65rem] font-black leading-tight line-clamp-2 w-full', isActive ? 'text-white' : 'text-white/60'].join(' ')}>
+                          {r.app.name}
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Todos */}
+          {normalized && (() => {
+            const todoItems = results.filter(r => r.kind === 'todo') as { kind: 'todo'; item: TodoItem }[];
+            if (!todoItems.length) return null;
+            return (
+              <div>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('todo')}</p>
+                <div className="grid gap-1">
+                  {todoItems.map(r => {
+                    const globalIdx = results.indexOf(r);
+                    const isActive  = cursor === globalIdx;
+                    return (
+                      <div key={r.item.id} data-idx={globalIdx}
+                        onMouseEnter={() => setCursor(globalIdx)}
+                        onClick={() => activateItem(globalIdx)}
+                        className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
+                        <Hash className={['h-4 w-4 shrink-0', isActive ? 'text-white/60' : 'text-white/30'].join(' ')} />
+                        <span className="text-sm font-semibold">{r.item.text}</span>
+                        {isActive && <span className="ml-auto text-[0.6rem] opacity-60">Copy</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Notes */}
+          {normalized && (() => {
+            const noteItems = results.filter(r => r.kind === 'note') as { kind: 'note'; tab: NoteTab; snippet: string }[];
+            if (!noteItems.length) return null;
+            return (
+              <div>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('quickNote')}</p>
+                <div className="grid gap-1">
+                  {noteItems.map(r => {
+                    const globalIdx = results.indexOf(r);
+                    const isActive  = cursor === globalIdx;
+                    return (
+                      <div key={r.tab.id} data-idx={globalIdx}
+                        onMouseEnter={() => setCursor(globalIdx)}
+                        onClick={() => activateItem(globalIdx)}
+                        className={['flex items-start gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
+                        <FileText className={['h-4 w-4 mt-0.5 shrink-0', isActive ? 'text-white/60' : 'text-white/30'].join(' ')} />
+                        <span>
+                          <span className={['block text-xs font-black', isActive ? 'text-white/70' : 'text-white/40'].join(' ')}>{r.tab.name}</span>
+                          <span className="block text-sm font-semibold line-clamp-1">{r.snippet}</span>
+                        </span>
+                        {isActive && <span className="ml-auto text-[0.6rem] opacity-60 shrink-0 mt-0.5">Copy</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Prompts */}
+          {normalized && (() => {
+            const promptItems = results.filter(r => r.kind === 'prompt') as { kind: 'prompt'; prompt: Prompt }[];
+            if (!promptItems.length) return null;
+            return (
+              <div>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('prompts')}</p>
+                <div className="grid gap-1">
+                  {promptItems.map(r => {
+                    const globalIdx = results.indexOf(r);
+                    const isActive  = cursor === globalIdx;
+                    return (
+                      <div key={r.prompt.id} data-idx={globalIdx}
+                        onMouseEnter={() => setCursor(globalIdx)}
+                        onClick={() => activateItem(globalIdx)}
+                        className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
+                        <span className={['text-base shrink-0', isActive ? 'opacity-80' : 'opacity-50'].join(' ')}>✦</span>
+                        <span>
+                          <span className="block text-sm font-black">{r.prompt.title}</span>
+                          <span className={['block text-xs line-clamp-1', isActive ? 'text-white/60' : 'text-white/40'].join(' ')}>{r.prompt.content.slice(0, 60)}…</span>
+                        </span>
+                        {isActive && <span className="ml-auto text-[0.6rem] opacity-60 shrink-0">Copy</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Web search action */}
+          {hasSearch && (() => {
+            const searchIdx = results.length;
+            const isActive = cursor === searchIdx;
+            return (
+              <button type="button" data-idx={searchIdx}
+                onMouseEnter={() => setCursor(searchIdx)}
+                onClick={submitSearch}
+                className={['flex items-center justify-between rounded-xl px-3 py-3 text-left transition duration-200', isActive ? 'bg-white/15 text-white' : 'bg-white/8 text-white/80 hover:bg-white/12'].join(' ')}>
+                <span className="flex items-center gap-3">
+                  <Globe2 className="h-5 w-5" />
+                  <span>
+                    <span className="block text-sm font-black">{t('searchWith').replace('{engine}', displayEngine?.name ?? '')}</span>
+                    <span className={['block text-xs font-semibold', isActive ? 'text-white/60' : 'text-white/40'].join(' ')}>{cleanQuery}</span>
+                  </span>
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            );
+          })()}
+
+          {normalized && results.length === 0 && !hasSearch && (
+            <p className="py-6 text-center text-sm font-semibold text-white/30">{t('noResults')}</p>
+          )}
+
+          {!normalized && (
+            <div>
+              <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('appsAndShortcuts')}</p>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
+                {apps.slice(0, 12).map(app => (
+                  <a key={app.id} href={app.url} target="_blank" rel="noreferrer" onClick={onClose}
+                    className="flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center hover:bg-white/8 transition cursor-pointer">
+                    <div className="h-10 w-10 overflow-hidden rounded-xl bg-[#3a3a3c] flex items-center justify-center">
+                      <FaviconImg
+                        siteUrl={app.url}
+                        customIcon={app.iconType === 'url' ? app.iconValue : undefined}
+                        name={app.name}
+                        size={28}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <span className="text-[0.65rem] font-black leading-tight line-clamp-2 w-full text-white/60">{app.name}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
