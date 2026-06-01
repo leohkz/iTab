@@ -8,7 +8,6 @@ import type { AppShortcut, Folder, Space } from '../types';
 import type { TranslationKey } from '../i18n';
 import { GRID_CONTAINER_ID } from '../App';
 
-// Container-id prefix used to identify folder drop zones
 export const FOLDER_DROP_PREFIX = 'folder-drop-';
 
 type AppGridProps = {
@@ -49,7 +48,6 @@ type GridItem =
   | { kind: 'app'; id: string; app: AppShortcut }
   | { kind: 'folder'; id: string; folder: Folder; apps: AppShortcut[] };
 
-// grid icon is h-[4.5rem] w-[4.5rem] (72px) — folder matches exactly
 const ICON_PX = 72;
 const BADGE_PX = Math.round(ICON_PX * 0.28);
 const BADGE_OFFSET = -Math.round(BADGE_PX * 0.35);
@@ -118,10 +116,11 @@ function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?:
     <span
       className="grid h-[4.5rem] w-[4.5rem] grid-cols-2 grid-rows-2 place-items-center gap-1.5 rounded-[1.35rem] border border-white/35 bg-white/40 p-2.5 backdrop-blur-sm"
       style={{
+        transform: isDropOver ? 'scale(1.08)' : 'scale(1)',
         boxShadow: isDropOver
-          ? 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2), 0 0 0 3px rgba(255,255,255,0.55)'
+          ? 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2), 0 0 0 3px rgba(255,255,255,0.7)'
           : 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2)',
-        transition: 'box-shadow 120ms',
+        transition: 'box-shadow 100ms, transform 100ms',
       }}
     >
       {Array.from({ length: 4 }).map((_, i) => {
@@ -243,9 +242,13 @@ function PageDots({ total, current, onSelect }: { total: number; current: number
 }
 
 /**
- * Folder cell — droppable so app icons can be dragged into it.
- * When `editing` is false we still allow drops so iOS-style drag-to-folder
- * works without needing to enter edit mode first.
+ * Folder cell.
+ *
+ * Key design:
+ * - `useDroppable` with its own `dropId` is always active — this is what receives
+ *   app icons dragged onto the folder regardless of editing mode.
+ * - `useSortable` is only active (drag-to-reorder) when editing.
+ * - The two refs are merged onto the same outer div so both get pointer events.
  */
 function DroppableFolderItem({
   item, editing, activeId, overContainer,
@@ -261,24 +264,30 @@ function DroppableFolderItem({
 }) {
   const dropId = `${FOLDER_DROP_PREFIX}${item.folder.id}`;
 
-  // sortable handles dragging the folder itself when editing
-  const { attributes, listeners, setNodeRef: setSortableRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes, listeners,
+    setNodeRef: setSortableRef,
+    transform, transition, isDragging,
+  } = useSortable({
     id: item.id,
     data: { container: GRID_CONTAINER_ID },
-    disabled: !editing,
+    // Folder reordering only when editing; dragging is still allowed always
+    // but we only apply listeners when editing so normal clicks still work.
+    disabled: false,
   });
 
-  // droppable so OTHER icons can be dragged into this folder
+  // Always-active drop zone — receives any dragged app icon
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: dropId,
     data: { container: dropId, folderId: item.folder.id },
   });
 
-  // Merge both refs
-  const setRef = (el: HTMLDivElement | null) => {
+  // Merge both refs on the same DOM node
+  const setRef = useCallback((el: HTMLDivElement | null) => {
     setSortableRef(el);
     setDropRef(el);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sortableStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -288,20 +297,36 @@ function DroppableFolderItem({
     touchAction: 'none',
   };
 
-  // show drop highlight when another icon is hovering over this folder
-  const isDropTarget = isOver && overContainer === dropId;
+  // `overContainer` comes from App's handleDragOver — it is set to the dropId
+  // when the pointer is over this folder.
+  const isDropTarget = isOver || overContainer === dropId;
 
   return (
-    <div ref={setRef} style={sortableStyle}
-      className={['group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
-      {...(editing ? { ...attributes, ...listeners } : {})}
+    <div
+      ref={setRef}
+      style={sortableStyle}
+      // Spread sortable attributes always; listeners only when editing
+      // so pointer-down is not swallowed in normal (non-edit) mode.
+      {...attributes}
+      {...(editing ? listeners : {})}
+      className={[
+        'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
+        editing ? 'cursor-grab' : '',
+      ].join(' ')}
       data-anim="app-icon"
     >
-      <button type="button"
-        onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
+      <button
+        type="button"
+        onClick={(e) => {
+          if (editing) { e.stopPropagation(); return; }
+          onOpenFolder(item.folder.id);
+        }}
         className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
       >
-        <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')} style={{ isolation: 'isolate' }}>
+        <span
+          className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
+          style={{ isolation: 'isolate' }}
+        >
           <FolderPreview apps={item.apps} isDropOver={isDropTarget} />
           {editing && (
             <>
@@ -326,6 +351,15 @@ function DroppableFolderItem({
   );
 }
 
+/**
+ * App icon cell.
+ *
+ * useSortable is always enabled (not disabled) so the icon is always
+ * draggable — iOS-style. Listeners are only spread when editing so that
+ * normal clicks open the URL instead of initiating a drag.
+ * The DndContext PointerSensor uses activationConstraint: { distance: 8 }
+ * so small taps still register as clicks.
+ */
 function SortableGridItem({
   item, editing, spaces, currentSpaceId, activeId, overContainer,
   onDeleteApp, onRenameApp, onMoveToSpace, onOpenFolder, onDeleteFolder, onRenameFolder,
@@ -357,10 +391,14 @@ function SortableGridItem({
     );
   }
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  // Always draggable — useSortable never disabled for app icons
+  const {
+    attributes, listeners, setNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({
     id: item.id,
     data: { container: GRID_CONTAINER_ID },
-    disabled: !editing,
+    disabled: false,
   });
 
   const style: React.CSSProperties = {
@@ -371,14 +409,18 @@ function SortableGridItem({
     touchAction: 'none',
   };
 
-  const cellClass = [
-    'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
-    editing ? 'cursor-grab' : '',
-  ].join(' ');
-
   return (
-    <div ref={setNodeRef} style={style} className={cellClass}
-      {...(editing ? { ...attributes, ...listeners } : {})}
+    <div
+      ref={setNodeRef}
+      style={style}
+      // Spread attributes always; listeners only when editing so normal
+      // pointer-down doesn't block click-to-navigate in view mode.
+      {...attributes}
+      {...(editing ? listeners : {})}
+      className={[
+        'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
+        editing ? 'cursor-grab' : '',
+      ].join(' ')}
       data-testid={`link-app-${item.app.id}`}
     >
       <a
