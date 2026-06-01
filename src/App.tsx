@@ -1,5 +1,5 @@
 /// <reference types="chrome" />
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookMarked } from 'lucide-react';
 import { AppGrid } from './components/AppGrid';
 import { Dock } from './components/Dock';
@@ -105,6 +105,7 @@ function NewTab() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showPrompts, setShowPrompts] = useState(false);
+  const [spaceDirection, setSpaceDirection] = useState<'left' | 'right' | null>(null);
   const [editor, setEditor] = useState<EditorState>({
     open: false, mode: 'add', appId: null, folderId: null,
   });
@@ -141,7 +142,6 @@ function NewTab() {
     [config.folders, config.currentSpaceId],
   );
 
-  // All apps across every space (excluding pinned) — used by Spotlight so search is global
   const allApps = useMemo(
     () => config.apps.filter((app) => !config.pinnedIds.includes(app.id)),
     [config.apps, config.pinnedIds],
@@ -169,6 +169,20 @@ function NewTab() {
     window.setTimeout(() => setToast(null), 1800);
   };
 
+  // Space switch with direction tracking
+  const spaceDirectionRef = useRef<'left' | 'right' | null>(null);
+  const switchSpace = (spaceId: string) => {
+    const currentIdx = spaces.findIndex((s) => s.id === config.currentSpaceId);
+    const nextIdx = spaces.findIndex((s) => s.id === spaceId);
+    const dir: 'left' | 'right' = nextIdx > currentIdx ? 'right' : 'left';
+    spaceDirectionRef.current = dir;
+    setSpaceDirection(dir);
+    setSelectedFolderId(null);
+    updateConfig({ ...config, currentSpaceId: spaceId });
+    // Reset direction after animation
+    setTimeout(() => setSpaceDirection(null), 400);
+  };
+
   useEffect(() => {
     if (isChromeExtensionApiAvailable()) {
       chrome.storage.local.get(CONFIG_KEY, (result) => {
@@ -181,7 +195,6 @@ function NewTab() {
     const onKeyDown = (event: KeyboardEvent) => {
       const ctrl = event.ctrlKey || event.metaKey;
 
-      // Ctrl+ArrowRight (next space) / Ctrl+ArrowLeft (prev space)
       if (ctrl && (event.key === 'ArrowRight' || event.key === 'ArrowLeft') && !searchOpen && !settingsOpen) {
         event.preventDefault();
         setConfig((current) => {
@@ -191,6 +204,9 @@ function NewTab() {
           const next = event.key === 'ArrowRight'
             ? allSpaces[(idx + 1) % allSpaces.length]
             : allSpaces[(idx - 1 + allSpaces.length) % allSpaces.length];
+          const dir: 'left' | 'right' = event.key === 'ArrowRight' ? 'right' : 'left';
+          setSpaceDirection(dir);
+          setTimeout(() => setSpaceDirection(null), 400);
           const updated = { ...current, currentSpaceId: next.id };
           if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: updated });
           return updated;
@@ -396,7 +412,7 @@ function NewTab() {
         glass={config.glass}
         t={t}
         widgets={config.widgets}
-        onSpaceChange={(spaceId) => { setSelectedFolderId(null); updateConfig({ ...config, currentSpaceId: spaceId }); }}
+        onSpaceChange={switchSpace}
         onSearchClick={() => setSearchOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleEditing={() => setEditing((v) => !v)}
@@ -453,6 +469,7 @@ function NewTab() {
           gridRows={config.gridRows}
           currentSpaceId={config.currentSpaceId}
           spaces={spaces}
+          spaceDirection={spaceDirection}
           t={t}
           onOpenFolder={setSelectedFolderId}
           onCloseFolder={() => setSelectedFolderId(null)}

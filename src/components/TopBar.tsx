@@ -87,33 +87,32 @@ export function TopBar({
   return (
     <header className="fixed inset-x-0 top-0 z-40">
       <div className="flex items-center justify-between px-5 pt-3 pb-2">
-        {/* iTab icon (space cycle button) + Space tabs */}
+        {/* iTab icon (space cycle) + Space tabs */}
         <div className="flex items-center gap-2">
           {/* iTab icon button */}
-          <div className="group relative">
+          <div className="group relative flex items-center">
             <button
               type="button"
               onClick={spaces.length > 1 ? switchNext : undefined}
               aria-label="Switch to next space"
-              className="h-7 w-7 rounded-lg opacity-80 transition hover:opacity-100 hover:scale-110 active:scale-95"
+              className="flex h-7 w-7 items-center justify-center rounded-lg opacity-80 transition hover:opacity-100 hover:scale-110 active:scale-95"
             >
-              <ITabIcon className="h-full w-full" />
+              <ITabIcon className="h-7 w-7" />
             </button>
-            {/* Tooltip */}
+            {/* Tooltip — anchored left to avoid overflow */}
             {spaces.length > 1 && (
-              <div className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-900/90 px-3 py-2 text-[0.65rem] font-semibold text-white opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100 z-50">
+              <div className="pointer-events-none absolute left-0 top-full mt-2 whitespace-nowrap rounded-xl bg-slate-900/90 px-3 py-2 text-[0.65rem] font-semibold text-white opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100 z-50">
                 <p className="mb-1 font-black tracking-wide text-white/60 uppercase text-[0.55rem]">Switch Space</p>
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-white/80">Next space</span>
+                    <span className="text-white/80">Next</span>
                     <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl →</kbd>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-white/80">Prev space</span>
+                    <span className="text-white/80">Prev</span>
                     <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl ←</kbd>
                   </div>
                 </div>
-                <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900/90" />
               </div>
             )}
           </div>
