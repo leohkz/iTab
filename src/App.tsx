@@ -276,24 +276,42 @@ function NewTab() {
     notify('Pinned to Dock');
   };
 
+  // Reorder within the grid. Also handles drops from Dock: unpin the app first
+  // so it becomes a normal grid item, then splice it next to the target.
   const reorderItems = (draggedId: string, targetId: string) => {
-    const draggedIndex = config.apps.findIndex((app) => app.id === draggedId);
-    const targetIndex = config.apps.findIndex((app) => app.id === targetId);
+    const isPinned = config.pinnedIds.includes(draggedId);
+    let apps = config.apps;
+    let pinnedIds = config.pinnedIds;
+
+    if (isPinned) {
+      // Remove from pinned so it shows up in the grid
+      pinnedIds = pinnedIds.filter((id) => id !== draggedId);
+    }
+
+    const draggedIndex = apps.findIndex((app) => app.id === draggedId);
+    const targetIndex  = apps.findIndex((app) => app.id === targetId);
     if (draggedIndex === -1 || targetIndex === -1) return;
-    const next = [...config.apps];
+
+    const next = [...apps];
     const [dragged] = next.splice(draggedIndex, 1);
-    next.splice(targetIndex, 0, dragged);
-    updateConfig({ ...config, apps: next });
+    // Also make sure the app belongs to the current space after a cross-origin drop
+    next.splice(targetIndex, 0, { ...dragged, spaceId: config.currentSpaceId, folderId: null });
+    updateConfig({ ...config, apps: next, pinnedIds });
+    if (isPinned) notify('Moved to Home Screen');
   };
 
-  // Move a single app to the very end of the global apps array (used when dropping on empty page)
+  // Move a single app to the very end of the global apps array.
+  // Also handles Dock→empty-page drops: unpin first.
   const moveAppToEnd = (appId: string) => {
+    const isPinned = config.pinnedIds.includes(appId);
     const idx = config.apps.findIndex((app) => app.id === appId);
     if (idx === -1) return;
     const next = [...config.apps];
     const [app] = next.splice(idx, 1);
-    next.push(app);
-    updateConfig({ ...config, apps: next });
+    next.push({ ...app, spaceId: config.currentSpaceId, folderId: null });
+    const pinnedIds = isPinned ? config.pinnedIds.filter((id) => id !== appId) : config.pinnedIds;
+    updateConfig({ ...config, apps: next, pinnedIds });
+    if (isPinned) notify('Moved to Home Screen');
   };
 
   const moveToFolder = (appId: string, folderId: string) => {

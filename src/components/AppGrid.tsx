@@ -139,7 +139,6 @@ function FolderPreview({ apps }: { apps: AppShortcut[] }) {
 function IconWithBadges({
   app, editing, spaces, currentSpaceId,
   onDelete, onRename, onMoveToSpace,
-  isMini = false,
 }: {
   app: AppShortcut;
   editing: boolean;
@@ -148,7 +147,6 @@ function IconWithBadges({
   onDelete: () => void;
   onRename: () => void;
   onMoveToSpace: (spaceId: string | undefined) => void;
-  isMini?: boolean;
 }) {
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
 
@@ -158,7 +156,7 @@ function IconWithBadges({
       style={{ isolation: 'isolate' }}
       data-anim="app-icon"
     >
-      <AppIcon app={app} size={isMini ? 'grid' : 'grid'} />
+      <AppIcon app={app} size="grid" />
       {editing && (
         <>
           <button type="button" aria-label="Delete shortcut"
@@ -285,12 +283,12 @@ export function AppGrid({
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onReorder, onMoveToEnd, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
 }: AppGridProps) {
-  // Single source of truth via ref; state is only for re-render (opacity etc.)
+  // Ref is the single source of truth; state drives re-renders only.
   const draggedIdRef = useRef<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  // Prevent the <main> fallback onDrop from re-processing an already-handled drop.
   const dropHandledRef = useRef(false);
-
-  // Whether the cursor is hovering over the new-page drop zone
+  // Whether cursor is hovering the fixed new-page drop zone.
   const [newPageHover, setNewPageHover] = useState(false);
 
   const setDragged = (id: string | null) => {
@@ -298,6 +296,10 @@ export function AppGrid({
     setDraggedId(id);
     if (!id) setNewPageHover(false);
   };
+
+  // Helper: read dragged id from ref first, fall back to dataTransfer.
+  const readId = (e: React.DragEvent) =>
+    draggedIdRef.current ?? e.dataTransfer.getData('text/plain') ?? null;
 
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
@@ -410,29 +412,20 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
-  // ── New-page drop zone handlers (fixed overlay, always in DOM when editing) ──
-  const handleNewPageDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setNewPageHover(true);
-  };
-
-  const handleNewPageDragLeave = () => {
-    setNewPageHover(false);
-  };
-
+  // ── Fixed new-page drop zone ──
+  const handleNewPageDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setNewPageHover(true); };
+  const handleNewPageDragLeave = () => setNewPageHover(false);
   const handleNewPageDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     dropHandledRef.current = true;
     setNewPageHover(false);
-    const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+    const id = readId(e);
     if (!id) return;
     onMoveToEnd(id);
-    // item lands at the very end; calculate which page that will be
-    const newLastIndex = items.length - 1; // length stays same, item moves to end
-    const targetPage = Math.floor(newLastIndex / pageCapacity);
-    setTimeout(() => setCurrentPage(targetPage), 80);
+    // navigate to the last page after the state update settles
+    setTimeout(() => {
+      setCurrentPage((prev) => Math.max(prev, Math.floor((items.length) / pageCapacity)));
+    }, 80);
     setDragged(null);
   };
 
@@ -479,8 +472,16 @@ export function AppGrid({
         setDragOverPageEdge(null);
         if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
         if (dropHandledRef.current) { dropHandledRef.current = false; return; }
-        const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
-        if (selectedFolderId && id) onMoveOutOfFolder(id);
+        // Dropped onto the main background (not on any cell).
+        // Move the app to the end of the current page (or out of folder if in one).
+        const id = readId(e);
+        if (id) {
+          if (selectedFolderId) {
+            onMoveOutOfFolder(id);
+          } else {
+            onMoveToEnd(id);
+          }
+        }
         setDragged(null);
       }}
       onPointerDown={handlePointerDown}
@@ -512,8 +513,7 @@ export function AppGrid({
         <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-16 bg-gradient-to-l from-white/20 to-transparent" />
       )}
 
-      {/* ── Fixed new-page drop zone: always rendered while editing so the user
-           can drag from any page without navigating first ── */}
+      {/* Fixed new-page drop zone – always in DOM while editing */}
       {editing && (
         <div
           onDragOver={handleNewPageDragOver}
@@ -521,8 +521,7 @@ export function AppGrid({
           onDrop={handleNewPageDrop}
           className="fixed bottom-28 right-4 z-[70] flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all duration-200"
           style={{
-            width: '6rem',
-            height: '6rem',
+            width: '6rem', height: '6rem',
             borderColor: newPageHover ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)',
             background: newPageHover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
             backdropFilter: 'blur(12px)',
@@ -530,9 +529,9 @@ export function AppGrid({
             boxShadow: newPageHover ? '0 0 0 4px rgba(255,255,255,0.15)' : 'none',
           }}
         >
-          <Plus className="h-5 w-5 text-white/50" style={{ color: newPageHover ? 'rgba(255,255,255,0.9)' : undefined }} />
-          <span className="text-center text-[0.6rem] font-black uppercase tracking-widest leading-tight text-white/40"
-            style={{ color: newPageHover ? 'rgba(255,255,255,0.85)' : undefined }}>
+          <Plus className="h-5 w-5" style={{ color: newPageHover ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)' }} />
+          <span className="text-center text-[0.6rem] font-black uppercase tracking-widest leading-tight"
+            style={{ color: newPageHover ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)' }}>
             New<br />Page
           </span>
         </div>
@@ -559,9 +558,8 @@ export function AppGrid({
                     onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
-                      e.stopPropagation();
-                      dropHandledRef.current = true;
-                      const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+                      e.stopPropagation(); dropHandledRef.current = true;
+                      const id = readId(e);
                       if (id && id !== item.id) onMoveToFolder(id, item.folder.id);
                       setDragged(null);
                     }}
@@ -608,9 +606,8 @@ export function AppGrid({
                   onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); }}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
-                    e.stopPropagation();
-                    dropHandledRef.current = true;
-                    const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+                    e.stopPropagation(); dropHandledRef.current = true;
+                    const id = readId(e);
                     if (id && id !== item.id) onReorder(id, item.id);
                     setDragged(null);
                   }}
@@ -684,9 +681,8 @@ export function AppGrid({
           onPointerDown={(e) => { if (e.target === e.currentTarget) onCloseFolder(); }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
-            e.stopPropagation();
-            dropHandledRef.current = true;
-            const id = draggedIdRef.current ?? e.dataTransfer.getData('text/plain');
+            e.stopPropagation(); dropHandledRef.current = true;
+            const id = readId(e);
             if (id) onMoveOutOfFolder(id);
             setDragged(null);
           }}
@@ -721,7 +717,6 @@ export function AppGrid({
                       onDelete={() => setDeletingAppId(app.id)}
                       onRename={() => onRenameApp(app.id)}
                       onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
-                      isMini
                     />
                     <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
                   </a>
