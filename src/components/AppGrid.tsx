@@ -264,9 +264,7 @@ function PageDots({
             width: i === current ? 8 : 7,
             height: i === current ? 8 : 7,
             borderRadius: '50%',
-            background: i === current
-              ? 'rgba(255,255,255,0.92)'
-              : 'rgba(255,255,255,0.35)',
+            background: i === current ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.35)',
             boxShadow: i === current ? '0 0 6px rgba(255,255,255,0.5)' : 'none',
             border: 'none',
             padding: 0,
@@ -278,7 +276,7 @@ function PageDots({
   );
 }
 
-// ─── Main AppGrid ────────────────────────────────────────────────────────────
+// ─── Main AppGrid ─────────────────────────────────────────────────────────────
 export function AppGrid({
   apps, folders, editing, selectedFolderId, gridColumns, gridRows,
   currentSpaceId, spaces, spaceDirection, t,
@@ -293,10 +291,11 @@ export function AppGrid({
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null);
   const [animating, setAnimating] = useState(false);
   const [dragOverPageEdge, setDragOverPageEdge] = useState<'left' | 'right' | null>(null);
+  // Space slide: track enter transform
+  const [spaceEnter, setSpaceEnter] = useState<string>('translateX(0)');
   const mainRef = useRef<HTMLElement>(null);
   const edgeDragTimerRef = useRef<number | null>(null);
 
-  // Pointer-swipe state
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
 
@@ -308,7 +307,9 @@ export function AppGrid({
   const pageCapacity = gridColumns * gridRows;
 
   const items = useMemo<GridItem[]>(() => {
-    const rootApps = apps.filter((a) => a.folderId === null || a.folderId === undefined).map((a) => ({ kind: 'app' as const, id: a.id, app: a }));
+    const rootApps = apps
+      .filter((a) => a.folderId === null || a.folderId === undefined)
+      .map((a) => ({ kind: 'app' as const, id: a.id, app: a }));
     const folderItems = folders.map((folder) => ({
       kind: 'folder' as const, id: folder.id, folder,
       apps: apps.filter((a) => a.folderId === folder.id),
@@ -316,36 +317,32 @@ export function AppGrid({
     return [...rootApps, ...folderItems];
   }, [apps, folders]);
 
-  // Number of real pages + 1 empty page in edit mode
   const realPageCount = Math.max(1, Math.ceil(items.length / pageCapacity));
   const totalPages = editing ? realPageCount + 1 : realPageCount;
 
-  // Clamp currentPage when items shrink
   useEffect(() => {
     if (currentPage >= totalPages) setCurrentPage(Math.max(0, totalPages - 1));
   }, [totalPages, currentPage]);
 
-  // Reset page to 0 when space changes
-  useEffect(() => { setCurrentPage(0); }, [currentSpaceId]);
-
-  // Space slide animation direction
-  const [spaceSlideClass, setSpaceSlideClass] = useState('');
+  // Reset page + run space slide animation
   useEffect(() => {
-    if (!spaceDirection) return;
-    const enter = spaceDirection === 'right' ? 'translate-x-full' : '-translate-x-full';
-    setSpaceSlideClass(`${enter} opacity-0`);
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setSpaceSlideClass('translate-x-0 opacity-100'));
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [spaceDirection, currentSpaceId]);
+    setCurrentPage(0);
+    if (spaceDirection) {
+      const from = spaceDirection === 'right' ? 'translateX(40px)' : 'translateX(-40px)';
+      setSpaceEnter(from);
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setSpaceEnter('translateX(0)'));
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSpaceId]);
 
   const itemsOnPage = useMemo(() => {
     const start = currentPage * pageCapacity;
     return items.slice(start, start + pageCapacity);
   }, [items, currentPage, pageCapacity]);
 
-  // ── Page navigation ────────────────────────────────────────────────────────
   const goToPage = useCallback((page: number) => {
     if (page === currentPage || animating) return;
     const dir = page > currentPage ? 'left' : 'right';
@@ -361,7 +358,6 @@ export function AppGrid({
   const goNext = useCallback(() => { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }, [currentPage, totalPages, goToPage]);
   const goPrev = useCallback(() => { if (currentPage > 0) goToPage(currentPage - 1); }, [currentPage, goToPage]);
 
-  // ── Swipe gesture (pointer events) ────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.target instanceof Element && e.target.closest('a,button,input')) return;
     swipeStartX.current = e.clientX;
@@ -378,7 +374,6 @@ export function AppGrid({
     if (dx < 0) goNext(); else goPrev();
   };
 
-  // ── Drag-to-edge page turn ─────────────────────────────────────────────────
   const handleDragOverMain = (e: React.DragEvent) => {
     e.preventDefault();
     if (!draggedId) return;
@@ -416,8 +411,7 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
-  // Slide animation classes for page transitions
-  let pageSlideStyle: React.CSSProperties = {};
+  let pageSlideStyle: React.CSSProperties;
   if (animating && slideDir) {
     pageSlideStyle = {
       transform: slideDir === 'left' ? 'translateX(-6%)' : 'translateX(6%)',
@@ -428,14 +422,15 @@ export function AppGrid({
     pageSlideStyle = {
       transform: 'translateX(0)',
       opacity: 1,
-      transition: animating ? '' : 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s',
+      transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s',
     };
   }
 
-  // Space transition
-  const spaceTransStyle: React.CSSProperties = spaceDirection ? {
+  const spaceTransStyle: React.CSSProperties = {
+    transform: spaceEnter,
+    opacity: spaceEnter === 'translateX(0)' ? 1 : 0,
     transition: 'transform 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.32s',
-  } : {};
+  };
 
   const cellClass = [
     'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
@@ -465,7 +460,6 @@ export function AppGrid({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
-      {/* Edit mode hint */}
       {editing && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4" aria-live="polite">
           <span className="rounded-full bg-slate-950/60 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80 backdrop-blur-md">
@@ -474,7 +468,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Drag-over edge indicators */}
       {dragOverPageEdge === 'left' && currentPage > 0 && (
         <div className="pointer-events-none fixed left-0 top-0 z-50 h-full w-16 bg-gradient-to-r from-white/20 to-transparent" />
       )}
@@ -482,24 +475,14 @@ export function AppGrid({
         <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-16 bg-gradient-to-l from-white/20 to-transparent" />
       )}
 
-      {/* Page content */}
-      <section
-        className="w-full max-w-5xl"
-        aria-label="App grid"
-        style={{ ...spaceTransStyle }}
-      >
+      <section className="w-full max-w-5xl" aria-label="App grid" style={spaceTransStyle}>
         <div style={pageSlideStyle}>
           {isEmptyPage ? (
-            // Empty page in edit mode
             <div
               className="mx-auto flex items-center justify-center rounded-[2.3rem] border-2 border-dashed border-white/25"
               style={{ maxWidth: `${gridColumns * 7.5}rem`, minHeight: `${gridRows * 7.4}rem` }}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.stopPropagation();
-                // dropping on empty page — item already moves to new page by reorder logic
-                // just stop edit page from disappearing
-              }}
+              onDrop={(e) => { e.stopPropagation(); }}
             >
               <p className="text-sm font-bold text-white/30">Drag apps here to add a new page</p>
             </div>
@@ -584,7 +567,6 @@ export function AppGrid({
                 );
               })}
 
-              {/* Add buttons on last real page in edit mode */}
               {editing && currentPage === realPageCount - 1 && (
                 <>
                   <button type="button"
@@ -612,7 +594,6 @@ export function AppGrid({
         </div>
       </section>
 
-      {/* Page dots — glass pill */}
       {totalPages > 1 && (
         <div
           className="fixed bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-1.5"
@@ -627,7 +608,6 @@ export function AppGrid({
         </div>
       )}
 
-      {/* Folder modal */}
       {selectedFolder && (
         <div
           className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
