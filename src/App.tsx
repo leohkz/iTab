@@ -134,6 +134,10 @@ function NewTab() {
     open: false, mode: 'add', appId: null, folderId: null,
   });
 
+  // ── Shared drag state: lifted here so AppGrid & Dock both see it ──────────
+  const [draggingAppId, setDraggingAppId] = useState<string | null>(null);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const t = useMemo(() => createTranslator(config.locale), [config.locale]);
   const editingApp = config.apps.find((app) => app.id === editor.appId) ?? null;
 
@@ -573,6 +577,9 @@ function NewTab() {
           pendingNavigatePage={pendingNavigatePage}
           onNavigated={() => setPendingNavigatePage(null)}
           t={t}
+          externalDraggingId={draggingAppId}
+          onDragStart={setDraggingAppId}
+          onDragEnd={() => setDraggingAppId(null)}
           onOpenFolder={setSelectedFolderId}
           onCloseFolder={() => setSelectedFolderId(null)}
           onStartEditing={() => setEditing(true)}
@@ -599,6 +606,9 @@ function NewTab() {
           recentTabs={recentTabs}
           editing={editing}
           glass={config.glass}
+          externalDraggingId={draggingAppId}
+          onDragStart={setDraggingAppId}
+          onDragEnd={() => setDraggingAppId(null)}
           onDropApp={pinApp}
           onUnpinApp={unpinApp}
           onRenameApp={renameShortcut}
