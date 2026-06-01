@@ -120,7 +120,7 @@ export function TopBar({
         </button>
         <button
           type="button"
-          aria-label={editing ? t('done') : t('editMode')}
+          aria-label={editing ? t('done') : t('edit')}
           onClick={onToggleEditing}
           className={['rounded-xl p-2 transition hover:bg-white/10', editing ? 'text-white' : 'text-white/70 hover:text-white'].join(' ')}
         >
