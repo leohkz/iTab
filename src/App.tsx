@@ -1,8 +1,20 @@
 /// <reference types="chrome" />
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from '@dnd-kit/core';
 import { BookMarked } from 'lucide-react';
 import { AppGrid } from './components/AppGrid';
 import { Dock } from './components/Dock';
+import { AppIcon } from './components/AppIcon';
 import { PromptLibrary } from './components/PromptLibrary';
 import { SettingsModal } from './components/SettingsModal';
 import { ShortcutEditor } from './components/ShortcutEditor';
@@ -97,7 +109,6 @@ function glassBtn(glass: number, active = false): React.CSSProperties {
   };
 }
 
-// ── pageIndex helpers ──────────────────────────────────────────────────────
 function getPageIndex(item: { pageIndex?: number }): number {
   return item.pageIndex ?? 0;
 }
@@ -119,7 +130,10 @@ function nextAvailablePage(
   while (!firstFreeSlot(items, page, capacity)) page++;
   return page;
 }
-// ────────────────────────────────────────────────────────────────────────────
+
+// CONTAINER IDs for dnd-kit
+export const GRID_CONTAINER_ID = 'app-grid';
+export const DOCK_CONTAINER_ID = 'dock';
 
 function NewTab() {
   const [config, setConfig] = useState<AppConfig>(() => cloneDefaultConfig());
@@ -134,9 +148,15 @@ function NewTab() {
     open: false, mode: 'add', appId: null, folderId: null,
   });
 
-  // ── Shared drag state: lifted here so AppGrid & Dock both see it ──────────
-  const [draggingAppId, setDraggingAppId] = useState<string | null>(null);
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── dnd-kit drag state ─────────────────────────────────────────────────
+  const [activeId, setActiveId] = useState<string | null>(null);
+  // Track which container the dragged item is currently hovering over
+  const [overContainer, setOverContainer] = useState<string | null>(null);
+  // ───────────────────────────────────────────────────────────────────────
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
 
   const t = useMemo(() => createTranslator(config.locale), [config.locale]);
   const editingApp = config.apps.find((app) => app.id === editor.appId) ?? null;
@@ -173,6 +193,12 @@ function NewTab() {
   const allApps = useMemo(
     () => config.apps.filter((app) => !config.pinnedIds.includes(app.id)),
     [config.apps, config.pinnedIds],
+  );
+
+  // The dragged app object (for DragOverlay)
+  const activeApp = useMemo(
+    () => config.apps.find((a) => a.id === activeId) ?? null,
+    [config.apps, activeId],
   );
 
   usePageAnimations(config.gsapAnimations ?? false);
@@ -308,7 +334,6 @@ function NewTab() {
     notify('Pinned to Dock');
   };
 
-  // Reorder pinned apps in the Dock
   const reorderPinnedApp = (draggedId: string, targetIndex: number) => {
     const ids = config.pinnedIds.filter((id) => id !== draggedId);
     const clamped = Math.max(0, Math.min(targetIndex, ids.length));
@@ -346,7 +371,6 @@ function NewTab() {
     const isPinned = config.pinnedIds.includes(appId);
     const app = config.apps.find((a) => a.id === appId);
     if (!app) return;
-
     const capacity = config.gridColumns * config.gridRows;
     const spaceItems = config.apps.filter(
       (a) => (!a.spaceId || a.spaceId === config.currentSpaceId) && !config.pinnedIds.includes(a.id) && a.id !== appId,
@@ -354,7 +378,6 @@ function NewTab() {
     const maxPage = spaceItems.reduce((m, a) => Math.max(m, a.pageIndex ?? 0), 0);
     const lastPageCount = spaceItems.filter((a) => (a.pageIndex ?? 0) === maxPage).length;
     const targetPage = lastPageCount < capacity ? maxPage : maxPage + 1;
-
     const pinnedIds = isPinned ? config.pinnedIds.filter((id) => id !== appId) : config.pinnedIds;
     const apps = config.apps.map((a) =>
       a.id === appId ? { ...a, pageIndex: targetPage, spaceId: config.currentSpaceId, folderId: null } : a,
@@ -374,8 +397,6 @@ function NewTab() {
   };
 
   const moveOutOfFolder = (appId: string) => {
-    const app = config.apps.find((a) => a.id === appId);
-    if (!app) return;
     updateConfig({ ...config, apps: config.apps.map((a) =>
       a.id === appId ? { ...a, folderId: null } : a,
     ) });
@@ -501,185 +522,268 @@ function NewTab() {
     if (isPinned) notify('Moved to Home Screen');
   };
 
+  // ── dnd-kit handlers ───────────────────────────────────────────────────
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    setActiveId(active.id as string);
+    setOverContainer(active.data.current?.container ?? null);
+  };
+
+  const handleDragOver = ({ over }: DragOverEvent) => {
+    if (!over) { setOverContainer(null); return; }
+    const container = over.data.current?.container ?? over.id;
+    setOverContainer(container as string);
+  };
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
+    setOverContainer(null);
+    if (!over || !active) return;
+
+    const draggedId = active.id as string;
+    const overId    = over.id as string;
+    const fromContainer = active.data.current?.container;
+    const toContainer   = over.data.current?.container ?? over.id;
+
+    const isDraggedPinned = config.pinnedIds.includes(draggedId);
+
+    // ── Grid → Dock ────────────────────────────────────────────────────
+    if (toContainer === DOCK_CONTAINER_ID) {
+      if (!isDraggedPinned) {
+        // Find insert index from overId (the dock item being hovered)
+        if (overId === DOCK_CONTAINER_ID) {
+          pinApp(draggedId);
+        } else {
+          // Insert before the hovered dock item
+          const targetIdx = config.pinnedIds.indexOf(overId);
+          const insertAt = targetIdx >= 0 ? targetIdx : config.pinnedIds.length;
+          pinApp(draggedId);
+          // Reorder after pin so it lands at the right spot
+          setTimeout(() => reorderPinnedApp(draggedId, insertAt), 0);
+        }
+      }
+      return;
+    }
+
+    // ── Dock → Grid ────────────────────────────────────────────────────
+    if (fromContainer === DOCK_CONTAINER_ID && toContainer === GRID_CONTAINER_ID) {
+      if (overId !== GRID_CONTAINER_ID) {
+        reorderItems(draggedId, overId);
+      } else {
+        moveAppToEnd(draggedId);
+      }
+      return;
+    }
+
+    // ── Dock internal reorder ──────────────────────────────────────────
+    if (fromContainer === DOCK_CONTAINER_ID && toContainer === DOCK_CONTAINER_ID) {
+      if (draggedId !== overId) {
+        const targetIdx = config.pinnedIds.indexOf(overId);
+        if (targetIdx >= 0) reorderPinnedApp(draggedId, targetIdx);
+      }
+      return;
+    }
+
+    // ── Grid internal reorder ──────────────────────────────────────────
+    if (draggedId !== overId && overId !== GRID_CONTAINER_ID) {
+      reorderItems(draggedId, overId);
+    }
+  };
+  // ───────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-      <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
-      <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+        <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
+        <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
 
-      <TopBar
-        data-anim="topbar"
-        spaces={spaces}
-        currentSpaceId={config.currentSpaceId}
-        editing={editing}
-        syncStatus=""
-        glass={config.glass}
-        t={t}
-        widgets={config.widgets}
-        onSpaceChange={switchSpace}
-        onSearchClick={() => setSearchOpen(true)}
-        onSettingsClick={() => setSettingsOpen(true)}
-        onToggleEditing={() => setEditing((v) => !v)}
-        onToggleTheme={() => {
-          const themes = ['sonoma', 'ventura', 'slate'] as const;
-          const index = themes.indexOf(config.theme as 'sonoma' | 'ventura' | 'slate');
-          updateConfig({ ...config, theme: themes[(index + 1) % themes.length] });
-        }}
-        onWidgetsChange={handleWidgetsChange}
-      />
-
-      <AiPortalBar
-        data-anim="aibar"
-        portals={aiPortals}
-        glass={config.glass}
-        size={config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT}
-        t={t}
-      />
-
-      <button
-        type="button"
-        data-anim="prompts-btn"
-        onClick={() => setShowPrompts((v) => !v)}
-        aria-label={t('promptLibrary')}
-        className="fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg transition hover:text-white"
-        style={glassBtn(config.glass, showPrompts)}
-      >
-        <BookMarked className="h-5 w-5" aria-hidden="true" />
-        <span
-          className="text-[0.6rem] font-black uppercase tracking-widest"
-          style={{ writingMode: 'vertical-rl' }}
-        >
-          {t('prompts')}
-        </span>
-      </button>
-
-      {showPrompts ? (
-        <PromptLibrary
-          prompts={config.prompts ?? []}
-          glass={config.glass}
-          t={t as (key: string) => string}
-          onClose={() => setShowPrompts(false)}
-          onAdd={addPrompt}
-          onEdit={editPrompt}
-          onDelete={deletePrompt}
-        />
-      ) : (
-        <AppGrid
-          apps={currentSpaceApps}
-          folders={currentSpaceFolders}
-          editing={editing}
-          selectedFolderId={selectedFolderId}
-          gridColumns={config.gridColumns}
-          gridRows={config.gridRows}
+        <TopBar
+          data-anim="topbar"
+          spaces={spaces}
           currentSpaceId={config.currentSpaceId}
-          spaces={spaces}
-          spaceDirection={spaceDirection}
-          pendingNavigatePage={pendingNavigatePage}
-          onNavigated={() => setPendingNavigatePage(null)}
-          t={t}
-          externalDraggingId={draggingAppId}
-          onDragStart={setDraggingAppId}
-          onDragEnd={() => setDraggingAppId(null)}
-          onOpenFolder={setSelectedFolderId}
-          onCloseFolder={() => setSelectedFolderId(null)}
-          onStartEditing={() => setEditing(true)}
-          onStopEditing={() => setEditing(false)}
-          onDeleteApp={deleteApp}
-          onRenameApp={renameShortcut}
-          onAddShortcut={openShortcutEditor}
-          onAddFolder={addFolder}
-          onRenameFolder={renameFolder}
-          onDeleteFolder={deleteFolder}
-          onReorder={reorderItems}
-          onMoveToEnd={moveAppToEnd}
-          onMoveToPage={moveAppToPage}
-          onMoveToFolder={moveToFolder}
-          onMoveOutOfFolder={moveOutOfFolder}
-          onMoveToSpace={moveToSpace}
-        />
-      )}
-
-      {config.showDock && (
-        <Dock
-          data-anim="dock"
-          pinnedApps={pinnedApps}
-          recentTabs={recentTabs}
           editing={editing}
+          syncStatus=""
           glass={config.glass}
-          externalDraggingId={draggingAppId}
-          onDragStart={setDraggingAppId}
-          onDragEnd={() => setDraggingAppId(null)}
-          onDropApp={pinApp}
-          onUnpinApp={unpinApp}
-          onRenameApp={renameShortcut}
-          onReorderPinned={reorderPinnedApp}
-        />
-      )}
-
-      {config.showWidgets && !showPrompts && (
-        <Widgets
-          data-anim="widgets"
+          t={t}
           widgets={config.widgets}
+          onSpaceChange={switchSpace}
+          onSearchClick={() => setSearchOpen(true)}
+          onSettingsClick={() => setSettingsOpen(true)}
+          onToggleEditing={() => setEditing((v) => !v)}
+          onToggleTheme={() => {
+            const themes = ['sonoma', 'ventura', 'slate'] as const;
+            const index = themes.indexOf(config.theme as 'sonoma' | 'ventura' | 'slate');
+            updateConfig({ ...config, theme: themes[(index + 1) % themes.length] });
+          }}
+          onWidgetsChange={handleWidgetsChange}
+        />
+
+        <AiPortalBar
+          data-anim="aibar"
+          portals={aiPortals}
           glass={config.glass}
-          onChange={handleWidgetsChange}
+          size={config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT}
           t={t}
         />
-      )}
 
-      {config.widgets.focusModeActive && (
-        <FocusModeOverlay
-          widgets={config.widgets}
-          onChange={handleWidgetsChange}
-          backgroundClass={themeClass}
-        />
-      )}
+        <button
+          type="button"
+          data-anim="prompts-btn"
+          onClick={() => setShowPrompts((v) => !v)}
+          aria-label={t('promptLibrary')}
+          className="fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg transition hover:text-white"
+          style={glassBtn(config.glass, showPrompts)}
+        >
+          <BookMarked className="h-5 w-5" aria-hidden="true" />
+          <span
+            className="text-[0.6rem] font-black uppercase tracking-widest"
+            style={{ writingMode: 'vertical-rl' }}
+          >
+            {t('prompts')}
+          </span>
+        </button>
 
-      {settingsOpen && (
-        <SettingsModal
-          open={settingsOpen}
-          config={config}
-          spaces={spaces}
+        {showPrompts ? (
+          <PromptLibrary
+            prompts={config.prompts ?? []}
+            glass={config.glass}
+            t={t as (key: string) => string}
+            onClose={() => setShowPrompts(false)}
+            onAdd={addPrompt}
+            onEdit={editPrompt}
+            onDelete={deletePrompt}
+          />
+        ) : (
+          <AppGrid
+            apps={currentSpaceApps}
+            folders={currentSpaceFolders}
+            editing={editing}
+            selectedFolderId={selectedFolderId}
+            gridColumns={config.gridColumns}
+            gridRows={config.gridRows}
+            currentSpaceId={config.currentSpaceId}
+            spaces={spaces}
+            spaceDirection={spaceDirection}
+            pendingNavigatePage={pendingNavigatePage}
+            onNavigated={() => setPendingNavigatePage(null)}
+            t={t}
+            activeId={activeId}
+            overContainer={overContainer}
+            onOpenFolder={setSelectedFolderId}
+            onCloseFolder={() => setSelectedFolderId(null)}
+            onStartEditing={() => setEditing(true)}
+            onStopEditing={() => setEditing(false)}
+            onDeleteApp={deleteApp}
+            onRenameApp={renameShortcut}
+            onAddShortcut={openShortcutEditor}
+            onAddFolder={addFolder}
+            onRenameFolder={renameFolder}
+            onDeleteFolder={deleteFolder}
+            onReorder={reorderItems}
+            onMoveToEnd={moveAppToEnd}
+            onMoveToPage={moveAppToPage}
+            onMoveToFolder={moveToFolder}
+            onMoveOutOfFolder={moveOutOfFolder}
+            onMoveToSpace={moveToSpace}
+          />
+        )}
+
+        {config.showDock && (
+          <Dock
+            data-anim="dock"
+            pinnedApps={pinnedApps}
+            recentTabs={recentTabs}
+            editing={editing}
+            glass={config.glass}
+            activeId={activeId}
+            overContainer={overContainer}
+            onDropApp={pinApp}
+            onUnpinApp={unpinApp}
+            onRenameApp={renameShortcut}
+            onReorderPinned={reorderPinnedApp}
+          />
+        )}
+
+        {config.showWidgets && !showPrompts && (
+          <Widgets
+            data-anim="widgets"
+            widgets={config.widgets}
+            glass={config.glass}
+            onChange={handleWidgetsChange}
+            t={t}
+          />
+        )}
+
+        {config.widgets.focusModeActive && (
+          <FocusModeOverlay
+            widgets={config.widgets}
+            onChange={handleWidgetsChange}
+            backgroundClass={themeClass}
+          />
+        )}
+
+        {settingsOpen && (
+          <SettingsModal
+            open={settingsOpen}
+            config={config}
+            spaces={spaces}
+            t={t}
+            onClose={() => setSettingsOpen(false)}
+            onConfigChange={updateConfig}
+            onAction={notify}
+            onExportJson={exportJson}
+            onImportJson={importJson}
+            onResetDefaults={resetDefaults}
+            onAddSpace={addSpace}
+            onRenameSpace={renameSpace}
+            onRecolorSpace={recolorSpace}
+            onDeleteSpace={deleteSpace}
+          />
+        )}
+
+        <SpotlightSearch
+          open={searchOpen}
+          apps={allApps}
+          engines={config.searchEngines}
+          defaultEngine={config.defaultEngine ?? 'google'}
+          todos={config.widgets.todos}
+          noteTabs={config.widgets.noteTabs}
+          prompts={config.prompts ?? []}
           t={t}
-          onClose={() => setSettingsOpen(false)}
-          onConfigChange={updateConfig}
-          onAction={notify}
-          onExportJson={exportJson}
-          onImportJson={importJson}
-          onResetDefaults={resetDefaults}
-          onAddSpace={addSpace}
-          onRenameSpace={renameSpace}
-          onRecolorSpace={recolorSpace}
-          onDeleteSpace={deleteSpace}
+          onClose={() => setSearchOpen(false)}
+          onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
         />
-      )}
 
-      <SpotlightSearch
-        open={searchOpen}
-        apps={allApps}
-        engines={config.searchEngines}
-        defaultEngine={config.defaultEngine ?? 'google'}
-        todos={config.widgets.todos}
-        noteTabs={config.widgets.noteTabs}
-        prompts={config.prompts ?? []}
-        t={t}
-        onClose={() => setSearchOpen(false)}
-        onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
-      />
+        {editor.open && (
+          <ShortcutEditor
+            open={editor.open}
+            mode={editor.mode}
+            initialApp={editingApp}
+            folderId={editor.folderId}
+            t={t}
+            onSave={(shortcut) => { saveShortcut(shortcut); setEditor({ open: false, mode: 'add', appId: null, folderId: null }); }}
+            onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
+          />
+        )}
 
-      {editor.open && (
-        <ShortcutEditor
-          open={editor.open}
-          mode={editor.mode}
-          initialApp={editingApp}
-          folderId={editor.folderId}
-          t={t}
-          onSave={(shortcut) => { saveShortcut(shortcut); setEditor({ open: false, mode: 'add', appId: null, folderId: null }); }}
-          onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
-        />
-      )}
+        <Toast message={toast} />
+      </div>
 
-      <Toast message={toast} />
-    </div>
+      {/* Global drag overlay — renders the floating icon while dragging */}
+      <DragOverlay dropAnimation={null}>
+        {activeApp ? (
+          <div style={{ width: 72, height: 72, opacity: 0.85, transform: 'scale(1.08)', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.35))' }}>
+            <AppIcon app={activeApp} size="grid" />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
