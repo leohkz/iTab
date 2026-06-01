@@ -26,6 +26,7 @@ type AppGridProps = {
   onRenameFolder: (folderId: string, name: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onReorder: (draggedId: string, targetId: string) => void;
+  onMoveToEnd: (appId: string) => void;
   onMoveToFolder: (appId: string, folderId: string) => void;
   onMoveOutOfFolder: (appId: string) => void;
   onMoveToSpace: (appId: string, spaceId: string | undefined) => void;
@@ -282,7 +283,7 @@ export function AppGrid({
   currentSpaceId, spaces, spaceDirection, t,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
-  onReorder, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
+  onReorder, onMoveToEnd, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
 }: AppGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -322,7 +323,6 @@ export function AppGrid({
     if (currentPage >= totalPages) setCurrentPage(Math.max(0, totalPages - 1));
   }, [totalPages, currentPage]);
 
-  // Reset page when space changes
   useEffect(() => { setCurrentPage(0); }, [currentSpaceId]);
 
   const itemsOnPage = useMemo(() => {
@@ -398,19 +398,14 @@ export function AppGrid({
     target.addEventListener('pointerleave', clear, { once: true });
   };
 
-  // Drop on empty page: move dragged item to end of list, then jump to its new page
+  // Drop on empty page: move app to very end of global list, then navigate to its new page
   const handleDropOnEmptyPage = (e: React.DragEvent) => {
     e.stopPropagation();
     if (!draggedId) return;
-    const otherItems = items.filter((it) => it.id !== draggedId);
-    const lastItem = otherItems[otherItems.length - 1];
-    if (lastItem) {
-      onReorder(draggedId, lastItem.id);
-    }
-    // After reorder, item lands at end → new realPageCount = ceil((items.length)/pageCapacity)
-    // Navigate to the last real page
-    const newRealPageCount = Math.max(1, Math.ceil(items.length / pageCapacity));
-    const targetPage = newRealPageCount - 1;
+    onMoveToEnd(draggedId);
+    // items.length is the count before reorder; after moving to end the item
+    // lands at index (items.length - 1), which is on page floor((items.length-1)/pageCapacity)
+    const targetPage = Math.floor((items.length - 1) / pageCapacity);
     setTimeout(() => setCurrentPage(targetPage), 50);
     setDraggedId(null);
   };

@@ -169,7 +169,6 @@ function NewTab() {
     window.setTimeout(() => setToast(null), 1800);
   };
 
-  // Space switch with direction tracking
   const spaceDirectionRef = useRef<'left' | 'right' | null>(null);
   const switchSpace = (spaceId: string) => {
     const currentIdx = spaces.findIndex((s) => s.id === config.currentSpaceId);
@@ -179,7 +178,6 @@ function NewTab() {
     setSpaceDirection(dir);
     setSelectedFolderId(null);
     updateConfig({ ...config, currentSpaceId: spaceId });
-    // Reset direction after animation
     setTimeout(() => setSpaceDirection(null), 400);
   };
 
@@ -285,6 +283,16 @@ function NewTab() {
     const next = [...config.apps];
     const [dragged] = next.splice(draggedIndex, 1);
     next.splice(targetIndex, 0, dragged);
+    updateConfig({ ...config, apps: next });
+  };
+
+  // Move a single app to the very end of the global apps array (used when dropping on empty page)
+  const moveAppToEnd = (appId: string) => {
+    const idx = config.apps.findIndex((app) => app.id === appId);
+    if (idx === -1) return;
+    const next = [...config.apps];
+    const [app] = next.splice(idx, 1);
+    next.push(app);
     updateConfig({ ...config, apps: next });
   };
 
@@ -482,6 +490,7 @@ function NewTab() {
           onRenameFolder={renameFolder}
           onDeleteFolder={deleteFolder}
           onReorder={reorderItems}
+          onMoveToEnd={moveAppToEnd}
           onMoveToFolder={moveToFolder}
           onMoveOutOfFolder={moveOutOfFolder}
           onMoveToSpace={moveToSpace}
