@@ -12,6 +12,10 @@ type DockProps = {
   recentTabs: AppShortcut[];
   editing: boolean;
   glass: number;
+  /** The app ID currently being dragged (may come from AppGrid) */
+  externalDraggingId?: string | null;
+  onDragStart?: (id: string) => void;
+  onDragEnd?: () => void;
   onDropApp: (appId: string) => void;
   onUnpinApp: (appId: string) => void;
   onRenameApp: (appId: string) => void;
@@ -68,7 +72,7 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp, onReorderPinned }: DockProps) {
+export function Dock({ pinnedApps, recentTabs, editing, glass, externalDraggingId, onDragStart, onDragEnd, onDropApp, onUnpinApp, onRenameApp, onReorderPinned }: DockProps) {
   const dockRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [mouseX, setMouseX] = useState<number | null>(null);
@@ -79,6 +83,12 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [insertIndex, setInsertIndex] = useState<number | null>(null);
   const draggingIdRef = useRef<string | null>(null);
+
+  // The "active" dragging ID: prefer local, fall back to external (from AppGrid)
+  const activeDraggingId = draggingId ?? externalDraggingId ?? null;
+
+  // Whether an external (non-pinned) app is being dragged toward the dock
+  const [externalHovering, setExternalHovering] = useState(false);
 
   const allApps = [
     ...pinnedApps.map((app) => ({ app, isRecent: false })),
@@ -112,22 +122,25 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
   // Gap size to open between icons (equals icon BASE width + gap)
   const GAP_PX = BASE + 12;
 
-  // Compute translateX for each pinned icon given current draggingId + insertIndex
+  // Compute translateX for each pinned icon given current activeDraggingId + insertIndex
   const getPinnedTranslate = (app: AppShortcut, index: number): number => {
-    if (!draggingId || insertIndex === null) return 0;
-    if (app.id === draggingId) return 0; // dragging item handled by opacity
-    const dragIndex = pinnedApps.findIndex((a) => a.id === draggingId);
-    if (dragIndex === -1) return 0;
+    if (!activeDraggingId || insertIndex === null) return 0;
 
-    // Effective position of this item after removing the dragged one
-    const effectiveIndex = index < dragIndex ? index : index - 1;
-    // Effective insert position (gap is opened before insertIndex)
-    const effectiveInsert = insertIndex <= dragIndex ? insertIndex : insertIndex - 1;
+    const dragIndex = pinnedApps.findIndex((a) => a.id === activeDraggingId);
+    const isExternalDrag = dragIndex === -1; // dragging from AppGrid
 
-    if (effectiveIndex >= effectiveInsert) {
-      // This item needs to shift right by one gap
-      return GAP_PX;
+    if (app.id === activeDraggingId) return 0; // the dragged icon itself
+
+    if (isExternalDrag) {
+      // External drag: shift every icon at/after insertIndex rightward
+      if (index >= insertIndex) return GAP_PX;
+      return 0;
     }
+
+    // Internal reorder (same logic as before)
+    const effectiveIndex = index < dragIndex ? index : index - 1;
+    const effectiveInsert = insertIndex <= dragIndex ? insertIndex : insertIndex - 1;
+    if (effectiveIndex >= effectiveInsert) return GAP_PX;
     return 0;
   };
 
@@ -171,7 +184,9 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
     };
 
     // iOS gap animation: translate non-dragged pinned items
-    const translateX = (editing && isPinned) ? getPinnedTranslate(app, index) : 0;
+    // Active when editing OR when any app (even external) is being dragged over dock
+    const shouldAnimate = editing || (!!activeDraggingId && externalHovering);
+    const translateX = (shouldAnimate && isPinned) ? getPinnedTranslate(app, index) : 0;
 
     const liStyle: React.CSSProperties = {
       width: size,
@@ -179,7 +194,7 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
       marginTop,
       opacity: isDraggingThis ? 0.35 : 1,
       transform: `translateX(${translateX}px)`,
-      transition: editing ? 'transform 0.18s cubic-bezier(0.34,1.2,0.64,1), opacity 0.15s' : undefined,
+      transition: (editing || externalHovering) ? 'transform 0.18s cubic-bezier(0.34,1.2,0.64,1), opacity 0.15s' : undefined,
       position: 'relative',
       zIndex: isDraggingThis ? 0 : 1,
     };
@@ -201,13 +216,14 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
               e.dataTransfer.setData('text/plain', app.id);
               draggingIdRef.current = app.id;
               setDraggingId(app.id);
-              // Only allow reordering for pinned apps
+              onDragStart?.(app.id);
               if (!isPinned) e.dataTransfer.effectAllowed = 'move';
             }}
             onDragEnd={() => {
               draggingIdRef.current = null;
               setDraggingId(null);
               setInsertIndex(null);
+              onDragEnd?.();
             }}
           >
             <span style={iconWrapper}>
@@ -251,21 +267,31 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
           style={dockStyle}
           onDragOver={(e) => {
             e.preventDefault();
+            setExternalHovering(true);
+
+            if (!editing && !draggingIdRef.current) {
+              // External drag from AppGrid: compute insert position for gap
+              setInsertIndex(calcInsertIndex(e.clientX));
+              return;
+            }
+
             if (!editing || !draggingIdRef.current) return;
-            // Only update insertIndex when dragging a pinned app
+            // Internal reorder: only for pinned apps
             const isPinnedDrag = pinnedApps.some((a) => a.id === draggingIdRef.current);
             if (isPinnedDrag) {
               setInsertIndex(calcInsertIndex(e.clientX));
             }
           }}
           onDragLeave={(e) => {
-            // Only reset if truly leaving the nav
             if (!e.currentTarget.contains(e.relatedTarget as Node)) {
               setInsertIndex(null);
+              setExternalHovering(false);
             }
           }}
           onDrop={(e) => {
             const appId = e.dataTransfer.getData('text/plain');
+            setExternalHovering(false);
+            setInsertIndex(null);
             if (!appId) return;
             const isPinnedDrag = pinnedApps.some((a) => a.id === appId);
             if (isPinnedDrag && insertIndex !== null) {
@@ -277,7 +303,6 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
             }
             setDraggingId(null);
             draggingIdRef.current = null;
-            setInsertIndex(null);
           }}
           data-testid="dock-drop-target"
         >
