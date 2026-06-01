@@ -1,8 +1,11 @@
 import { FolderPlus, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDroppable, useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut, Folder, Space } from '../types';
 import type { TranslationKey } from '../i18n';
+import { GRID_CONTAINER_ID, DOCK_CONTAINER_ID } from '../App';
 
 type AppGridProps = {
   apps: AppShortcut[];
@@ -17,12 +20,10 @@ type AppGridProps = {
   pendingNavigatePage?: number | null;
   onNavigated?: () => void;
   t: (key: TranslationKey) => string;
-  /** The app ID currently being dragged from Dock (external source) */
-  externalDraggingId?: string | null;
-  /** Called when this grid starts dragging an app */
-  onDragStart?: (id: string) => void;
-  /** Called when drag ends */
-  onDragEnd?: () => void;
+  /** Active drag ID from DndContext */
+  activeId?: string | null;
+  /** Which container the active drag is currently hovering */
+  overContainer?: string | null;
   onOpenFolder: (folderId: string) => void;
   onCloseFolder: () => void;
   onStartEditing: () => void;
@@ -51,64 +52,43 @@ const BADGE_PX = Math.round(ICON_PX * 0.28);
 const BADGE_OFFSET = -Math.round(BADGE_PX * 0.35);
 
 const glassBadgeBase: React.CSSProperties = {
-  position: 'absolute',
-  zIndex: 20,
-  width: BADGE_PX,
-  height: BADGE_PX,
-  borderRadius: '50%',
-  display: 'grid',
-  placeItems: 'center',
-  cursor: 'pointer',
+  position: 'absolute', zIndex: 20,
+  width: BADGE_PX, height: BADGE_PX, borderRadius: '50%',
+  display: 'grid', placeItems: 'center', cursor: 'pointer',
   background: 'rgba(255,255,255,0.78)',
   backdropFilter: 'blur(14px) saturate(1.8)',
   WebkitBackdropFilter: 'blur(14px) saturate(1.8)',
   boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.9)',
   border: '1px solid rgba(255,255,255,0.6)',
 };
-
-const removeBadgeStyle: React.CSSProperties = { ...glassBadgeBase, top: BADGE_OFFSET, left: BADGE_OFFSET };
-const editBadgeStyle: React.CSSProperties   = { ...glassBadgeBase, top: BADGE_OFFSET, right: BADGE_OFFSET };
-const spaceBadgeStyle: React.CSSProperties  = {
-  position: 'absolute',
-  bottom: BADGE_OFFSET,
-  left: '50%',
-  transform: 'translateX(-50%)',
-  zIndex: 20,
-  whiteSpace: 'nowrap',
-  cursor: 'pointer',
+const removeBadgeStyle: React.CSSProperties  = { ...glassBadgeBase, top: BADGE_OFFSET, left: BADGE_OFFSET };
+const editBadgeStyle: React.CSSProperties    = { ...glassBadgeBase, top: BADGE_OFFSET, right: BADGE_OFFSET };
+const spaceBadgeStyle: React.CSSProperties   = {
+  position: 'absolute', bottom: BADGE_OFFSET, left: '50%', transform: 'translateX(-50%)',
+  zIndex: 20, whiteSpace: 'nowrap', cursor: 'pointer',
   background: 'rgba(255,255,255,0.78)',
-  backdropFilter: 'blur(10px) saturate(1.6)',
-  WebkitBackdropFilter: 'blur(10px) saturate(1.6)',
-  border: '1px solid rgba(255,255,255,0.6)',
-  borderRadius: 999,
-  padding: '1px 6px',
-  fontSize: '0.6rem',
-  fontWeight: 900,
-  color: '#334155',
+  backdropFilter: 'blur(10px) saturate(1.6)', WebkitBackdropFilter: 'blur(10px) saturate(1.6)',
+  border: '1px solid rgba(255,255,255,0.6)', borderRadius: 999,
+  padding: '1px 6px', fontSize: '0.6rem', fontWeight: 900, color: '#334155',
   boxShadow: '0 1px 4px rgba(0,0,0,0.14)',
 };
-
 const svgSize = BADGE_PX * 0.5;
 
-// ─── Delete confirm sheet ────────────────────────────────────────────────────────────────────────────
+// ─── Delete confirm ───────────────────────────────────────────────────────────
 function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   title: string; message: string; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center px-6"
+    <div className="fixed inset-0 z-[300] flex items-center justify-center px-6"
       style={{ animation: 'fadeIn 0.15s ease' }}
       onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-      <div
-        className="relative w-full max-w-xs overflow-hidden rounded-[1.6rem]"
+      <div className="relative w-full max-w-xs overflow-hidden rounded-[1.6rem]"
         style={{
           background: 'rgba(255,255,255,0.84)',
-          backdropFilter: 'blur(40px) saturate(1.8)',
-          WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
-          border: '1px solid rgba(255,255,255,0.6)',
+          backdropFilter: 'blur(40px) saturate(1.8)', WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.6)',
           animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)',
         }}
         onPointerDown={(e) => e.stopPropagation()}
@@ -129,71 +109,56 @@ function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   );
 }
 
-// ─── Folder preview ────────────────────────────────────────────────────────────────────────────
+// ─── Folder preview ───────────────────────────────────────────────────────────
 function FolderPreview({ apps }: { apps: AppShortcut[] }) {
   const previewApps = apps.slice(0, 4);
   return (
     <span className="grid h-[5.4rem] w-[5.4rem] grid-cols-2 grid-rows-2 place-items-center gap-2 rounded-[1.55rem] border border-white/35 bg-white/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_18px_40px_rgba(17,24,39,0.2)] backdrop-blur-sm">
-      {Array.from({ length: 4 }).map((_, index) => {
-        const app = previewApps[index];
+      {Array.from({ length: 4 }).map((_, i) => {
+        const app = previewApps[i];
         return app
           ? <AppIcon key={app.id} app={app} size="mini" />
-          : <span key={`empty-${index}`} className="h-6 w-6 rounded-[0.48rem] bg-white/22" />;
+          : <span key={`e-${i}`} className="h-6 w-6 rounded-[0.48rem] bg-white/22" />;
       })}
     </span>
   );
 }
 
-// ─── Icon with edit badges ─────────────────────────────────────────────────────────────────────
+// ─── Icon with edit badges ────────────────────────────────────────────────────
 function IconWithBadges({
-  app, editing, spaces, currentSpaceId,
-  onDelete, onRename, onMoveToSpace,
+  app, editing, spaces, currentSpaceId, onDelete, onRename, onMoveToSpace,
 }: {
-  app: AppShortcut;
-  editing: boolean;
-  spaces: Space[];
-  currentSpaceId: string;
-  onDelete: () => void;
-  onRename: () => void;
-  onMoveToSpace: (spaceId: string | undefined) => void;
+  app: AppShortcut; editing: boolean; spaces: Space[]; currentSpaceId: string;
+  onDelete: () => void; onRename: () => void; onMoveToSpace: (spaceId: string | undefined) => void;
 }) {
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
-
   return (
-    <span
-      className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
-      style={{ isolation: 'isolate' }}
-      data-anim="app-icon"
-    >
+    <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
+      style={{ isolation: 'isolate' }} data-anim="app-icon">
       <AppIcon app={app} size="grid" />
       {editing && (
         <>
           <button type="button" aria-label="Delete shortcut"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-            style={removeBadgeStyle}
-          >
+            style={removeBadgeStyle}>
             <Minus style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 3 }} />
           </button>
           <button type="button" aria-label="Edit shortcut"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-            style={editBadgeStyle}
-          >
+            style={editBadgeStyle}>
             <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
           </button>
           <button type="button" aria-label="Move to space"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSpaceMenuOpen((v) => !v); }}
-            style={spaceBadgeStyle}
-          >
-            {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '\u2736 All'}
+            style={spaceBadgeStyle}>
+            {app.spaceId ? (spaces.find((s) => s.id === app.spaceId)?.name ?? app.spaceId) : '✶ All'}
           </button>
           {spaceMenuOpen && (
-            <div
-              className="absolute z-30 overflow-hidden rounded-2xl shadow-2xl"
+            <div className="absolute z-30 overflow-hidden rounded-2xl shadow-2xl"
               style={{
                 bottom: 'calc(100% + 4px)', left: '50%', transform: 'translateX(-50%)',
                 background: 'rgba(255,255,255,0.92)',
-                backdropFilter: 'blur(24px) saturate(1.8)',
-                WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+                backdropFilter: 'blur(24px) saturate(1.8)', WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
                 border: '1px solid rgba(255,255,255,0.6)',
               }}
               onClick={(e) => e.stopPropagation()}
@@ -201,16 +166,14 @@ function IconWithBadges({
               <div className="min-w-[9rem] py-1 text-xs font-black text-slate-800">
                 <button type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50"
-                  onClick={(e) => { e.stopPropagation(); onMoveToSpace(undefined); setSpaceMenuOpen(false); }}
-                >
-                  <span className="text-slate-400">\u2736</span> All Spaces
+                  onClick={(e) => { e.stopPropagation(); onMoveToSpace(undefined); setSpaceMenuOpen(false); }}>
+                  <span className="text-slate-400">✶</span> All Spaces
                 </button>
                 {spaces.map((space) => (
                   <button key={space.id} type="button"
                     className={['flex w-full items-center gap-2 px-3 py-2 hover:bg-white/50',
                       space.id === currentSpaceId ? 'text-slate-950' : 'text-slate-600'].join(' ')}
-                    onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}
-                  >
+                    onClick={(e) => { e.stopPropagation(); onMoveToSpace(space.id); setSpaceMenuOpen(false); }}>
                     <span className={`h-2 w-2 rounded-full bg-gradient-to-br ${space.accent}`} />
                     {space.name}
                   </button>
@@ -224,21 +187,18 @@ function IconWithBadges({
   );
 }
 
-// ─── Folder rename overlay ───────────────────────────────────────────────────────────────────────
+// ─── Folder rename overlay ────────────────────────────────────────────────────
 function FolderRenameOverlay({ name, onSave, onCancel, t }: {
   name: string; onSave: (n: string) => void; onCancel: () => void; t: (key: TranslationKey) => string;
 }) {
   const [value, setValue] = useState(name);
   const handleSave = () => { if (!value.trim()) return; onSave(value.trim()); };
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm"
-      onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm"
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="w-72 rounded-2xl bg-white p-6 shadow-2xl">
         <p className="mb-3 text-sm font-black text-slate-700">{t('renameFolder')}</p>
-        <input
-          autoFocus value={value}
+        <input autoFocus value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onCancel(); }}
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-400"
@@ -254,29 +214,20 @@ function FolderRenameOverlay({ name, onSave, onCancel, t }: {
   );
 }
 
-// ─── Page dots ─────────────────────────────────────────────────────────────────────────────────
-function PageDots({
-  total, current, onSelect,
-}: { total: number; current: number; onSelect: (i: number) => void }) {
+// ─── Page dots ────────────────────────────────────────────────────────────────
+function PageDots({ total, current, onSelect }: { total: number; current: number; onSelect: (i: number) => void }) {
   if (total <= 1) return null;
   return (
     <div className="flex items-center gap-[7px]">
       {Array.from({ length: total }).map((_, i) => (
-        <button
-          key={i}
-          type="button"
-          aria-label={`Page ${i + 1}`}
-          onClick={() => onSelect(i)}
+        <button key={i} type="button" aria-label={`Page ${i + 1}`} onClick={() => onSelect(i)}
           className="transition-all"
           style={{
-            width: i === current ? 8 : 7,
-            height: i === current ? 8 : 7,
+            width: i === current ? 8 : 7, height: i === current ? 8 : 7,
             borderRadius: '50%',
             background: i === current ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.35)',
             boxShadow: i === current ? '0 0 6px rgba(255,255,255,0.5)' : 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
+            border: 'none', padding: 0, cursor: 'pointer',
           }}
         />
       ))}
@@ -284,39 +235,131 @@ function PageDots({
   );
 }
 
-// ─── Main AppGrid ─────────────────────────────────────────────────────────────────────────────
+// ─── Sortable grid item ───────────────────────────────────────────────────────
+function SortableGridItem({
+  item, editing, spaces, currentSpaceId, activeId,
+  onDeleteApp, onRenameApp, onMoveToSpace, onOpenFolder, onDeleteFolder, onRenameFolder,
+}: {
+  item: GridItem;
+  editing: boolean;
+  spaces: Space[];
+  currentSpaceId: string;
+  activeId?: string | null;
+  onDeleteApp: (id: string) => void;
+  onRenameApp: (id: string) => void;
+  onMoveToSpace: (id: string, spaceId: string | undefined) => void;
+  onOpenFolder: (id: string) => void;
+  onDeleteFolder: (id: string) => void;
+  onRenameFolder: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+    data: { container: GRID_CONTAINER_ID },
+    disabled: !editing,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging || activeId === item.id ? 0.35 : 1,
+    position: 'relative',
+    touchAction: 'none',
+  };
+
+  const cellClass = [
+    'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
+    editing ? 'cursor-grab' : '',
+  ].join(' ');
+
+  if (item.kind === 'folder') {
+    return (
+      <div ref={setNodeRef} style={style} className={cellClass}
+        {...(editing ? { ...attributes, ...listeners } : {})}
+        data-anim="app-icon"
+      >
+        <button type="button"
+          onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
+          className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+        >
+          <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')} style={{ isolation: 'isolate' }}>
+            <FolderPreview apps={item.apps} />
+            {editing && (
+              <>
+                <button type="button" aria-label="Delete folder"
+                  onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
+                  style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}>
+                  <Trash2 style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 2.5 }} />
+                </button>
+                <button type="button" aria-label="Rename folder"
+                  onClick={(e) => { e.stopPropagation(); onRenameFolder(item.folder.id); }}
+                  style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}>
+                  <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
+                </button>
+              </>
+            )}
+          </span>
+          <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+            {item.folder.name}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={cellClass}
+      {...(editing ? { ...attributes, ...listeners } : {})}
+      data-testid={`link-app-${item.app.id}`}
+    >
+      <a
+        href={editing ? undefined : item.app.url}
+        target="_blank" rel="noreferrer"
+        onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
+        className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+      >
+        <IconWithBadges
+          app={item.app} editing={editing} spaces={spaces} currentSpaceId={currentSpaceId}
+          onDelete={() => onDeleteApp(item.app.id)}
+          onRename={() => onRenameApp(item.app.id)}
+          onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
+        />
+        <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+          {item.app.name}
+        </span>
+      </a>
+    </div>
+  );
+}
+
+// ─── Droppable grid container ─────────────────────────────────────────────────
+function DroppableGrid({ id, children, isOver }: { id: string; children: React.ReactNode; isOver: boolean }) {
+  const { setNodeRef } = useDroppable({ id, data: { container: id } });
+  return (
+    <div ref={setNodeRef}
+      className={['mx-auto grid gap-x-7 gap-y-8 rounded-[2.3rem] p-6 transition-colors duration-200',
+        isOver ? 'ring-2 ring-white/30 ring-inset' : ''].join(' ')}
+      style={{ gridTemplateColumns: 'var(--grid-cols)', maxWidth: 'var(--grid-max-w)' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Main AppGrid ─────────────────────────────────────────────────────────────
 export function AppGrid({
   apps, folders, editing, selectedFolderId, gridColumns, gridRows,
   currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, t,
-  externalDraggingId, onDragStart, onDragEnd,
+  activeId, overContainer,
   onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onReorder, onMoveToEnd: _onMoveToEnd, onMoveToPage, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
 }: AppGridProps) {
-  const draggedIdRef = useRef<string | null>(null);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const dropHandledRef = useRef(false);
-
-  const setDragged = (id: string | null) => {
-    draggedIdRef.current = id;
-    setDraggedId(id);
-  };
-
-  const readId = (e: React.DragEvent) =>
-    draggedIdRef.current ?? e.dataTransfer.getData('text/plain') ?? null;
-
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null);
   const [animating, setAnimating] = useState(false);
-  const [dragOverPageEdge, setDragOverPageEdge] = useState<'left' | 'right' | 'new' | null>(null);
   const mainRef = useRef<HTMLElement>(null);
-  const edgeDragTimerRef = useRef<number | null>(null);
-
-  // ─ Drop-slot hover state: which slot index is currently hovered by an external drag
-  const [externalDropSlot, setExternalDropSlot] = useState<number | null>(null);
-
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
 
@@ -327,7 +370,6 @@ export function AppGrid({
 
   const pageCapacity = gridColumns * gridRows;
 
-  // Build items per page using pageIndex (iOS-style: items stay on their page)
   const itemsByPage = useMemo(() => {
     const map = new Map<number, GridItem[]>();
     for (const app of apps) {
@@ -339,10 +381,7 @@ export function AppGrid({
     for (const folder of folders) {
       const p = folder.pageIndex ?? 0;
       if (!map.has(p)) map.set(p, []);
-      map.get(p)!.push({
-        kind: 'folder', id: folder.id, folder,
-        apps: apps.filter((a) => a.folderId === folder.id),
-      });
+      map.get(p)!.push({ kind: 'folder', id: folder.id, folder, apps: apps.filter((a) => a.folderId === folder.id) });
     }
     return map;
   }, [apps, folders]);
@@ -355,29 +394,17 @@ export function AppGrid({
   const itemsOnPage = itemsByPage.get(currentPage) ?? [];
 
   useEffect(() => {
-    if (pendingNavigatePage != null) {
-      setCurrentPage(pendingNavigatePage);
-      onNavigated?.();
-    }
+    if (pendingNavigatePage != null) { setCurrentPage(pendingNavigatePage); onNavigated?.(); }
   }, [pendingNavigatePage, onNavigated]);
 
   useEffect(() => { setCurrentPage(0); }, [currentSpaceId]);
-
-  // Clear external drop slot when external drag ends
-  useEffect(() => {
-    if (!externalDraggingId) setExternalDropSlot(null);
-  }, [externalDraggingId]);
 
   const goToPage = useCallback((page: number) => {
     if (page === currentPage || animating) return;
     const dir = page > currentPage ? 'left' : 'right';
     setSlideDir(dir);
     setAnimating(true);
-    setTimeout(() => {
-      setCurrentPage(page);
-      setSlideDir(null);
-      setAnimating(false);
-    }, 320);
+    setTimeout(() => { setCurrentPage(page); setSlideDir(null); setAnimating(false); }, 320);
   }, [currentPage, animating]);
 
   const goNext = useCallback(() => { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }, [currentPage, totalPages, goToPage]);
@@ -385,80 +412,16 @@ export function AppGrid({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.target instanceof Element && e.target.closest('a,button,input')) return;
-    swipeStartX.current = e.clientX;
-    swipeStartY.current = e.clientY;
+    swipeStartX.current = e.clientX; swipeStartY.current = e.clientY;
   };
-
   const handlePointerUp = (e: React.PointerEvent) => {
     if (swipeStartX.current === null || swipeStartY.current === null) return;
     const dx = e.clientX - swipeStartX.current;
     const dy = e.clientY - swipeStartY.current;
-    swipeStartX.current = null;
-    swipeStartY.current = null;
+    swipeStartX.current = null; swipeStartY.current = null;
     if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
     if (dx < 0) goNext(); else goPrev();
   };
-
-  const clearEdgeTimer = () => {
-    if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
-  };
-
-  const handleDragOverMain = (e: React.DragEvent) => {
-    e.preventDefault();
-    const rect = mainRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const edgeZone = rect.width * 0.12;
-    const x = e.clientX - rect.left;
-
-    if (x < edgeZone && currentPage > 0) {
-      if (dragOverPageEdge !== 'left') {
-        setDragOverPageEdge('left');
-        clearEdgeTimer();
-        edgeDragTimerRef.current = window.setTimeout(() => { goPrev(); edgeDragTimerRef.current = null; }, 700);
-      }
-    } else if (x > rect.width - edgeZone) {
-      if (currentPage < totalPages - 1) {
-        if (dragOverPageEdge !== 'right') {
-          setDragOverPageEdge('right');
-          clearEdgeTimer();
-          edgeDragTimerRef.current = window.setTimeout(() => { goNext(); edgeDragTimerRef.current = null; }, 700);
-        }
-      } else {
-        if (dragOverPageEdge !== 'new') {
-          setDragOverPageEdge('new');
-          clearEdgeTimer();
-        }
-      }
-    } else {
-      if (dragOverPageEdge !== null) {
-        setDragOverPageEdge(null);
-        clearEdgeTimer();
-      }
-    }
-  };
-
-  const handleDragLeaveMain = (e: React.DragEvent) => {
-    if (mainRef.current && !mainRef.current.contains(e.relatedTarget as Node)) {
-      setDragOverPageEdge(null);
-      clearEdgeTimer();
-      setExternalDropSlot(null);
-    }
-  };
-
-  const handleNewPageEdgeDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    dropHandledRef.current = true;
-    setDragOverPageEdge(null);
-    clearEdgeTimer();
-    const id = readId(e);
-    if (!id) { setDragged(null); return; }
-    const newPage = totalPages;
-    onMoveToPage(id, newPage);
-    setDragged(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalPages, onMoveToPage]);
-
-  const gridTemplateColumns = `repeat(${gridColumns}, minmax(5.8rem, 1fr))`;
 
   const setLongPress = (target: HTMLElement) => {
     const timeout = window.setTimeout(onStartEditing, 520);
@@ -469,17 +432,9 @@ export function AppGrid({
 
   let pageSlideStyle: React.CSSProperties;
   if (animating && slideDir) {
-    pageSlideStyle = {
-      transform: slideDir === 'left' ? 'translateX(-6%)' : 'translateX(6%)',
-      opacity: 0,
-      transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s',
-    };
+    pageSlideStyle = { transform: slideDir === 'left' ? 'translateX(-6%)' : 'translateX(6%)', opacity: 0, transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s' };
   } else {
-    pageSlideStyle = {
-      transform: 'translateX(0)',
-      opacity: 1,
-      transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s',
-    };
+    pageSlideStyle = { transform: 'translateX(0)', opacity: 1, transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s' };
   }
 
   const spaceAnimStyle: React.CSSProperties = spaceDirection ? {
@@ -488,29 +443,16 @@ export function AppGrid({
       : 'spaceSlideFromLeft 0.32s cubic-bezier(0.4,0,0.2,1) both',
   } : {};
 
-  // The "active" drag ID: prefer local, fall back to external (Dock drag)
-  const activeDraggingId = draggedId ?? externalDraggingId ?? null;
+  const isGridOver = overContainer === GRID_CONTAINER_ID;
+  // Also show hint when a dock item is dragged over grid
+  const isDockItemOverGrid = !!activeId && isGridOver;
 
-  const cellClass = [
-    'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
-    editing ? 'cursor-grab' : '',
-  ].join(' ');
+  const sortableIds = itemsOnPage.map((i) => i.id);
 
-  const isDragging = !!activeDraggingId;
-
-  // Extra editing buttons count on last page
-  const editingExtraCount = (editing && currentPage === totalPages - 1) ? 2 : 0;
-  // Total visible items = actual items + editing buttons
-  const visibleCount = itemsOnPage.length + editingExtraCount;
-  // Invisible drop slots fill up to pageCapacity
-  const invisibleDropSlots = Math.max(0, pageCapacity - visibleCount);
-
-  // When an external drag is happening, compute how items shift to make room
-  // iOS-style: items at index >= externalDropSlot shift right by one cell
-  const getExternalShift = (itemIndex: number): boolean => {
-    if (!externalDraggingId || externalDropSlot === null) return false;
-    return itemIndex >= externalDropSlot;
-  };
+  const gridCssVars = {
+    '--grid-cols': `repeat(${gridColumns}, minmax(5.8rem, 1fr))`,
+    '--grid-max-w': `${gridColumns * 7.5}rem`,
+  } as React.CSSProperties;
 
   return (
     <main
@@ -522,279 +464,95 @@ export function AppGrid({
       onKeyDown={(e) => { if (editing && e.key === 'Escape') onStopEditing(); }}
       onContextMenu={(e) => { e.preventDefault(); onStartEditing(); }}
       onClick={(e) => { if (editing && e.target === mainRef.current) onStopEditing(); }}
-      onDragOver={handleDragOverMain}
-      onDragLeave={handleDragLeaveMain}
-      onDrop={(e) => {
-        e.preventDefault();
-        clearEdgeTimer();
-        setExternalDropSlot(null);
-        if (dragOverPageEdge === 'new') { handleNewPageEdgeDrop(e); return; }
-        setDragOverPageEdge(null);
-        if (dropHandledRef.current) { dropHandledRef.current = false; return; }
-        const id = readId(e);
-        if (id) {
-          if (selectedFolderId) {
-            onMoveOutOfFolder(id);
-          } else {
-            onMoveToPage(id, currentPage);
-          }
-        }
-        setDragged(null);
-        onDragEnd?.();
-      }}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      style={gridCssVars}
     >
       <style>{`
-        @keyframes spaceSlideFromRight {
-          from { opacity: 0; transform: translateX(48px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes spaceSlideFromLeft {
-          from { opacity: 0; transform: translateX(-48px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes edgePulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
+        @keyframes spaceSlideFromRight { from { opacity:0; transform:translateX(48px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes spaceSlideFromLeft  { from { opacity:0; transform:translateX(-48px); } to { opacity:1; transform:translateX(0); } }
       `}</style>
 
       {editing && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4" aria-live="polite">
           <span className="rounded-full bg-slate-950/60 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80 backdrop-blur-md">
-            \u270f\ufe0f {t('editModeHint')}
+            ✏️ {t('editModeHint')}
           </span>
         </div>
       )}
 
-      {isDragging && dragOverPageEdge === 'left' && currentPage > 0 && (
-        <div className="pointer-events-none fixed left-0 top-0 z-50 h-full w-20 flex items-center justify-start pl-3"
-          style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.22), transparent)', animation: 'edgePulse 0.8s ease-in-out infinite' }}
-        >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </div>
-      )}
-
-      {isDragging && (dragOverPageEdge === 'right' || dragOverPageEdge === 'new') && (
-        <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-20 flex items-center justify-end pr-3"
-          style={{ background: 'linear-gradient(to left, rgba(255,255,255,0.22), transparent)', animation: 'edgePulse 0.8s ease-in-out infinite' }}
-        >
-          {dragOverPageEdge === 'new'
-            ? <Plus className="h-6 w-6" style={{ color: 'rgba(255,255,255,0.9)' }} />
-            : <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
-          }
-        </div>
-      )}
-
-      {isDragging && dragOverPageEdge === 'new' && (
-        <div className="fixed right-0 top-0 z-[60] h-full w-20"
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={handleNewPageEdgeDrop}
-        />
-      )}
-
       <section key={currentSpaceId} className="w-full max-w-5xl" aria-label="App grid" style={spaceAnimStyle}>
         <div style={pageSlideStyle}>
-          <div
-            className="mx-auto grid gap-x-7 gap-y-8 rounded-[2.3rem] p-6"
-            style={{ gridTemplateColumns, maxWidth: `${gridColumns * 7.5}rem` }}
-          >
-            {/* Visible items */}
-            {itemsOnPage.map((item, itemIndex) => {
-              // iOS-style: shift item right if an external drag is hovering before it
-              const shifted = getExternalShift(itemIndex);
-              const itemStyle: React.CSSProperties = externalDraggingId ? {
-                transform: shifted ? 'translateX(8px) scale(0.96)' : 'none',
-                transition: 'transform 0.18s cubic-bezier(0.34,1.2,0.64,1)',
-              } : {};
-
-              if (item.kind === 'folder') {
-                return (
-                  <div
-                    key={item.id}
-                    className={[cellClass, activeDraggingId === item.id ? 'opacity-45' : ''].join(' ')}
-                    style={itemStyle}
-                    draggable={editing}
-                    onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); onDragStart?.(item.id); }}
-                    onDragEnd={() => { setDragged(null); onDragEnd?.(); }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      if (externalDraggingId && !editing) setExternalDropSlot(itemIndex);
-                    }}
-                    onDrop={(e) => {
-                      e.stopPropagation(); dropHandledRef.current = true;
-                      setExternalDropSlot(null);
-                      const id = readId(e);
-                      if (id && id !== item.id) onMoveToFolder(id, item.folder.id);
-                      setDragged(null);
-                      onDragEnd?.();
-                    }}
-                    onPointerDown={(e) => setLongPress(e.currentTarget)}
-                    data-anim="app-icon"
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => { if (editing) { e.stopPropagation(); return; } onOpenFolder(item.folder.id); }}
-                      className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-                    >
-                      <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')} style={{ isolation: 'isolate' }}>
-                        <FolderPreview apps={item.apps} />
-                        {editing && (
-                          <>
-                            <button type="button" aria-label="Delete folder"
-                              onClick={(e) => { e.stopPropagation(); onDeleteFolder(item.folder.id); }}
-                              style={{ ...removeBadgeStyle, top: BADGE_OFFSET + 4, left: BADGE_OFFSET + 4 }}
-                            >
-                              <Trash2 style={{ width: svgSize, height: svgSize, color: '#ef4444', strokeWidth: 2.5 }} />
-                            </button>
-                            <button type="button" aria-label="Rename folder"
-                              onClick={(e) => { e.stopPropagation(); setRenamingFolderId(item.folder.id); }}
-                              style={{ ...editBadgeStyle, top: BADGE_OFFSET + 4, right: BADGE_OFFSET + 4 }}
-                            >
-                              <Pencil style={{ width: svgSize * 0.9, height: svgSize * 0.9, color: '#334155', strokeWidth: 2 }} />
-                            </button>
-                          </>
-                        )}
-                      </span>
-                      <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
-                        {item.folder.name}
-                      </span>
-                    </button>
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={item.id}
-                  className={[cellClass, activeDraggingId === item.id ? 'opacity-45' : ''].join(' ')}
-                  style={itemStyle}
-                  draggable={editing}
-                  onDragStart={(e) => { setDragged(item.id); e.dataTransfer.setData('text/plain', item.id); onDragStart?.(item.id); }}
-                  onDragEnd={() => { setDragged(null); onDragEnd?.(); }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (externalDraggingId && !editing) setExternalDropSlot(itemIndex);
-                  }}
-                  onDrop={(e) => {
-                    e.stopPropagation(); dropHandledRef.current = true;
-                    setExternalDropSlot(null);
-                    const id = readId(e);
-                    if (id && id !== item.id) onReorder(id, item.id);
-                    setDragged(null);
-                    onDragEnd?.();
-                  }}
-                  onPointerDown={(e) => setLongPress(e.currentTarget)}
-                  data-testid={`link-app-${item.app.id}`}
-                >
-                  <a
-                    href={editing ? undefined : item.app.url}
-                    target="_blank" rel="noreferrer"
-                    onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
-                    className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-                  >
-                    <IconWithBadges
-                      app={item.app} editing={editing} spaces={spaces} currentSpaceId={currentSpaceId}
-                      onDelete={() => setDeletingAppId(item.app.id)}
-                      onRename={() => onRenameApp(item.app.id)}
-                      onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
-                    />
-                    <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
-                      {item.app.name}
-                    </span>
-                  </a>
+          <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+            <DroppableGrid id={GRID_CONTAINER_ID} isOver={isDockItemOverGrid}>
+              {itemsOnPage.map((item) => (
+                <div key={item.id} onPointerDown={(e) => setLongPress(e.currentTarget)}>
+                  <SortableGridItem
+                    item={item}
+                    editing={editing}
+                    spaces={spaces}
+                    currentSpaceId={currentSpaceId}
+                    activeId={activeId}
+                    onDeleteApp={(id) => setDeletingAppId(id)}
+                    onRenameApp={onRenameApp}
+                    onMoveToSpace={onMoveToSpace}
+                    onOpenFolder={onOpenFolder}
+                    onDeleteFolder={onDeleteFolder}
+                    onRenameFolder={(id) => setRenamingFolderId(id)}
+                  />
                 </div>
-              );
-            })}
+              ))}
 
-            {/* Editing: Add / New Folder buttons on last page */}
-            {editing && currentPage === totalPages - 1 && (
-              <>
-                <button type="button"
-                  onClick={(e) => { e.stopPropagation(); onAddShortcut(null); }}
-                  className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-                >
-                  <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                    <Plus className="h-7 w-7" />
-                  </span>
-                  <span className="text-sm font-bold text-white">{t('add')}</span>
-                </button>
-                <button type="button"
-                  onClick={(e) => { e.stopPropagation(); onAddFolder(); }}
-                  className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-                >
-                  <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                    <FolderPlus className="h-7 w-7" />
-                  </span>
-                  <span className="text-sm font-bold text-white">{t('newFolder')}</span>
-                </button>
-              </>
-            )}
+              {/* Editing: Add / New Folder buttons */}
+              {editing && currentPage === totalPages - 1 && (
+                <>
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); onAddShortcut(null); }}
+                    className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+                  >
+                    <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
+                      <Plus className="h-7 w-7" />
+                    </span>
+                    <span className="text-sm font-bold text-white">{t('add')}</span>
+                  </button>
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); onAddFolder(); }}
+                    className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+                  >
+                    <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
+                      <FolderPlus className="h-7 w-7" />
+                    </span>
+                    <span className="text-sm font-bold text-white">{t('newFolder')}</span>
+                  </button>
+                </>
+              )}
 
-            {/*
-              Invisible drop slots: zero visual size but accept drag-and-drop.
-              These never add rows to the grid, so the grid height = actual content.
-            */}
-            {Array.from({ length: invisibleDropSlots }).map((_, i) => (
-              <div
-                key={`drop-${i}`}
-                aria-hidden="true"
-                style={{ height: 0, minHeight: 0, overflow: 'visible', padding: 0, margin: 0 }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (externalDraggingId && !editing) setExternalDropSlot(itemsOnPage.length + i);
-                }}
-                onDrop={(e) => {
-                  e.stopPropagation(); dropHandledRef.current = true;
-                  setExternalDropSlot(null);
-                  const id = readId(e);
-                  if (id) onMoveToPage(id, currentPage);
-                  setDragged(null);
-                  onDragEnd?.();
-                }}
-              />
-            ))}
-          </div>
+              {/* Invisible drop slots to fill page capacity */}
+              {Array.from({ length: Math.max(0, pageCapacity - itemsOnPage.length - (editing && currentPage === totalPages - 1 ? 2 : 0)) }).map((_, i) => (
+                <div key={`slot-${i}`} aria-hidden="true"
+                  style={{ height: 0, minHeight: 0, overflow: 'visible', padding: 0, margin: 0 }} />
+              ))}
+            </DroppableGrid>
+          </SortableContext>
         </div>
       </section>
 
       {totalPages > 1 && (
-        <div
-          className="fixed bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-1.5"
-          style={{
-            background: 'rgba(0,0,0,0.28)',
-            backdropFilter: 'blur(12px) saturate(1.4)',
-            WebkitBackdropFilter: 'blur(12px) saturate(1.4)',
-            border: '1px solid rgba(255,255,255,0.12)',
-          }}
-        >
+        <div className="fixed bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-1.5"
+          style={{ background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(12px) saturate(1.4)', WebkitBackdropFilter: 'blur(12px) saturate(1.4)', border: '1px solid rgba(255,255,255,0.12)' }}>
           <PageDots total={totalPages} current={currentPage} onSelect={goToPage} />
         </div>
       )}
 
+      {/* Folder modal */}
       {selectedFolder && (
-        <div
-          className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
+        <div className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/22 px-6 backdrop-blur-md"
           role="presentation"
           onPointerDown={(e) => { if (e.target === e.currentTarget) onCloseFolder(); }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.stopPropagation(); dropHandledRef.current = true;
-            const id = readId(e);
-            if (id) onMoveOutOfFolder(id);
-            setDragged(null);
-            onDragEnd?.();
-          }}
         >
-          <section
-            role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
+          <section role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
             className="w-[min(34rem,calc(100vw-2rem))] rounded-[2.4rem] border border-white/35 bg-white/38 p-6 text-white shadow-[0_30px_90px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-2xl"
             onPointerDown={(e) => e.stopPropagation()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => e.stopPropagation()}
           >
             <div className="mb-6 text-center">
               <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
@@ -802,16 +560,10 @@ export function AppGrid({
             </div>
             <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
               {selectedFolderApps.map((app) => (
-                <div
-                  key={app.id}
+                <div key={app.id}
                   className={['relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2', editing ? 'cursor-grab' : ''].join(' ')}
-                  draggable={editing}
-                  onDragStart={(e) => { setDragged(app.id); e.dataTransfer.setData('text/plain', app.id); onDragStart?.(app.id); }}
-                  onDragEnd={() => { setDragged(null); onDragEnd?.(); }}
                 >
-                  <a
-                    href={editing ? undefined : app.url}
-                    target="_blank" rel="noreferrer"
+                  <a href={editing ? undefined : app.url} target="_blank" rel="noreferrer"
                     onClick={(e) => { if (editing) e.preventDefault(); }}
                     className="flex flex-col items-center gap-2 rounded-[1.4rem] p-1 transition duration-200 hover:bg-white/12"
                   >
@@ -826,10 +578,8 @@ export function AppGrid({
                 </div>
               ))}
               {editing && (
-                <button type="button"
-                  onClick={() => onAddShortcut(selectedFolder.id)}
-                  className="flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12"
-                >
+                <button type="button" onClick={() => onAddShortcut(selectedFolder.id)}
+                  className="flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12">
                   <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
                     <Plus className="h-7 w-7" />
                   </span>
@@ -842,8 +592,7 @@ export function AppGrid({
       )}
 
       {renamingFolder && (
-        <FolderRenameOverlay
-          name={renamingFolder.name} t={t}
+        <FolderRenameOverlay name={renamingFolder.name} t={t}
           onSave={(name) => { onRenameFolder(renamingFolder.id, name); setRenamingFolderId(null); }}
           onCancel={() => setRenamingFolderId(null)}
         />
