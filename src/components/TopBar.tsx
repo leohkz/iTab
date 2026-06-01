@@ -29,6 +29,40 @@ function glassStyle(glass: number) {
   } as React.CSSProperties;
 }
 
+function ITabIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" className={className}>
+      <defs>
+        <linearGradient id="tb_bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#1a2744"/>
+          <stop offset="1" stopColor="#0a0f1e"/>
+        </linearGradient>
+        <linearGradient id="tb_bar" x1="36" y1="0" x2="92" y2="0" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#38bdf8"/>
+          <stop offset="0.5" stopColor="#818cf8"/>
+          <stop offset="1" stopColor="#38bdf8"/>
+        </linearGradient>
+        <filter id="tb_blur_i" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="tb_blur_bar" x="-20%" y="-100%" width="140%" height="300%">
+          <feGaussianBlur stdDeviation="3"/>
+        </filter>
+      </defs>
+      <rect width="128" height="128" rx="28" fill="url(#tb_bg)"/>
+      <rect width="128" height="64" rx="28" fill="white" fillOpacity="0.04"/>
+      <ellipse cx="64" cy="62" rx="22" ry="28" fill="#6366f1" fillOpacity="0.18"/>
+      <circle cx="64" cy="34" r="7" fill="white" filter="url(#tb_blur_i)"/>
+      <circle cx="64" cy="34" r="5" fill="white"/>
+      <rect x="58" y="47" width="12" height="38" rx="6" fill="white" filter="url(#tb_blur_i)"/>
+      <rect x="59.5" y="47" width="9" height="38" rx="4.5" fill="white"/>
+      <rect x="36" y="92" width="56" height="4" rx="2" fill="url(#tb_bar)" filter="url(#tb_blur_bar)" opacity="0.7"/>
+      <rect x="36" y="93" width="56" height="3" rx="1.5" fill="url(#tb_bar)"/>
+    </svg>
+  );
+}
+
 export function TopBar({
   spaces,
   currentSpaceId,
@@ -53,8 +87,38 @@ export function TopBar({
   return (
     <header className="fixed inset-x-0 top-0 z-40">
       <div className="flex items-center justify-between px-5 pt-3 pb-2">
-        {/* Space switcher + hint button */}
+        {/* iTab icon (space cycle button) + Space tabs */}
         <div className="flex items-center gap-2">
+          {/* iTab icon button */}
+          <div className="group relative">
+            <button
+              type="button"
+              onClick={spaces.length > 1 ? switchNext : undefined}
+              aria-label="Switch to next space"
+              className="h-7 w-7 rounded-lg opacity-80 transition hover:opacity-100 hover:scale-110 active:scale-95"
+            >
+              <ITabIcon className="h-full w-full" />
+            </button>
+            {/* Tooltip */}
+            {spaces.length > 1 && (
+              <div className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-900/90 px-3 py-2 text-[0.65rem] font-semibold text-white opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100 z-50">
+                <p className="mb-1 font-black tracking-wide text-white/60 uppercase text-[0.55rem]">Switch Space</p>
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-white/80">Next space</span>
+                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl →</kbd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-white/80">Prev space</span>
+                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl ←</kbd>
+                  </div>
+                </div>
+                <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900/90" />
+              </div>
+            )}
+          </div>
+
+          {/* Space tabs */}
           <nav aria-label="Spaces" className="flex gap-1">
             {spaces.map((space) => (
               <button
@@ -73,36 +137,6 @@ export function TopBar({
               </button>
             ))}
           </nav>
-
-          {/* Cycle button with keyboard hint tooltip */}
-          {spaces.length > 1 && (
-            <div className="group relative">
-              <button
-                type="button"
-                onClick={switchNext}
-                aria-label="Switch to next space"
-                className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[0.6rem] font-black text-white/50 transition hover:bg-white/20 hover:text-white/80"
-              >
-                <span>⇥</span>
-              </button>
-              {/* Tooltip */}
-              <div className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-900/90 px-3 py-2 text-[0.65rem] font-semibold text-white opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100 z-50">
-                <p className="mb-1 font-black tracking-wide text-white/60 uppercase text-[0.55rem]">Switch Space</p>
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-white/80">Next space</span>
-                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl →</kbd>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-white/80">Prev space</span>
-                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl ←</kbd>
-                  </div>
-                </div>
-                {/* arrow */}
-                <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900/90" />
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right controls */}
