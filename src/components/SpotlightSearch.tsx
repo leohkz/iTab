@@ -2,6 +2,7 @@ import { ArrowRight, Clock, FileText, Globe2, Hash, Search, X } from 'lucide-rea
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { AppShortcut, SearchEngine, SearchEngineId, TodoItem, NoteTab, Prompt } from '../types';
 import type { TranslationKey } from '../i18n';
+import { FaviconImg } from './FaviconImg';
 
 const RECENT_KEY = 'itab-spotlight-recent';
 const MAX_RECENT = 8;
@@ -29,9 +30,12 @@ function buildSearchUrl(engine: SearchEngine, query: string) {
   return (engine.template ?? '{q}').replaceAll('{q}', encodeURIComponent(query));
 }
 
-function getFavicon(url: string) {
-  try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`; }
-  catch { return ''; }
+function getEngineSiteUrl(engine: SearchEngine): string {
+  if (engine.url) return engine.url;
+  if (engine.template) {
+    try { return new URL(engine.template.replace('{q}', '')).origin; } catch { /* ignore */ }
+  }
+  return '';
 }
 
 function loadRecent(): string[] {
@@ -198,7 +202,7 @@ export function SpotlightSearch({
           <p className="mr-2 shrink-0 text-[0.6rem] font-black uppercase tracking-[0.18em] text-slate-400">← →</p>
           {enabledEngines.map((eng) => {
             const isActive = eng.id === displayEngine?.id;
-            const faviconUrl = eng.url ? getFavicon(eng.url) : '';
+            const siteUrl  = getEngineSiteUrl(eng);
             return (
               <button
                 key={eng.id} type="button"
@@ -209,16 +213,15 @@ export function SpotlightSearch({
                   isActive ? 'bg-slate-900 ring-2 ring-slate-900 ring-offset-1' : 'bg-white hover:bg-slate-100',
                 ].join(' ')}
               >
-                {faviconUrl ? (
-                  <img src={faviconUrl} alt={eng.name} width={18} height={18}
-                    className="rounded-[4px]"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className={['text-[0.6rem] font-black', isActive ? 'text-white' : 'text-slate-600'].join(' ')}>
-                    {eng.name.charAt(0).toUpperCase()}
-                  </span>
-                )}
+                <FaviconImg
+                  siteUrl={siteUrl}
+                  customIcon={eng.icon}
+                  name={eng.name}
+                  size={18}
+                  className="rounded-[3px]"
+                  letterClassName={isActive ? 'bg-white/20 text-white' : ''}
+                />
+                {/* Hover tooltip */}
                 <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
                   {eng.name}
                   {eng.shortcut && <span className="ml-1 opacity-60">{eng.shortcut}</span>}
@@ -261,7 +264,6 @@ export function SpotlightSearch({
                   {appItems.map((r) => {
                     const globalIdx = results.indexOf(r);
                     const isActive  = cursor === globalIdx;
-                    const fav = getFavicon(r.app.url);
                     return (
                       <a key={r.app.id}
                         href={r.app.url} target="_blank" rel="noreferrer"
@@ -274,12 +276,13 @@ export function SpotlightSearch({
                         ].join(' ')}
                       >
                         <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                          {fav ? (
-                            <img src={fav} alt={r.app.name} width={28} height={28} className="rounded-lg"
-                              onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
-                          ) : (
-                            <span className="text-lg font-black text-slate-400">{r.app.name.charAt(0)}</span>
-                          )}
+                          <FaviconImg
+                            siteUrl={r.app.url}
+                            customIcon={r.app.iconType === 'url' ? r.app.iconValue : undefined}
+                            name={r.app.name}
+                            size={28}
+                            className="rounded-lg"
+                          />
                         </div>
                         <span className={['text-[0.65rem] font-black leading-tight line-clamp-2 w-full', isActive ? 'text-white' : 'text-slate-700'].join(' ')}>
                           {r.app.name}
@@ -408,19 +411,21 @@ export function SpotlightSearch({
             <div>
               <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
-                {apps.slice(0, 12).map(app => {
-                  const fav = getFavicon(app.url);
-                  return (
-                    <a key={app.id} href={app.url} target="_blank" rel="noreferrer" onClick={onClose}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center hover:bg-slate-100 transition cursor-pointer">
-                      <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100 flex items-center justify-center">
-                        {fav ? <img src={fav} alt={app.name} width={28} height={28} className="rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
-                          : <span className="text-lg font-black text-slate-400">{app.name.charAt(0)}</span>}
-                      </div>
-                      <span className="text-[0.65rem] font-black leading-tight line-clamp-2 w-full text-slate-700">{app.name}</span>
-                    </a>
-                  );
-                })}
+                {apps.slice(0, 12).map(app => (
+                  <a key={app.id} href={app.url} target="_blank" rel="noreferrer" onClick={onClose}
+                    className="flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center hover:bg-slate-100 transition cursor-pointer">
+                    <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100 flex items-center justify-center">
+                      <FaviconImg
+                        siteUrl={app.url}
+                        customIcon={app.iconType === 'url' ? app.iconValue : undefined}
+                        name={app.name}
+                        size={28}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <span className="text-[0.65rem] font-black leading-tight line-clamp-2 w-full text-slate-700">{app.name}</span>
+                  </a>
+                ))}
               </div>
             </div>
           )}

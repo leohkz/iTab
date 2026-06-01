@@ -4,6 +4,7 @@ import type { AppConfig, AiPortal, AiPortalSize, Locale, SearchEngine, SearchEng
 import { AI_PORTAL_SIZE_DEFAULT, SPACE_ACCENTS } from '../types';
 import type { TranslationKey } from '../i18n';
 import { AiPortalSettingsPanel } from './AiPortalBar';
+import { FaviconImg } from './FaviconImg';
 import {
   downloadFromGist, findExistingGist, getStorageItem,
   GIST_AUTO_KEY, GIST_ID_KEY, GIST_TOKEN_KEY, GIST_USER_KEY,
@@ -320,13 +321,91 @@ function CloudSyncPanel({ config, t, onConfigChange, onAction }: {
   );
 }
 
+// ── Search Engine Row with inline icon editor ──────────────────────────────
+function EngineRow({ engine, t, onUpdate, onDelete }: {
+  engine: SearchEngine;
+  t: (k: TranslationKey) => string;
+  onUpdate: (patch: Partial<SearchEngine>) => void;
+  onDelete?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Derive site URL from template for favicon
+  const siteUrl = engine.url ?? (engine.template ? engine.template.replace('{q}', '').replace(/[?&]q?=?$/, '') : '');
+
+  return (
+    <div className="rounded-xl bg-slate-950/5 overflow-hidden">
+      <div className="grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-3 p-3">
+        <Toggle checked={engine.enabled} onChange={(v) => onUpdate({ enabled: v })} testId={`toggle-engine-${engine.id}`} />
+
+        {/* Favicon */}
+        <button type="button" title={t('iconUrl')} onClick={() => setExpanded(e => !e)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm hover:ring-2 hover:ring-slate-300 transition">
+          <FaviconImg
+            siteUrl={siteUrl}
+            customIcon={engine.icon}
+            name={engine.name}
+            size={20}
+            className="rounded-[3px]"
+          />
+        </button>
+
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black">
+            {engine.name}
+            {engine.shortcut && <span className="ml-1.5 text-slate-400">/{engine.shortcut}</span>}
+          </p>
+          <p className="truncate text-xs font-semibold text-slate-400">{engine.template}</p>
+        </div>
+
+        <button type="button" onClick={() => setExpanded(e => !e)}
+          className="text-xs font-bold text-slate-400 hover:text-slate-700 px-1">
+          {expanded ? '▴' : '▾'}
+        </button>
+
+        {onDelete && (
+          <button type="button" onClick={onDelete}
+            className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"
+            title={t('delete')} data-testid={`button-delete-engine-${engine.id}`}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Expanded: custom icon URL input */}
+      {expanded && (
+        <div className="border-t border-slate-950/8 bg-white px-4 py-3">
+          <label className="block text-xs font-black text-slate-600 mb-1.5">
+            {t('iconUrl')} <span className="font-normal text-slate-400">({t('iconUrlHint')})</span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={engine.icon && engine.icon !== 'auto' ? engine.icon : ''}
+              onChange={(e) => onUpdate({ icon: e.target.value || 'auto' })}
+              placeholder={t('iconUrlAuto')}
+              className="h-9 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-semibold outline-none focus:border-slate-950"
+            />
+            {engine.icon && engine.icon !== 'auto' && (
+              <button type="button" onClick={() => onUpdate({ icon: 'auto' })}
+                className="rounded-xl bg-slate-100 px-3 text-sm font-bold text-slate-600 hover:bg-slate-200">
+                {t('restore')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsModal({
   open, config, spaces, t, onClose, onConfigChange, onAction,
   onExportJson, onImportJson, onResetDefaults,
   onAddSpace, onRenameSpace, onRecolorSpace, onDeleteSpace,
 }: SettingsModalProps) {
   const [active, setActive] = useState<CategoryId>('appearance');
-  const [newEngine, setNewEngine] = useState({ name: '', shortcut: '', template: '' });
+  const [newEngine, setNewEngine] = useState({ name: '', shortcut: '', template: '', icon: '' });
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const title = useMemo(() => categories.find((c) => c.id === active)?.key ?? 'settings', [active]);
@@ -354,10 +433,15 @@ export function SettingsModal({
     const id = `custom-${Date.now().toString(36)}`;
     onConfigChange({
       ...config,
-      searchEngines: [...config.searchEngines, { id, name: newEngine.name.trim(), shortcut: newEngine.shortcut.trim(), template: newEngine.template.trim(), enabled: true }],
+      searchEngines: [...config.searchEngines, {
+        id, name: newEngine.name.trim(), shortcut: newEngine.shortcut.trim(),
+        template: newEngine.template.trim(),
+        icon: newEngine.icon.trim() || undefined,
+        enabled: true,
+      }],
       defaultEngine: config.defaultEngine || id,
     });
-    setNewEngine({ name: '', shortcut: '', template: '' });
+    setNewEngine({ name: '', shortcut: '', template: '', icon: '' });
     onAction(t('addCustomEngine'));
   };
 
@@ -439,8 +523,6 @@ export function SettingsModal({
                     onChange={(e) => onConfigChange({ ...config, glass: Number(e.target.value) })}
                     className="mt-4 w-full accent-slate-950" data-testid="input-glass" />
                 </div>
-
-                {/* GSAP Animations toggle */}
                 <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100">
@@ -457,7 +539,6 @@ export function SettingsModal({
                     testId="toggle-gsap-animations"
                   />
                 </div>
-
                 <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
                   {(['sonoma', 'ventura', 'slate'] as ThemeName[]).map((themeName, i) => (
                     <button key={themeName} type="button" onClick={() => onConfigChange({ ...config, theme: themeName })}
@@ -519,33 +600,29 @@ export function SettingsModal({
                     {config.searchEngines.filter((e) => e.enabled).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                   </select>
                 </label>
+
                 <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="font-black">{t('searchEngines')}</h4>
-                  <div className="mt-3 grid gap-2">
+                  <h4 className="mb-3 font-black">{t('searchEngines')}</h4>
+                  <div className="grid gap-2">
                     {config.searchEngines.map((engine) => (
-                      <div key={engine.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl bg-slate-950/5 p-3">
-                        <Toggle checked={engine.enabled} onChange={(v) => updateEngine(engine.id, { enabled: v })} testId={`toggle-engine-${engine.id}`} />
-                        <div>
-                          <p className="text-sm font-black">{engine.name} <span className="text-slate-500">/{engine.shortcut}</span></p>
-                          <p className="truncate text-xs font-semibold text-slate-500">{engine.template}</p>
-                        </div>
-                        {engine.id.startsWith('custom-') && (
-                          <button type="button" onClick={() => deleteEngine(engine.id)}
-                            className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"
-                            title={t('delete')} data-testid={`button-delete-engine-${engine.id}`}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
+                      <EngineRow
+                        key={engine.id}
+                        engine={engine}
+                        t={t}
+                        onUpdate={(patch) => updateEngine(engine.id, patch)}
+                        onDelete={engine.id.startsWith('custom-') ? () => deleteEngine(engine.id) : undefined}
+                      />
                     ))}
                   </div>
                 </div>
+
                 <div className="rounded-2xl bg-white p-4 shadow-sm">
                   <h4 className="font-black">{t('addCustomEngine')}</h4>
-                  <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
+                  <div className="mt-3 grid grid-cols-2 gap-2 max-sm:grid-cols-1">
                     <input value={newEngine.name} onChange={(e) => setNewEngine({ ...newEngine, name: e.target.value })} placeholder={t('name')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-name" />
                     <input value={newEngine.shortcut} onChange={(e) => setNewEngine({ ...newEngine, shortcut: e.target.value })} placeholder={t('shortcut')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-shortcut" />
-                    <input value={newEngine.template} onChange={(e) => setNewEngine({ ...newEngine, template: e.target.value })} placeholder="https://example.com?q={q}" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-template" />
+                    <input value={newEngine.template} onChange={(e) => setNewEngine({ ...newEngine, template: e.target.value })} placeholder="https://example.com?q={q}" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold col-span-2 max-sm:col-span-1" data-testid="input-engine-template" />
+                    <input value={newEngine.icon} onChange={(e) => setNewEngine({ ...newEngine, icon: e.target.value })} placeholder={`${t('iconUrl')} (${t('iconUrlAuto')})`} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold col-span-2 max-sm:col-span-1" />
                   </div>
                   <button type="button" onClick={addEngine}
                     className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white"
@@ -567,8 +644,8 @@ export function SettingsModal({
                   onSizeChange={(size: AiPortalSize) => onConfigChange({ ...config, aiPortalSize: size })}
                 />
                 <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="font-black">📱 Popup 捕捷來源</h4>
-                  <p className="mb-3 mt-1 text-sm font-semibold text-slate-600">Popup 的 AI 頁面額外顯示哪個區域的捕捷</p>
+                  <h4 className="font-black">📱 Popup 捕捧來源</h4>
+                  <p className="mb-3 mt-1 text-sm font-semibold text-slate-600">Popup 的 AI 頁面額外顯示哪個區域的捕捧</p>
                   <select
                     value={config.popupShortcutSource ?? 'ai'}
                     onChange={(e) => onConfigChange({ ...config, popupShortcutSource: e.target.value as AppConfig['popupShortcutSource'] })}
