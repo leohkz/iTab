@@ -451,7 +451,6 @@ function NewTab() {
 
   const moveToFolder = (appId: string, folderId: string) => {
     if (!config.apps.some((app) => app.id === appId)) return;
-    // Bug 2 fix: folder 內的 app 不需要 pageIndex（設為 undefined），避免與主 grid 排序衝突
     updateConfig({ ...config, apps: config.apps.map((app) =>
       app.id === appId ? { ...app, folderId, pageIndex: undefined } : app,
     ) });
@@ -459,7 +458,6 @@ function NewTab() {
   };
 
   const moveOutOfFolder = (appId: string) => {
-    // Bug 1 fix: 移出 folder 時重新分配 pageIndex 到主 grid
     const app = config.apps.find((a) => a.id === appId);
     if (!app) return;
     const capacity = config.gridColumns * config.gridRows;
@@ -539,8 +537,11 @@ function NewTab() {
     notify(t('resetDefaults'));
   };
 
-  const themeClass =
-    config.theme === 'slate'
+  const isDark = config.theme === 'dark';
+
+  const themeClass = isDark
+    ? 'bg-[#0a0a0a]'
+    : config.theme === 'slate'
       ? 'bg-[radial-gradient(circle_at_18%_18%,rgba(148,163,184,0.75),transparent_23%),linear-gradient(135deg,#111827_0%,#334155_52%,#64748b_100%)]'
       : config.theme === 'ventura'
         ? 'bg-[radial-gradient(circle_at_18%_18%,rgba(255,244,187,0.75),transparent_23%),linear-gradient(135deg,#1a8fb7_0%,#71b8d5_45%,#fed7aa_100%)]'
@@ -618,7 +619,6 @@ function NewTab() {
 
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
 
-    // Bug 1 fix: 從 folder 內拖出到主 grid
     if (
       typeof fromContainer === 'string' &&
       fromContainer.startsWith(FOLDER_DROP_PREFIX) &&
@@ -717,221 +717,15 @@ function NewTab() {
     >
       <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
         <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
-        <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
+        {!isDark && (
+          <>
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
+            <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
+          </>
+        )}
 
         {activeId && totalPages > 1 && (
           <>
             {currentPageRef.current > 0 && (
               <div
-                className="pointer-events-none fixed left-0 top-0 z-[60] h-full flex items-center justify-center"
-                style={{ width: EDGE_ZONE }}
-              >
-                <div className="rounded-2xl bg-white/10 px-2 py-4 text-white/80 text-xs font-black backdrop-blur-md border border-white/20 flex flex-col items-center gap-1">
-                  <span style={{ fontSize: 20 }}>‹</span>
-                  <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>Prev</span>
-                </div>
-              </div>
-            )}
-            {currentPageRef.current < totalPages - 1 && (
-              <div
-                className="pointer-events-none fixed right-0 top-0 z-[60] h-full flex items-center justify-center"
-                style={{ width: EDGE_ZONE }}
-              >
-                <div className="rounded-2xl bg-white/10 px-2 py-4 text-white/80 text-xs font-black backdrop-blur-md border border-white/20 flex flex-col items-center gap-1">
-                  <span style={{ fontSize: 20 }}>›</span>
-                  <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>Next</span>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        <TopBar
-          data-anim="topbar"
-          spaces={spaces}
-          currentSpaceId={config.currentSpaceId}
-          editing={editing}
-          syncStatus=""
-          glass={config.glass}
-          t={t}
-          widgets={config.widgets}
-          onSpaceChange={switchSpace}
-          onSearchClick={() => setSearchOpen(true)}
-          onSettingsClick={() => setSettingsOpen(true)}
-          onToggleEditing={() => setEditing((v) => !v)}
-          onToggleTheme={() => {
-            const themes = ['sonoma', 'ventura', 'slate'] as const;
-            const index = themes.indexOf(config.theme as 'sonoma' | 'ventura' | 'slate');
-            updateConfig({ ...config, theme: themes[(index + 1) % themes.length] });
-          }}
-          onWidgetsChange={handleWidgetsChange}
-        />
-
-        <AiPortalBar
-          data-anim="aibar"
-          portals={aiPortals}
-          glass={config.glass}
-          size={config.aiPortalSize ?? AI_PORTAL_SIZE_DEFAULT}
-          t={t}
-        />
-
-        <button
-          type="button"
-          data-anim="prompts-btn"
-          onClick={() => setShowPrompts((v) => !v)}
-          aria-label={t('promptLibrary')}
-          className="fixed left-4 top-1/2 z-30 -translate-y-1/2 flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-white/70 shadow-lg transition hover:text-white"
-          style={glassBtn(config.glass, showPrompts)}
-        >
-          <BookMarked className="h-5 w-5" aria-hidden="true" />
-          <span
-            className="text-[0.6rem] font-black uppercase tracking-widest"
-            style={{ writingMode: 'vertical-rl' }}
-          >
-            {t('prompts')}
-          </span>
-        </button>
-
-        {showPrompts ? (
-          <PromptLibrary
-            prompts={config.prompts ?? []}
-            glass={config.glass}
-            t={t as (key: string) => string}
-            onClose={() => setShowPrompts(false)}
-            onAdd={addPrompt}
-            onEdit={editPrompt}
-            onDelete={deletePrompt}
-          />
-        ) : (
-          <AppGrid
-            apps={currentSpaceApps}
-            folders={currentSpaceFolders}
-            editing={editing}
-            selectedFolderId={selectedFolderId}
-            gridColumns={config.gridColumns}
-            gridRows={config.gridRows}
-            currentSpaceId={config.currentSpaceId}
-            spaces={spaces}
-            spaceDirection={spaceDirection}
-            pendingNavigatePage={pendingNavigatePage ?? externalPage}
-            onNavigated={() => {
-              setPendingNavigatePage(null);
-              setExternalPage(null);
-            }}
-            onPageChange={(p) => { currentPageRef.current = p; }}
-            t={t}
-            activeId={activeId}
-            overContainer={overContainer}
-            onOpenFolder={setSelectedFolderId}
-            onCloseFolder={() => setSelectedFolderId(null)}
-            onStartEditing={() => setEditing(true)}
-            onStopEditing={() => setEditing(false)}
-            onDeleteApp={deleteApp}
-            onRenameApp={renameShortcut}
-            onAddShortcut={openShortcutEditor}
-            onAddFolder={addFolder}
-            onRenameFolder={renameFolder}
-            onDeleteFolder={deleteFolder}
-            onReorder={reorderItems}
-            onMoveToEnd={moveAppToEnd}
-            onMoveToPage={moveAppToPage}
-            onMoveToFolder={moveToFolder}
-            onMoveOutOfFolder={moveOutOfFolder}
-            onMoveToSpace={moveToSpace}
-          />
-        )}
-
-        {config.showDock && (
-          <Dock
-            data-anim="dock"
-            pinnedApps={pinnedApps}
-            recentTabs={recentTabs}
-            editing={editing}
-            glass={config.glass}
-            activeId={activeId}
-            overContainer={overContainer}
-            onDropApp={pinApp}
-            onUnpinApp={unpinApp}
-            onRenameApp={renameShortcut}
-            onReorderPinned={reorderPinnedApp}
-          />
-        )}
-
-        {config.showWidgets && !showPrompts && (
-          <Widgets
-            data-anim="widgets"
-            widgets={config.widgets}
-            glass={config.glass}
-            onChange={handleWidgetsChange}
-            t={t}
-          />
-        )}
-
-        {config.widgets.focusModeActive && (
-          <FocusModeOverlay
-            widgets={config.widgets}
-            onChange={handleWidgetsChange}
-            backgroundClass={themeClass}
-          />
-        )}
-
-        {settingsOpen && (
-          <SettingsModal
-            open={settingsOpen}
-            config={config}
-            spaces={spaces}
-            t={t}
-            onClose={() => setSettingsOpen(false)}
-            onConfigChange={updateConfig}
-            onAction={notify}
-            onExportJson={exportJson}
-            onImportJson={importJson}
-            onResetDefaults={resetDefaults}
-            onAddSpace={addSpace}
-            onRenameSpace={renameSpace}
-            onRecolorSpace={recolorSpace}
-            onDeleteSpace={deleteSpace}
-          />
-        )}
-
-        <SpotlightSearch
-          open={searchOpen}
-          apps={allApps}
-          engines={config.searchEngines}
-          defaultEngine={config.defaultEngine ?? 'google'}
-          todos={config.widgets.todos}
-          noteTabs={config.widgets.noteTabs}
-          prompts={config.prompts ?? []}
-          t={t}
-          onClose={() => setSearchOpen(false)}
-          onEngineChange={(engineId) => updateConfig({ ...config, defaultEngine: engineId })}
-        />
-
-        {editor.open && (
-          <ShortcutEditor
-            open={editor.open}
-            mode={editor.mode}
-            initialApp={editingApp}
-            folderId={editor.folderId}
-            t={t}
-            onSave={(shortcut) => { saveShortcut(shortcut); setEditor({ open: false, mode: 'add', appId: null, folderId: null }); }}
-            onClose={() => setEditor({ open: false, mode: 'add', appId: null, folderId: null })}
-          />
-        )}
-
-        <Toast message={toast} />
-      </div>
-
-      <DragOverlay dropAnimation={null}>
-        {activeApp ? (
-          <div style={{ width: 72, height: 72, opacity: 0.85, transform: 'scale(1.08)', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.35))' }}>
-            <AppIcon app={activeApp} size="grid" />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
-  );
-}
-
-export default NewTab;
+                className="pointer-events-none fixed left-0 top-0 z-[60
