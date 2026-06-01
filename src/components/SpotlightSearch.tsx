@@ -184,8 +184,9 @@ export function SpotlightSearch({
             placeholder={t('searchPlaceholder')}
             className="min-w-0 flex-1 bg-white text-lg font-bold tracking-[-0.04em] text-slate-950 placeholder:text-slate-400 focus:outline-none"
           />
+          {/* Engine badge — light style */}
           {displayEngine && (
-            <span className="shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black text-white">
+            <span className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500 ring-1 ring-slate-200">
               {displayEngine.name}
             </span>
           )}
@@ -208,7 +209,9 @@ export function SpotlightSearch({
                   onClick={() => switchEngine(eng.id)}
                   className={[
                     'group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition duration-150',
-                    isActive ? 'bg-slate-900 ring-2 ring-slate-900 ring-offset-1' : 'bg-white hover:bg-slate-100',
+                    isActive
+                      ? 'bg-slate-100 ring-2 ring-slate-300 ring-offset-1'
+                      : 'bg-white hover:bg-slate-100',
                   ].join(' ')}
                 >
                   <FaviconImg
@@ -217,14 +220,13 @@ export function SpotlightSearch({
                     name={eng.name}
                     size={18}
                     className="rounded-[3px]"
-                    letterClassName={isActive ? 'bg-white/20 text-white' : ''}
                   />
-                  <span className="pointer-events-none absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
+                  <span className="pointer-events-none absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
                     {eng.name}
                     {eng.shortcut && <span className="ml-1 opacity-60">/{eng.shortcut}</span>}
                   </span>
                   {isActive && (
-                    <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-slate-900" />
+                    <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-slate-400" />
                   )}
                 </button>
               );
