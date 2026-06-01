@@ -15,14 +15,13 @@ type DockProps = {
   onDropApp: (appId: string) => void;
   onUnpinApp: (appId: string) => void;
   onRenameApp: (appId: string) => void;
+  onReorderPinned: (draggedId: string, targetIndex: number) => void;
 };
 
-// Badge size = ~22% of icon, min 18px
 function badgeSize(iconSize: number) {
   return Math.max(18, Math.round(iconSize * 0.28));
 }
 
-// Apple-style glass confirm dialog for Dock
 function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   name: string;
   onConfirm: () => void;
@@ -69,12 +68,17 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
+export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp, onReorderPinned }: DockProps) {
   const dockRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [mouseX, setMouseX] = useState<number | null>(null);
   const [sizes, setSizes] = useState<number[]>([]);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  // Drag-reorder state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [insertIndex, setInsertIndex] = useState<number | null>(null);
+  const draggingIdRef = useRef<string | null>(null);
 
   const allApps = [
     ...pinnedApps.map((app) => ({ app, isRecent: false })),
@@ -93,6 +97,40 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
     setSizes(next);
   }, [mouseX, editing, allApps.length]);
 
+  // Calculate insert index from drag x position
+  const calcInsertIndex = (clientX: number): number => {
+    const pinnedEls = itemRefs.current.slice(0, pinnedApps.length);
+    for (let i = 0; i < pinnedEls.length; i++) {
+      const el = pinnedEls[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (clientX < rect.left + rect.width / 2) return i;
+    }
+    return pinnedApps.length;
+  };
+
+  // Gap size to open between icons (equals icon BASE width + gap)
+  const GAP_PX = BASE + 12;
+
+  // Compute translateX for each pinned icon given current draggingId + insertIndex
+  const getPinnedTranslate = (app: AppShortcut, index: number): number => {
+    if (!draggingId || insertIndex === null) return 0;
+    if (app.id === draggingId) return 0; // dragging item handled by opacity
+    const dragIndex = pinnedApps.findIndex((a) => a.id === draggingId);
+    if (dragIndex === -1) return 0;
+
+    // Effective position of this item after removing the dragged one
+    const effectiveIndex = index < dragIndex ? index : index - 1;
+    // Effective insert position (gap is opened before insertIndex)
+    const effectiveInsert = insertIndex <= dragIndex ? insertIndex : insertIndex - 1;
+
+    if (effectiveIndex >= effectiveInsert) {
+      // This item needs to shift right by one gap
+      return GAP_PX;
+    }
+    return 0;
+  };
+
   const dockAlpha = Math.min(0.45, Math.max(0.10, glass / 250));
   const dockBlur  = Math.round(6 + glass / 10);
   const dockStyle: React.CSSProperties = {
@@ -108,8 +146,9 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
     const marginTop = BASE - size;
     const bSize = badgeSize(size);
     const offset = Math.round(bSize * -0.28);
+    const isPinned = !isRecent;
+    const isDraggingThis = draggingId === app.id;
 
-    // icon wrapper: clipped to same radius as AppIcon dock (rounded-[1.35rem] = 21.6px at 72px)
     const wrapRadius = Math.round(size * 0.3);
     const iconWrapper: React.CSSProperties = {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -118,7 +157,6 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
       overflow: 'hidden', isolation: 'isolate',
     };
 
-    // Apple-glass badge base style
     const badgeBase: React.CSSProperties = {
       position: 'absolute', zIndex: 20,
       width: bSize, height: bSize,
@@ -132,24 +170,49 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
       border: '1px solid rgba(255,255,255,0.6)',
     };
 
+    // iOS gap animation: translate non-dragged pinned items
+    const translateX = (editing && isPinned) ? getPinnedTranslate(app, index) : 0;
+
+    const liStyle: React.CSSProperties = {
+      width: size,
+      height: size,
+      marginTop,
+      opacity: isDraggingThis ? 0.35 : 1,
+      transform: `translateX(${translateX}px)`,
+      transition: editing ? 'transform 0.18s cubic-bezier(0.34,1.2,0.64,1), opacity 0.15s' : undefined,
+      position: 'relative',
+      zIndex: isDraggingThis ? 0 : 1,
+    };
+
     return (
       <li
         key={app.id}
         ref={(el) => { itemRefs.current[index] = el; }}
         className="app"
-        style={{ width: size, height: size, marginTop }}
+        style={liStyle}
         data-testid={isRecent ? `dock-recent-${app.id}` : `dock-pinned-${app.id}`}
       >
         {editing ? (
-          <span className="app-link animate-jiggle" draggable
-            onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
+          <span
+            className="app-link animate-jiggle"
+            draggable
             aria-label={app.name}
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', app.id);
+              draggingIdRef.current = app.id;
+              setDraggingId(app.id);
+              // Only allow reordering for pinned apps
+              if (!isPinned) e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragEnd={() => {
+              draggingIdRef.current = null;
+              setDraggingId(null);
+              setInsertIndex(null);
+            }}
           >
             <span style={iconWrapper}>
               <AppIcon app={app} size="dock" />
             </span>
-
-            {/* Remove badge — top-left */}
             <button
               type="button"
               aria-label={`Remove ${app.name} from dock`}
@@ -158,8 +221,6 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
             >
               <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
             </button>
-
-            {/* Edit badge — top-right */}
             <button
               type="button"
               aria-label={`Edit ${app.name}`}
@@ -188,8 +249,36 @@ export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpi
         <nav
           className={['dock', editing ? 'dock--editing' : ''].join(' ')}
           style={dockStyle}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { const appId = e.dataTransfer.getData('text/plain'); if (appId) onDropApp(appId); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!editing || !draggingIdRef.current) return;
+            // Only update insertIndex when dragging a pinned app
+            const isPinnedDrag = pinnedApps.some((a) => a.id === draggingIdRef.current);
+            if (isPinnedDrag) {
+              setInsertIndex(calcInsertIndex(e.clientX));
+            }
+          }}
+          onDragLeave={(e) => {
+            // Only reset if truly leaving the nav
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setInsertIndex(null);
+            }
+          }}
+          onDrop={(e) => {
+            const appId = e.dataTransfer.getData('text/plain');
+            if (!appId) return;
+            const isPinnedDrag = pinnedApps.some((a) => a.id === appId);
+            if (isPinnedDrag && insertIndex !== null) {
+              onReorderPinned(appId, insertIndex);
+            } else if (!isPinnedDrag) {
+              onDropApp(appId);
+            } else {
+              onDropApp(appId);
+            }
+            setDraggingId(null);
+            draggingIdRef.current = null;
+            setInsertIndex(null);
+          }}
           data-testid="dock-drop-target"
         >
           <ul
