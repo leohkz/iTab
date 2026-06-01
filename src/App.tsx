@@ -181,16 +181,16 @@ function NewTab() {
     const onKeyDown = (event: KeyboardEvent) => {
       const ctrl = event.ctrlKey || event.metaKey;
 
-      // Ctrl+Tab / Ctrl+Shift+Tab — cycle through spaces
-      if (ctrl && event.key === 'Tab' && !searchOpen && !settingsOpen) {
+      // Ctrl+ArrowRight (next space) / Ctrl+ArrowLeft (prev space)
+      if (ctrl && (event.key === 'ArrowRight' || event.key === 'ArrowLeft') && !searchOpen && !settingsOpen) {
         event.preventDefault();
         setConfig((current) => {
           const allSpaces = (current.spaces && current.spaces.length > 0) ? current.spaces : [...DEFAULT_SPACES];
           if (allSpaces.length < 2) return current;
           const idx = allSpaces.findIndex((s) => s.id === current.currentSpaceId);
-          const next = event.shiftKey
-            ? allSpaces[(idx - 1 + allSpaces.length) % allSpaces.length]
-            : allSpaces[(idx + 1) % allSpaces.length];
+          const next = event.key === 'ArrowRight'
+            ? allSpaces[(idx + 1) % allSpaces.length]
+            : allSpaces[(idx - 1 + allSpaces.length) % allSpaces.length];
           const updated = { ...current, currentSpaceId: next.id };
           if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: updated });
           return updated;

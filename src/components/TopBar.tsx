@@ -91,11 +91,11 @@ export function TopBar({
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-white/80">Next space</span>
-                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl Tab</kbd>
+                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl →</kbd>
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-white/80">Prev space</span>
-                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl ⇧ Tab</kbd>
+                    <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[0.6rem] text-white">Ctrl ←</kbd>
                   </div>
                 </div>
                 {/* arrow */}
