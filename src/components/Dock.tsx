@@ -1,5 +1,5 @@
 import { Minus, Pencil } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -65,12 +65,33 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
+// ── Calculates magnified sizes based on mouse position ────────────────────
+function useDockSizes(count: number, editing: boolean) {
+  const [mouseX, setMouseX] = useState<number | null>(null);
+  const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
+
+  const sizes = editing || mouseX === null
+    ? Array(count).fill(BASE) as number[]
+    : itemRefs.current.map((el) => {
+        if (!el) return BASE;
+        const rect = el.getBoundingClientRect();
+        const center = rect.left + rect.width / 2;
+        const dist = Math.abs(mouseX - center);
+        if (dist >= SPREAD) return BASE;
+        const t = 1 - dist / SPREAD;
+        return BASE + (MAX - BASE) * t * t;
+      });
+
+  return { sizes, itemRefs, setMouseX };
+}
+
 function SortableDockItem({
-  app, editing, size, onConfirmDelete, onRename,
+  app, editing, size, liRef, onConfirmDelete, onRename,
 }: {
   app: AppShortcut;
   editing: boolean;
   size: number;
+  liRef: (el: HTMLLIElement | null) => void;
   onConfirmDelete: () => void;
   onRename: () => void;
 }) {
@@ -90,9 +111,10 @@ function SortableDockItem({
     marginTop,
     opacity: isDragging ? 0.3 : 1,
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition ?? 'width 0.12s ease, height 0.12s ease, margin-top 0.12s ease',
     position: 'relative',
     touchAction: 'none',
+    flexShrink: 0,
   };
 
   const iconWrapper: React.CSSProperties = {
@@ -117,7 +139,7 @@ function SortableDockItem({
 
   return (
     <li
-      ref={setNodeRef}
+      ref={(el) => { setNodeRef(el); liRef(el); }}
       style={style}
       className="app"
       data-testid={`dock-pinned-${app.id}`}
@@ -150,9 +172,11 @@ function SortableDockItem({
   );
 }
 
-function DroppableDock({ children, isOver, style }: {
+function DroppableDock({ children, isOver, onMouseMove, onMouseLeave, style }: {
   children: React.ReactNode;
   isOver: boolean;
+  onMouseMove: (e: React.MouseEvent) => void;
+  onMouseLeave: () => void;
   style?: React.CSSProperties;
 }) {
   const { setNodeRef } = useDroppable({
@@ -167,6 +191,8 @@ function DroppableDock({ children, isOver, style }: {
         isOver ? 'scale-[1.03]' : '',
       ].join(' ')}
       style={style}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
     >
       {children}
     </ul>
@@ -178,29 +204,8 @@ export function Dock({
   activeId, overContainer,
   onDropApp: _onDropApp, onUnpinApp, onRenameApp, onReorderPinned: _onReorderPinned,
 }: DockProps) {
-  const [mouseX, setMouseX] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const dockRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<(HTMLElement | null)[]>([]);
-
-  const sizes = useRef<number[]>([]);
-
-  useLayoutEffect(() => {
-    if (mouseX === null || editing) {
-      sizes.current = pinnedApps.map(() => BASE);
-      return;
-    }
-    sizes.current = pinnedApps.map((_, i) => {
-      const el = itemRefs.current[i];
-      if (!el) return BASE;
-      const rect = el.getBoundingClientRect();
-      const center = rect.left + rect.width / 2;
-      const dist = Math.abs(mouseX - center);
-      if (dist >= SPREAD) return BASE;
-      const t = 1 - dist / SPREAD;
-      return BASE + (MAX - BASE) * t * t;
-    });
-  });
+  const { sizes, itemRefs, setMouseX } = useDockSizes(pinnedApps.length, editing);
 
   const alpha = Math.min(0.48, Math.max(0.12, glass / 220));
   const blur  = Math.round(6 + glass / 10);
@@ -215,24 +220,24 @@ export function Dock({
   const pinnedIds = pinnedApps.map((a) => a.id);
 
   return (
-    <div
-      ref={dockRef}
-      className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2"
-      onMouseMove={(e) => setMouseX(e.clientX)}
-      onMouseLeave={() => setMouseX(null)}
-    >
+    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
       <div
         className="overflow-hidden rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
         style={dockBg}
       >
         <SortableContext items={pinnedIds} strategy={horizontalListSortingStrategy}>
-          <DroppableDock isOver={isDockOver}>
+          <DroppableDock
+            isOver={isDockOver}
+            onMouseMove={(e) => setMouseX(e.clientX)}
+            onMouseLeave={() => setMouseX(null)}
+          >
             {pinnedApps.map((app, i) => (
               <SortableDockItem
                 key={app.id}
                 app={app}
                 editing={editing}
-                size={editing ? BASE : (sizes.current[i] ?? BASE)}
+                size={sizes[i] ?? BASE}
+                liRef={(el) => { itemRefs.current[i] = el; }}
                 onConfirmDelete={() => setConfirmDeleteId(app.id)}
                 onRename={() => onRenameApp(app.id)}
               />

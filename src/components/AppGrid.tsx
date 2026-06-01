@@ -374,6 +374,14 @@ export function AppGrid({
       if (!map.has(p)) map.set(p, []);
       map.get(p)!.push({ kind: 'folder', id: folder.id, folder, apps: apps.filter((a) => a.folderId === folder.id) });
     }
+    // sort each page by position field
+    for (const items of map.values()) {
+      items.sort((a, b) => {
+        const posA = a.kind === 'app' ? (a.app.position ?? 0) : (a.folder.pageIndex ?? 0);
+        const posB = b.kind === 'app' ? (b.app.position ?? 0) : (b.folder.pageIndex ?? 0);
+        return posA - posB;
+      });
+    }
     return map;
   }, [apps, folders]);
 
@@ -381,6 +389,11 @@ export function AppGrid({
     if (itemsByPage.size === 0) return 1;
     return Math.max(...itemsByPage.keys()) + 1;
   }, [itemsByPage]);
+
+  // clamp currentPage if items shrink
+  useEffect(() => {
+    if (currentPage >= totalPages) setCurrentPage(Math.max(0, totalPages - 1));
+  }, [totalPages, currentPage]);
 
   const itemsOnPage = itemsByPage.get(currentPage) ?? [];
 
@@ -522,6 +535,7 @@ export function AppGrid({
         </div>
       </section>
 
+      {/* Page dots – above dock */}
       {totalPages > 1 && (
         <div className="fixed bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-1.5"
           style={{ background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(12px) saturate(1.4)', WebkitBackdropFilter: 'blur(12px) saturate(1.4)', border: '1px solid rgba(255,255,255,0.12)' }}>
