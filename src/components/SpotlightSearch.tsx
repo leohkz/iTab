@@ -145,16 +145,14 @@ export function SpotlightSearch({
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') { onClose(); return; }
-    if (e.key === 'ArrowDown')  { e.preventDefault(); setCursor(c => Math.min(c + 1, totalItems - 1)); return; }
-    if (e.key === 'ArrowUp')    { e.preventDefault(); setCursor(c => Math.max(c - 1, -1)); return; }
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); switchEngine(enabledEngines[Math.max(0, activeEngineIdx - 1)].id); return; }
-    if (e.key === 'ArrowRight') { e.preventDefault(); switchEngine(enabledEngines[Math.min(enabledEngines.length - 1, activeEngineIdx + 1)].id); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, totalItems - 1)); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setCursor(c => Math.max(c - 1, -1)); return; }
     if (e.key === 'Enter') {
       e.preventDefault();
       if (cursor >= 0 && cursor < totalItems) activateItem(cursor);
       else submitSearch();
     }
-  }, [onClose, totalItems, cursor, activateItem, submitSearch, switchEngine, enabledEngines, activeEngineIdx]);
+  }, [onClose, totalItems, cursor, activateItem, submitSearch]);
 
   useEffect(() => {
     if (cursor < 0 || !listRef.current) return;
@@ -197,16 +195,9 @@ export function SpotlightSearch({
           </button>
         </div>
 
-        {/*
-          ── Engine icon strip ──
-          - overflow-x-auto  : horizontal scroll when engines > viewport width
-          - overflow-y-visible: let the hover tooltip (absolute, -bottom-7) escape downward
-          - pb-8             : reserve 32px below icons so tooltip never triggers a scrollbar
-          - No overflow-hidden on the parent section for this row
-        */}
+        {/* ── Engine icon strip ── */}
         <div className="border-b border-slate-100 bg-slate-50 shrink-0" style={{ overflowX: 'auto', overflowY: 'visible' }}>
           <div className="flex items-center gap-1.5 px-5 pt-2.5 pb-8 min-w-max">
-            <p className="mr-2 shrink-0 text-[0.6rem] font-black uppercase tracking-[0.18em] text-slate-400">← →</p>
             {enabledEngines.map((eng) => {
               const isActive = eng.id === displayEngine?.id;
               const siteUrl  = getEngineSiteUrl(eng);
@@ -228,7 +219,6 @@ export function SpotlightSearch({
                     className="rounded-[3px]"
                     letterClassName={isActive ? 'bg-white/20 text-white' : ''}
                   />
-                  {/* Hover tooltip — sits in the pb-8 padding zone */}
                   <span className="pointer-events-none absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
                     {eng.name}
                     {eng.shortcut && <span className="ml-1 opacity-60">/{eng.shortcut}</span>}
