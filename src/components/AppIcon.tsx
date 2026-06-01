@@ -43,7 +43,7 @@ export function AppIcon({ app, size = 'grid' }: AppIconProps) {
     <span
       className={[
         'relative flex shrink-0 items-center justify-center overflow-hidden',
-        'bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_14px_rgba(17,24,39,0.18)]',
+        'bg-[#2c2c2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_4px_14px_rgba(0,0,0,0.45)]',
         sizeClasses[size],
       ].join(' ')}
       style={{ isolation: 'isolate', transform: 'translateZ(0)' }}

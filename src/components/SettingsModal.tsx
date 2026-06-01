@@ -50,7 +50,7 @@ const experimentKeys: Array<[keyof AppConfig['experiments'], TranslationKey]> = 
 function Toggle({ checked, onChange, testId }: { checked: boolean; onChange: (v: boolean) => void; testId: string }) {
   return (
     <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
-      className={['relative h-8 w-14 rounded-full transition duration-200', checked ? 'bg-slate-950' : 'bg-slate-300'].join(' ')}
+      className={['relative h-8 w-14 rounded-full transition duration-200', checked ? 'bg-blue-500' : 'bg-white/15'].join(' ')}
       data-testid={testId}>
       <span className={['absolute top-1 h-6 w-6 rounded-full bg-white shadow transition duration-200', checked ? 'left-7' : 'left-1'].join(' ')} />
     </button>
@@ -59,13 +59,13 @@ function Toggle({ checked, onChange, testId }: { checked: boolean; onChange: (v:
 
 function ResetConfirmDialog({ t, onConfirm, onCancel }: { t: (k: TranslationKey) => string; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="w-80 rounded-[1.6rem] bg-white p-6 shadow-2xl">
-        <p className="mb-1 text-base font-black text-slate-800">{t('resetDefaults')}?</p>
-        <p className="mb-5 text-sm text-slate-500">{t('confirmReset')}</p>
+      <div className="w-80 rounded-[1.6rem] bg-[#2c2c2e] border border-white/10 p-6 shadow-2xl">
+        <p className="mb-1 text-base font-black text-white">{t('resetDefaults')}?</p>
+        <p className="mb-5 text-sm text-white/50">{t('confirmReset')}</p>
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
+          <button type="button" onClick={onCancel} className="rounded-xl bg-white/10 px-4 py-2 text-sm font-black text-white/70 hover:bg-white/15">{t('cancel')}</button>
           <button type="button" onClick={onConfirm} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white hover:bg-red-600">{t('resetDefaults')}</button>
         </div>
       </div>
@@ -95,11 +95,11 @@ function SpacesPanel({ spaces, t, onAdd, onRename, onRecolor, onDelete }: {
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">{t('spaces')}</h4>
+      <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+        <h4 className="mb-3 font-black text-white">{t('spaces')}</h4>
         <div className="grid gap-2">
           {spaces.map((space) => (
-            <div key={space.id} className="flex items-center gap-3 rounded-xl bg-slate-950/5 px-3 py-2.5">
+            <div key={space.id} className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
               <div className="relative flex-shrink-0">
                 <div className={`h-7 w-7 rounded-full bg-gradient-to-br ${space.accent}`} />
                 <select value={space.accent} onChange={(e) => onRecolor(space.id, e.target.value)}
@@ -111,21 +111,21 @@ function SpacesPanel({ spaces, t, onAdd, onRename, onRecolor, onDelete }: {
                 <input autoFocus value={editingName} onChange={(e) => setEditingName(e.target.value)}
                   onBlur={() => commitEdit(space.id)}
                   onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(space.id); if (e.key === 'Escape') setEditingId(null); }}
-                  className="flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm font-bold outline-none focus:border-slate-950" />
+                  className="flex-1 rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-sm font-bold text-white outline-none focus:border-white/40" />
               ) : (
-                <span className="flex-1 cursor-pointer text-sm font-bold hover:text-slate-600" onDoubleClick={() => startEdit(space)}>{space.name}</span>
+                <span className="flex-1 cursor-pointer text-sm font-bold text-white hover:text-white/70" onDoubleClick={() => startEdit(space)}>{space.name}</span>
               )}
-              <button type="button" onClick={() => startEdit(space)} className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100">{t('rename')}</button>
+              <button type="button" onClick={() => startEdit(space)} className="rounded-lg px-2 py-1 text-xs font-bold text-white/40 hover:bg-white/10 hover:text-white/70">{t('rename')}</button>
               <button type="button" onClick={() => onDelete(space.id)} disabled={spaces.length <= 1}
-                className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30">
+                className="grid h-7 w-7 place-items-center rounded-lg text-white/30 hover:bg-red-500/20 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
         </div>
       </div>
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <h4 className="mb-3 font-black">{t('addSpace')}</h4>
+      <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+        <h4 className="mb-3 font-black text-white">{t('addSpace')}</h4>
         <div className="flex items-center gap-2">
           <div className="relative flex-shrink-0">
             <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${newAccent}`} />
@@ -136,13 +136,13 @@ function SpacesPanel({ spaces, t, onAdd, onRename, onRecolor, onDelete }: {
           <input value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
             placeholder={t('spaceName')}
-            className="h-10 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-bold outline-none focus:border-slate-950" />
+            className="h-10 flex-1 rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white placeholder:text-white/30 outline-none focus:border-white/30" />
           <button type="button" onClick={handleAdd} disabled={!newName.trim()}
-            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-40">
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white/15 px-4 text-sm font-black text-white disabled:opacity-40 hover:bg-white/20">
             <Plus className="h-4 w-4" />{t('add')}
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-400">{t('spaceHint')}</p>
+        <p className="mt-2 text-xs text-white/30">{t('spaceHint')}</p>
       </div>
     </div>
   );
@@ -237,38 +237,38 @@ function CloudSyncPanel({ config, t, onConfigChange, onAction }: {
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
         {isLoggedIn ? (
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-black">{t('gistLoggedIn')}</p>
-              <p className="text-sm font-semibold text-slate-500">@{user}</p>
-              {gistId && <p className="mt-0.5 font-mono text-xs text-slate-400">Gist: {gistId.slice(0, 12)}…</p>}
+              <p className="font-black text-white">{t('gistLoggedIn')}</p>
+              <p className="text-sm font-semibold text-white/50">@{user}</p>
+              {gistId && <p className="mt-0.5 font-mono text-xs text-white/30">Gist: {gistId.slice(0, 12)}…</p>}
             </div>
             <button type="button" onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-950/15 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-red-50 hover:text-red-600">
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/8 px-4 py-2 text-sm font-black text-white/70 hover:bg-red-500/20 hover:text-red-400">
               <LogOut className="h-4 w-4" />{t('gistLogout')}
             </button>
           </div>
         ) : (
           <div>
-            <h4 className="mb-1 font-black">{t('gistLoginTitle')}</h4>
-            <p className="mb-3 text-xs text-slate-500">{t('gistLoginDesc')}</p>
+            <h4 className="mb-1 font-black text-white">{t('gistLoginTitle')}</h4>
+            <p className="mb-3 text-xs text-white/40">{t('gistLoginDesc')}</p>
             {deviceInfo ? (
               <div className="grid gap-3">
-                <div className="rounded-xl bg-slate-950 p-4 text-center">
-                  <p className="mb-1 text-xs font-bold text-white/60">{t('gistDeviceCodeLabel')}</p>
+                <div className="rounded-xl bg-white/8 p-4 text-center">
+                  <p className="mb-1 text-xs font-bold text-white/40">{t('gistDeviceCodeLabel')}</p>
                   <p className="font-mono text-3xl font-black tracking-widest text-white">{deviceInfo.userCode}</p>
                 </div>
-                <p className="text-center text-xs text-slate-500">
+                <p className="text-center text-xs text-white/40">
                   {t('gistDeviceInstructions')}{' '}
-                  <a href={deviceInfo.verificationUri} target="_blank" rel="noopener noreferrer" className="font-bold text-slate-800 underline">{deviceInfo.verificationUri}</a>
+                  <a href={deviceInfo.verificationUri} target="_blank" rel="noopener noreferrer" className="font-bold text-white/80 underline">{deviceInfo.verificationUri}</a>
                 </p>
-                <button type="button" onClick={handleCancelLogin} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
+                <button type="button" onClick={handleCancelLogin} className="rounded-xl bg-white/10 px-4 py-2 text-sm font-black text-white/60 hover:bg-white/15">{t('cancel')}</button>
               </div>
             ) : (
               <button type="button" onClick={handleLogin} disabled={busy === 'login'}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50">
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/15 px-4 py-3 text-sm font-black text-white hover:bg-white/20 disabled:opacity-50">
                 <LogIn className="h-4 w-4" />{busy === 'login' ? t('gistLoggingIn') : t('gistLoginBtn')}
               </button>
             )}
@@ -280,18 +280,18 @@ function CloudSyncPanel({ config, t, onConfigChange, onAction }: {
         <>
           <div className="grid grid-cols-2 gap-3">
             <button type="button" onClick={handleBackup} disabled={!!busy}
-              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-slate-950 px-4 text-white shadow-sm disabled:opacity-50 hover:bg-slate-800">
+              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-white/15 px-4 text-white disabled:opacity-50 hover:bg-white/20">
               <span className="text-sm font-black">{busy === 'backup' ? t('gistBackingUp') : t('gistBackup')}</span>
-              <span className="text-xs text-white/60">{gistId ? `ID: ${gistId.slice(0, 10)}…` : t('gistWillCreate')}</span>
+              <span className="text-xs text-white/40">{gistId ? `ID: ${gistId.slice(0, 10)}…` : t('gistWillCreate')}</span>
             </button>
             <button type="button" onClick={handleRestoreClick} disabled={!!busy}
-              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-white px-4 shadow-sm disabled:opacity-50 hover:bg-slate-50 border border-slate-950/10">
-              <span className="text-sm font-black">{busy === 'restore' ? t('gistRestoring') : t('gistRestore')}</span>
-              <span className="text-xs text-slate-400">{gistId ? t('gistFromSaved') : t('gistNoIdHint')}</span>
+              className="flex h-14 flex-col items-start justify-center rounded-2xl bg-[#2c2c2e] border border-white/10 px-4 disabled:opacity-50 hover:bg-white/8">
+              <span className="text-sm font-black text-white">{busy === 'restore' ? t('gistRestoring') : t('gistRestore')}</span>
+              <span className="text-xs text-white/30">{gistId ? t('gistFromSaved') : t('gistNoIdHint')}</span>
             </button>
           </div>
-          <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-            <div><h4 className="font-black">{t('gistAutoSync')}</h4><p className="text-sm font-semibold text-slate-600">{t('gistAutoSyncDesc')}</p></div>
+          <div className="flex items-center justify-between rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+            <div><h4 className="font-black text-white">{t('gistAutoSync')}</h4><p className="text-sm font-semibold text-white/50">{t('gistAutoSyncDesc')}</p></div>
             <Toggle checked={autoSync} onChange={handleAutoSyncChange} testId="toggle-gist-auto" />
           </div>
         </>
@@ -299,20 +299,20 @@ function CloudSyncPanel({ config, t, onConfigChange, onAction }: {
 
       {status && (
         <div className={['rounded-2xl px-4 py-3 text-sm font-bold',
-          statusIsOk ? 'bg-emerald-50 text-emerald-700' : statusIsError ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-700',
+          statusIsOk ? 'bg-emerald-500/20 text-emerald-400' : statusIsError ? 'bg-red-500/20 text-red-400' : 'bg-white/8 text-white/60',
         ].join(' ')}>{status}</div>
       )}
-      <p className="text-center text-xs text-slate-400">📚 {t('gistHistory')}</p>
+      <p className="text-center text-xs text-white/30">📚 {t('gistHistory')}</p>
 
       {restoreConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm"
           onPointerDown={(e) => { if (e.target === e.currentTarget) setRestoreConfirm(false); }}>
-          <div className="w-80 rounded-[1.6rem] bg-white p-6 shadow-2xl">
-            <p className="mb-1 text-base font-black text-slate-800">{t('gistRestore')}?</p>
-            <p className="mb-5 text-sm text-slate-500">{t('gistRestoreConfirm')}</p>
+          <div className="w-80 rounded-[1.6rem] bg-[#2c2c2e] border border-white/10 p-6 shadow-2xl">
+            <p className="mb-1 text-base font-black text-white">{t('gistRestore')}?</p>
+            <p className="mb-5 text-sm text-white/50">{t('gistRestoreConfirm')}</p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setRestoreConfirm(false)} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-200">{t('cancel')}</button>
-              <button type="button" onClick={handleRestoreConfirmed} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">{t('gistRestore')}</button>
+              <button type="button" onClick={() => setRestoreConfirm(false)} className="rounded-xl bg-white/10 px-4 py-2 text-sm font-black text-white/70 hover:bg-white/15">{t('cancel')}</button>
+              <button type="button" onClick={handleRestoreConfirmed} className="rounded-xl bg-white/15 px-4 py-2 text-sm font-black text-white hover:bg-white/20">{t('gistRestore')}</button>
             </div>
           </div>
         </div>
@@ -333,12 +333,12 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
   const siteUrl = engine.url ?? (engine.template ? engine.template.replace('{q}', '').replace(/[?&]q?=?$/, '') : '');
 
   return (
-    <div className="rounded-xl bg-slate-950/5 overflow-hidden">
+    <div className="rounded-xl bg-white/5 overflow-hidden border border-white/6">
       <div className="grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-3 p-3">
         <Toggle checked={engine.enabled} onChange={(v) => onUpdate({ enabled: v })} testId={`toggle-engine-${engine.id}`} />
 
         <button type="button" title={t('iconUrl')} onClick={() => setExpanded(e => !e)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm hover:ring-2 hover:ring-slate-300 transition">
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:ring-2 hover:ring-white/20 transition">
           <FaviconImg
             siteUrl={siteUrl}
             customIcon={engine.icon}
@@ -349,21 +349,21 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
         </button>
 
         <div className="min-w-0">
-          <p className="truncate text-sm font-black">
+          <p className="truncate text-sm font-black text-white">
             {engine.name}
-            {engine.shortcut && <span className="ml-1.5 text-slate-400">/{engine.shortcut}</span>}
+            {engine.shortcut && <span className="ml-1.5 text-white/30">/{engine.shortcut}</span>}
           </p>
-          <p className="truncate text-xs font-semibold text-slate-400">{engine.template}</p>
+          <p className="truncate text-xs font-semibold text-white/30">{engine.template}</p>
         </div>
 
         <button type="button" onClick={() => setExpanded(e => !e)}
-          className="text-xs font-bold text-slate-400 hover:text-slate-700 px-1">
+          className="text-xs font-bold text-white/30 hover:text-white/70 px-1">
           {expanded ? '▴' : '▾'}
         </button>
 
         {onDelete && (
           <button type="button" onClick={onDelete}
-            className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"
+            className="grid h-7 w-7 place-items-center rounded-lg text-white/30 hover:bg-red-500/20 hover:text-red-400"
             title={t('delete')} data-testid={`button-delete-engine-${engine.id}`}>
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -371,9 +371,9 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
       </div>
 
       {expanded && (
-        <div className="border-t border-slate-950/8 bg-white px-4 py-3">
-          <label className="block text-xs font-black text-slate-600 mb-1.5">
-            {t('iconUrl')} <span className="font-normal text-slate-400">({t('iconUrlHint')})</span>
+        <div className="border-t border-white/8 bg-white/5 px-4 py-3">
+          <label className="block text-xs font-black text-white/50 mb-1.5">
+            {t('iconUrl')} <span className="font-normal text-white/30">({t('iconUrlHint')})</span>
           </label>
           <div className="flex gap-2">
             <input
@@ -381,11 +381,11 @@ function EngineRow({ engine, t, onUpdate, onDelete }: {
               value={engine.icon && engine.icon !== 'auto' ? engine.icon : ''}
               onChange={(e) => onUpdate({ icon: e.target.value || 'auto' })}
               placeholder={t('iconUrlAuto')}
-              className="h-9 flex-1 rounded-xl border border-slate-950/10 px-3 text-sm font-semibold outline-none focus:border-slate-950"
+              className="h-9 flex-1 rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-semibold text-white placeholder:text-white/30 outline-none focus:border-white/30"
             />
             {engine.icon && engine.icon !== 'auto' && (
               <button type="button" onClick={() => onUpdate({ icon: 'auto' })}
-                className="rounded-xl bg-slate-100 px-3 text-sm font-bold text-slate-600 hover:bg-slate-200">
+                className="rounded-xl bg-white/10 px-3 text-sm font-bold text-white/60 hover:bg-white/15">
                 {t('restore')}
               </button>
             )}
@@ -445,24 +445,24 @@ export function SettingsModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 grid place-items-center bg-slate-950/42 px-4 backdrop-blur-sm"
+        className="fixed inset-0 z-50 grid place-items-center bg-black/70 px-4 backdrop-blur-sm"
         role="presentation"
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <section
           role="dialog" aria-modal="true" aria-labelledby="settings-title"
-          className="grid h-[min(44rem,calc(100vh-3rem))] w-[min(66rem,calc(100vw-2rem))] grid-cols-[16rem_1fr] overflow-hidden rounded-[1.45rem] border border-white/35 bg-[#f5f3ee] text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.38),inset_0_1px_0_rgba(255,255,255,0.72)] max-md:grid-cols-1"
+          className="grid h-[min(44rem,calc(100vh-3rem))] w-[min(66rem,calc(100vw-2rem))] grid-cols-[16rem_1fr] overflow-hidden rounded-[1.45rem] border border-white/10 bg-[#1c1c1e] text-white shadow-[0_30px_90px_rgba(0,0,0,0.8)] max-md:grid-cols-1"
           data-testid="modal-settings"
         >
           {/* Sidebar */}
-          <aside className="border-r border-slate-950/10 bg-[#eef3f3] p-4 max-md:hidden">
+          <aside className="border-r border-white/8 bg-[#161618] p-4 max-md:hidden">
             <div className="mb-6 flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">System</p>
-                <h2 id="settings-title" className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h2>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-white/30">System</p>
+                <h2 id="settings-title" className="mt-1 text-xl font-black tracking-[-0.05em] text-white">{t('settings')}</h2>
               </div>
               <button type="button" aria-label={t('settings')} onClick={onClose}
-                className="grid h-8 w-8 place-items-center rounded-full bg-slate-950/8 text-slate-700"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white/8 text-white/50 hover:bg-white/12"
                 data-testid="button-close-settings">
                 <X className="h-4 w-4" />
               </button>
@@ -470,7 +470,7 @@ export function SettingsModal({
             <nav className="space-y-1" aria-label="Settings categories">
               {categories.map((cat) => (
                 <button key={cat.id} type="button" onClick={() => setActive(cat.id)}
-                  className={['flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black transition duration-200', active === cat.id ? 'bg-slate-950/10 text-slate-950' : 'text-slate-600 hover:bg-slate-950/6'].join(' ')}
+                  className={['flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black transition duration-200', active === cat.id ? 'bg-white/12 text-white' : 'text-white/40 hover:bg-white/6 hover:text-white/70'].join(' ')}
                   data-testid={`button-settings-${cat.id}`}>
                   <cat.icon className="h-4 w-4" />
                   {t(cat.key as TranslationKey)}
@@ -480,14 +480,14 @@ export function SettingsModal({
           </aside>
 
           {/* Main panel */}
-          <div className="overflow-auto bg-[#f6f2ea] p-6">
+          <div className="overflow-auto bg-[#1c1c1e] p-6">
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-500">{t(title as TranslationKey)}</p>
-                <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-slate-950">{t('settings')}</h3>
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-white/30">{t(title as TranslationKey)}</p>
+                <h3 className="mt-1 text-xl font-black tracking-[-0.05em] text-white">{t('settings')}</h3>
               </div>
               <button type="button" aria-label={t('settings')} onClick={onClose}
-                className="grid h-10 w-10 place-items-center rounded-full bg-slate-950/8 text-slate-700 md:hidden"
+                className="grid h-10 w-10 place-items-center rounded-full bg-white/8 text-white/50 md:hidden hover:bg-white/12"
                 data-testid="button-close-settings-mobile">
                 <X className="h-4 w-4" />
               </button>
@@ -496,11 +496,11 @@ export function SettingsModal({
             {/* Appearance */}
             {active === 'appearance' && (
               <div className="grid gap-4">
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <label className="block text-sm font-black text-slate-700">
+                <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <label className="block text-sm font-black text-white/70">
                     {t('language')}
                     <select value={config.locale} onChange={(e) => onConfigChange({ ...config, locale: e.target.value as Locale })}
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white"
                       data-testid="select-language">
                       <option value="en">English</option>
                       <option value="zh-Hant">繁體中文</option>
@@ -508,25 +508,25 @@ export function SettingsModal({
                     </select>
                   </label>
                 </div>
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
+                <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <h4 className="text-base font-black tracking-[-0.03em]">{t('glassIntensity')}</h4>
-                      <p className="mt-1 text-sm font-semibold text-slate-600">{t('glassIntensityDesc')}</p>
+                      <h4 className="text-base font-black tracking-[-0.03em] text-white">{t('glassIntensity')}</h4>
+                      <p className="mt-1 text-sm font-semibold text-white/50">{t('glassIntensityDesc')}</p>
                     </div>
-                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{config.glass}%</span>
+                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black text-white">{config.glass}%</span>
                   </div>
                   <input type="range" min="30" max="95" value={config.glass}
                     onChange={(e) => onConfigChange({ ...config, glass: Number(e.target.value) })}
-                    className="mt-4 w-full accent-slate-950" data-testid="input-glass" />
+                    className="mt-4 w-full accent-white" data-testid="input-glass" />
                 </div>
                 <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
                   {(['sonoma', 'ventura', 'slate'] as ThemeName[]).map((themeName, i) => (
                     <button key={themeName} type="button" onClick={() => onConfigChange({ ...config, theme: themeName })}
-                      className={['rounded-2xl bg-white p-3 text-left shadow-sm transition duration-200 hover:bg-slate-50', config.theme === themeName ? 'ring-2 ring-slate-950' : ''].join(' ')}
+                      className={['rounded-2xl bg-[#2c2c2e] border p-3 text-left transition duration-200 hover:bg-[#3a3a3c]', config.theme === themeName ? 'border-white/40' : 'border-white/8'].join(' ')}
                       data-testid={`button-theme-${themeName}`}>
                       <span className={['mb-3 block h-20 rounded-xl', i === 0 ? 'bg-[radial-gradient(circle_at_20%_20%,#fff7c2,transparent_32%),linear-gradient(135deg,#4676d7,#d49d8c)]' : i === 1 ? 'bg-[linear-gradient(135deg,#1a8fb7,#fed7aa)]' : 'bg-[linear-gradient(135deg,#111827,#64748b)]'].join(' ')} />
-                      <span className="block text-sm font-black capitalize">{themeName}</span>
+                      <span className="block text-sm font-black capitalize text-white">{themeName}</span>
                     </button>
                   ))}
                 </div>
@@ -536,29 +536,29 @@ export function SettingsModal({
             {/* Layout */}
             {active === 'layout' && (
               <div className="grid gap-4">
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="font-black">{t('gridSize')}</h4>
+                <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <h4 className="font-black text-white">{t('gridSize')}</h4>
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    <label className="text-sm font-bold">
+                    <label className="text-sm font-bold text-white/70">
                       {t('columns')}
                       <input type="number" min="4" max="10" value={config.gridColumns}
                         onChange={(e) => onConfigChange({ ...config, gridColumns: Number(e.target.value) })}
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 px-3" data-testid="input-grid-columns" />
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/8 px-3 text-white" data-testid="input-grid-columns" />
                     </label>
-                    <label className="text-sm font-bold">
+                    <label className="text-sm font-bold text-white/70">
                       {t('rows')}
                       <input type="number" min="3" max="7" value={config.gridRows}
                         onChange={(e) => onConfigChange({ ...config, gridRows: Number(e.target.value) })}
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 px-3" data-testid="input-grid-rows" />
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/8 px-3 text-white" data-testid="input-grid-rows" />
                     </label>
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-                  <div><h4 className="font-black">{t('showDock')}</h4><p className="text-sm font-semibold text-slate-600">{t('showDockDesc')}</p></div>
+                <div className="flex items-center justify-between rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <div><h4 className="font-black text-white">{t('showDock')}</h4><p className="text-sm font-semibold text-white/50">{t('showDockDesc')}</p></div>
                   <Toggle checked={config.showDock} onChange={(v) => onConfigChange({ ...config, showDock: v })} testId="toggle-show-dock" />
                 </div>
-                <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
-                  <div><h4 className="font-black">{t('showWidgets')}</h4><p className="text-sm font-semibold text-slate-600">{t('showWidgetsDesc')}</p></div>
+                <div className="flex items-center justify-between rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <div><h4 className="font-black text-white">{t('showWidgets')}</h4><p className="text-sm font-semibold text-white/50">{t('showWidgetsDesc')}</p></div>
                   <Toggle checked={config.showWidgets} onChange={(v) => onConfigChange({ ...config, showWidgets: v })} testId="toggle-show-widgets" />
                 </div>
               </div>
@@ -572,18 +572,18 @@ export function SettingsModal({
             {/* Search */}
             {active === 'search' && (
               <div className="grid gap-4">
-                <label className="block rounded-2xl bg-white p-4 text-sm font-black shadow-sm">
+                <label className="block rounded-2xl bg-[#2c2c2e] border border-white/8 p-4 text-sm font-black text-white/70">
                   {t('defaultEngine')}
                   <select value={config.defaultEngine}
                     onChange={(e) => onConfigChange({ ...config, defaultEngine: e.target.value })}
-                    className="mt-2 h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white"
                     data-testid="select-default-engine">
                     {config.searchEngines.filter((e) => e.enabled).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                   </select>
                 </label>
 
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="mb-3 font-black">{t('searchEngines')}</h4>
+                <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <h4 className="mb-3 font-black text-white">{t('searchEngines')}</h4>
                   <div className="grid gap-2">
                     {config.searchEngines.map((engine) => (
                       <EngineRow
@@ -597,16 +597,16 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="font-black">{t('addCustomEngine')}</h4>
+                <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <h4 className="font-black text-white">{t('addCustomEngine')}</h4>
                   <div className="mt-3 grid grid-cols-2 gap-2 max-sm:grid-cols-1">
-                    <input value={newEngine.name} onChange={(e) => setNewEngine({ ...newEngine, name: e.target.value })} placeholder={t('name')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-name" />
-                    <input value={newEngine.shortcut} onChange={(e) => setNewEngine({ ...newEngine, shortcut: e.target.value })} placeholder={t('shortcut')} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold" data-testid="input-engine-shortcut" />
-                    <input value={newEngine.template} onChange={(e) => setNewEngine({ ...newEngine, template: e.target.value })} placeholder="https://example.com?q={q}" className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold col-span-2 max-sm:col-span-1" data-testid="input-engine-template" />
-                    <input value={newEngine.icon} onChange={(e) => setNewEngine({ ...newEngine, icon: e.target.value })} placeholder={`${t('iconUrl')} (${t('iconUrlAuto')})`} className="h-10 rounded-xl border border-slate-950/10 px-3 text-sm font-bold col-span-2 max-sm:col-span-1" />
+                    <input value={newEngine.name} onChange={(e) => setNewEngine({ ...newEngine, name: e.target.value })} placeholder={t('name')} className="h-10 rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white placeholder:text-white/30" data-testid="input-engine-name" />
+                    <input value={newEngine.shortcut} onChange={(e) => setNewEngine({ ...newEngine, shortcut: e.target.value })} placeholder={t('shortcut')} className="h-10 rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white placeholder:text-white/30" data-testid="input-engine-shortcut" />
+                    <input value={newEngine.template} onChange={(e) => setNewEngine({ ...newEngine, template: e.target.value })} placeholder="https://example.com?q={q}" className="h-10 rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white placeholder:text-white/30 col-span-2 max-sm:col-span-1" data-testid="input-engine-template" />
+                    <input value={newEngine.icon} onChange={(e) => setNewEngine({ ...newEngine, icon: e.target.value })} placeholder={`${t('iconUrl')} (${t('iconUrlAuto')})`} className="h-10 rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white placeholder:text-white/30 col-span-2 max-sm:col-span-1" />
                   </div>
                   <button type="button" onClick={addEngine}
-                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white"
+                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-black text-white hover:bg-white/20"
                     data-testid="button-add-engine">
                     <Plus className="h-4 w-4" />{t('add')}
                   </button>
@@ -624,13 +624,13 @@ export function SettingsModal({
                   onChange={(portals: AiPortal[]) => onConfigChange({ ...config, aiPortals: portals })}
                   onSizeChange={(size: AiPortalSize) => onConfigChange({ ...config, aiPortalSize: size })}
                 />
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="font-black">📱 Popup 捕捧來源</h4>
-                  <p className="mb-3 mt-1 text-sm font-semibold text-slate-600">Popup 的 AI 頁面額外顯示哪個區域的捕捧</p>
+                <div className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
+                  <h4 className="font-black text-white">📱 Popup 捕捧來源</h4>
+                  <p className="mb-3 mt-1 text-sm font-semibold text-white/50">Popup 的 AI 頁面額外顯示哪個區域的捕捧</p>
                   <select
                     value={config.popupShortcutSource ?? 'ai'}
                     onChange={(e) => onConfigChange({ ...config, popupShortcutSource: e.target.value as AppConfig['popupShortcutSource'] })}
-                    className="h-11 w-full rounded-xl border border-slate-950/10 bg-white px-3 text-sm font-bold"
+                    className="h-11 w-full rounded-xl border border-white/10 bg-white/8 px-3 text-sm font-bold text-white"
                     data-testid="select-popup-shortcut-source"
                   >
                     <option value="ai">AI Portals only</option>
@@ -647,17 +647,17 @@ export function SettingsModal({
             {active === 'data' && (
               <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
                 <button type="button" onClick={onExportJson}
-                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-slate-50" data-testid="button-export-json">
-                  <Download className="mb-4 h-5 w-5" /><span className="font-black">{t('exportJson')}</span>
+                  className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4 text-left hover:bg-[#3a3a3c]" data-testid="button-export-json">
+                  <Download className="mb-4 h-5 w-5 text-white/60" /><span className="font-black text-white">{t('exportJson')}</span>
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-slate-50" data-testid="button-import-json">
-                  <Upload className="mb-4 h-5 w-5" /><span className="font-black">{t('importJson')}</span>
+                  className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4 text-left hover:bg-[#3a3a3c]" data-testid="button-import-json">
+                  <Upload className="mb-4 h-5 w-5 text-white/60" /><span className="font-black text-white">{t('importJson')}</span>
                 </button>
                 <button type="button" onClick={() => setShowResetConfirm(true)}
-                  className="rounded-2xl bg-white p-4 text-left shadow-sm hover:bg-red-50" data-testid="button-reset-defaults">
-                  <RotateCcw className="mb-4 h-5 w-5 text-red-500" />
-                  <span className="font-black text-red-600">{t('resetDefaults')}</span>
+                  className="rounded-2xl bg-[#2c2c2e] border border-white/8 p-4 text-left hover:bg-red-500/10" data-testid="button-reset-defaults">
+                  <RotateCcw className="mb-4 h-5 w-5 text-red-400" />
+                  <span className="font-black text-red-400">{t('resetDefaults')}</span>
                 </button>
                 <input ref={fileInputRef} type="file" accept="application/json" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportJson(f); }}
@@ -674,10 +674,10 @@ export function SettingsModal({
             {active === 'experiments' && (
               <div className="grid gap-3">
                 {experimentKeys.map(([key, labelKey]) => (
-                  <div key={key} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+                  <div key={key} className="flex items-center justify-between rounded-2xl bg-[#2c2c2e] border border-white/8 p-4">
                     <div>
-                      <h4 className="font-black">{t(labelKey)}</h4>
-                      <p className="text-sm font-semibold text-slate-600">{t('experimentDesc')}</p>
+                      <h4 className="font-black text-white">{t(labelKey)}</h4>
+                      <p className="text-sm font-semibold text-white/50">{t('experimentDesc')}</p>
                     </div>
                     <Toggle checked={config.experiments[key]}
                       onChange={(v) => onConfigChange({ ...config, experiments: { ...config.experiments, [key]: v } })}
