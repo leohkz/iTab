@@ -304,6 +304,14 @@ function NewTab() {
     notify('Pinned to Dock');
   };
 
+  // Reorder pinned apps in the Dock
+  const reorderPinnedApp = (draggedId: string, targetIndex: number) => {
+    const ids = config.pinnedIds.filter((id) => id !== draggedId);
+    const clamped = Math.max(0, Math.min(targetIndex, ids.length));
+    ids.splice(clamped, 0, draggedId);
+    updateConfig({ ...config, pinnedIds: ids });
+  };
+
   const reorderItems = (draggedId: string, targetId: string) => {
     const isPinned = config.pinnedIds.includes(draggedId);
     let apps = config.apps;
@@ -594,6 +602,7 @@ function NewTab() {
           onDropApp={pinApp}
           onUnpinApp={unpinApp}
           onRenameApp={renameShortcut}
+          onReorderPinned={reorderPinnedApp}
         />
       )}
 
