@@ -81,7 +81,7 @@ const spaceBadgeStyle: React.CSSProperties  = {
 
 const svgSize = BADGE_PX * 0.5;
 
-// ─── Delete confirm sheet ────────────────────────────────────────────────────
+// ─── Delete confirm sheet ─────────────────────────────────────────────────────
 function DeleteConfirmSheet({ title, message, onConfirm, onCancel }: {
   title: string; message: string; onConfirm: () => void; onCancel: () => void;
 }) {
@@ -283,21 +283,16 @@ export function AppGrid({
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onReorder, onMoveToEnd, onMoveToFolder, onMoveOutOfFolder, onMoveToSpace,
 }: AppGridProps) {
-  // Ref is the single source of truth; state drives re-renders only.
   const draggedIdRef = useRef<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  // Prevent the <main> fallback onDrop from re-processing an already-handled drop.
   const dropHandledRef = useRef(false);
-  // Whether cursor is hovering the fixed new-page drop zone.
-  const [newPageHover, setNewPageHover] = useState(false);
 
   const setDragged = (id: string | null) => {
     draggedIdRef.current = id;
     setDraggedId(id);
-    if (!id) setNewPageHover(false);
   };
 
-  // Helper: read dragged id from ref first, fall back to dataTransfer.
+  // Read dragged id: ref (same-component drags) then dataTransfer (cross-component, e.g. Dock)
   const readId = (e: React.DragEvent) =>
     draggedIdRef.current ?? e.dataTransfer.getData('text/plain') ?? null;
 
@@ -306,7 +301,8 @@ export function AppGrid({
   const [currentPage, setCurrentPage] = useState(0);
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null);
   const [animating, setAnimating] = useState(false);
-  const [dragOverPageEdge, setDragOverPageEdge] = useState<'left' | 'right' | null>(null);
+  // 'left' | 'right' | 'new' (right edge on last page = create new page)
+  const [dragOverPageEdge, setDragOverPageEdge] = useState<'left' | 'right' | 'new' | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const edgeDragTimerRef = useRef<number | null>(null);
 
@@ -376,31 +372,70 @@ export function AppGrid({
     if (dx < 0) goNext(); else goPrev();
   };
 
+  const clearEdgeTimer = () => {
+    if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
+  };
+
   const handleDragOverMain = (e: React.DragEvent) => {
     e.preventDefault();
     const rect = mainRef.current?.getBoundingClientRect();
     if (!rect) return;
     const edgeZone = rect.width * 0.12;
     const x = e.clientX - rect.left;
-    if (x < edgeZone) {
-      setDragOverPageEdge('left');
-      if (!edgeDragTimerRef.current) {
+
+    if (x < edgeZone && currentPage > 0) {
+      // Left edge: go to previous page
+      if (dragOverPageEdge !== 'left') {
+        setDragOverPageEdge('left');
+        clearEdgeTimer();
         edgeDragTimerRef.current = window.setTimeout(() => { goPrev(); edgeDragTimerRef.current = null; }, 700);
       }
     } else if (x > rect.width - edgeZone) {
-      setDragOverPageEdge('right');
-      if (!edgeDragTimerRef.current) {
-        edgeDragTimerRef.current = window.setTimeout(() => { goNext(); edgeDragTimerRef.current = null; }, 700);
+      if (currentPage < totalPages - 1) {
+        // Right edge: go to next existing page
+        if (dragOverPageEdge !== 'right') {
+          setDragOverPageEdge('right');
+          clearEdgeTimer();
+          edgeDragTimerRef.current = window.setTimeout(() => { goNext(); edgeDragTimerRef.current = null; }, 700);
+        }
+      } else {
+        // Right edge on last page: offer new page drop zone
+        if (dragOverPageEdge !== 'new') {
+          setDragOverPageEdge('new');
+          clearEdgeTimer();
+        }
       }
     } else {
-      setDragOverPageEdge(null);
-      if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
+      if (dragOverPageEdge !== null) {
+        setDragOverPageEdge(null);
+        clearEdgeTimer();
+      }
     }
   };
 
-  const handleDragLeaveMain = () => {
+  const handleDragLeaveMain = (e: React.DragEvent) => {
+    // Only clear if truly leaving <main> (not entering a child)
+    if (mainRef.current && !mainRef.current.contains(e.relatedTarget as Node)) {
+      setDragOverPageEdge(null);
+      clearEdgeTimer();
+    }
+  };
+
+  // Drop on right-edge "new page" zone
+  const handleNewPageEdgeDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dropHandledRef.current = true;
     setDragOverPageEdge(null);
-    if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
+    clearEdgeTimer();
+    const id = readId(e);
+    if (!id) { setDragged(null); return; }
+    // Move the item to end (creates space on a new page) then navigate there
+    onMoveToEnd(id);
+    setTimeout(() => {
+      const newPage = Math.floor(items.length / pageCapacity);
+      setCurrentPage(newPage);
+    }, 80);
+    setDragged(null);
   };
 
   const gridTemplateColumns = `repeat(${gridColumns}, minmax(5.8rem, 1fr))`;
@@ -410,23 +445,6 @@ export function AppGrid({
     const clear = () => window.clearTimeout(timeout);
     target.addEventListener('pointerup', clear, { once: true });
     target.addEventListener('pointerleave', clear, { once: true });
-  };
-
-  // ── Fixed new-page drop zone ──
-  const handleNewPageDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setNewPageHover(true); };
-  const handleNewPageDragLeave = () => setNewPageHover(false);
-  const handleNewPageDrop = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    dropHandledRef.current = true;
-    setNewPageHover(false);
-    const id = readId(e);
-    if (!id) return;
-    onMoveToEnd(id);
-    // navigate to the last page after the state update settles
-    setTimeout(() => {
-      setCurrentPage((prev) => Math.max(prev, Math.floor((items.length) / pageCapacity)));
-    }, 80);
-    setDragged(null);
   };
 
   let pageSlideStyle: React.CSSProperties;
@@ -455,6 +473,8 @@ export function AppGrid({
     editing ? 'cursor-grab' : '',
   ].join(' ');
 
+  const isDragging = !!draggedId;
+
   return (
     <main
       ref={mainRef}
@@ -469,11 +489,10 @@ export function AppGrid({
       onDragLeave={handleDragLeaveMain}
       onDrop={(e) => {
         e.preventDefault();
+        clearEdgeTimer();
+        if (dragOverPageEdge === 'new') { handleNewPageEdgeDrop(e); return; }
         setDragOverPageEdge(null);
-        if (edgeDragTimerRef.current) { clearTimeout(edgeDragTimerRef.current); edgeDragTimerRef.current = null; }
         if (dropHandledRef.current) { dropHandledRef.current = false; return; }
-        // Dropped onto the main background (not on any cell).
-        // Move the app to the end of the current page (or out of folder if in one).
         const id = readId(e);
         if (id) {
           if (selectedFolderId) {
@@ -496,6 +515,10 @@ export function AppGrid({
           from { opacity: 0; transform: translateX(-48px); }
           to   { opacity: 1; transform: translateX(0); }
         }
+        @keyframes edgePulse {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
       `}</style>
 
       {editing && (
@@ -506,35 +529,49 @@ export function AppGrid({
         </div>
       )}
 
-      {dragOverPageEdge === 'left' && currentPage > 0 && (
-        <div className="pointer-events-none fixed left-0 top-0 z-50 h-full w-16 bg-gradient-to-r from-white/20 to-transparent" />
-      )}
-      {dragOverPageEdge === 'right' && currentPage < totalPages - 1 && (
-        <div className="pointer-events-none fixed right-0 top-0 z-50 h-full w-16 bg-gradient-to-l from-white/20 to-transparent" />
-      )}
-
-      {/* Fixed new-page drop zone – always in DOM while editing */}
-      {editing && (
+      {/* Left edge indicator: go to previous page */}
+      {isDragging && dragOverPageEdge === 'left' && currentPage > 0 && (
         <div
-          onDragOver={handleNewPageDragOver}
-          onDragLeave={handleNewPageDragLeave}
-          onDrop={handleNewPageDrop}
-          className="fixed bottom-28 right-4 z-[70] flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all duration-200"
+          className="pointer-events-none fixed left-0 top-0 z-50 h-full w-20 flex items-center justify-start pl-3"
           style={{
-            width: '6rem', height: '6rem',
-            borderColor: newPageHover ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)',
-            background: newPageHover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            boxShadow: newPageHover ? '0 0 0 4px rgba(255,255,255,0.15)' : 'none',
+            background: 'linear-gradient(to right, rgba(255,255,255,0.22), transparent)',
+            animation: 'edgePulse 0.8s ease-in-out infinite',
           }}
         >
-          <Plus className="h-5 w-5" style={{ color: newPageHover ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)' }} />
-          <span className="text-center text-[0.6rem] font-black uppercase tracking-widest leading-tight"
-            style={{ color: newPageHover ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)' }}>
-            New<br />Page
-          </span>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
         </div>
+      )}
+
+      {/* Right edge indicator: go to next page OR create new page */}
+      {isDragging && (dragOverPageEdge === 'right' || dragOverPageEdge === 'new') && (
+        <div
+          className="pointer-events-none fixed right-0 top-0 z-50 h-full w-20 flex items-center justify-end pr-3"
+          style={{
+            background: 'linear-gradient(to left, rgba(255,255,255,0.22), transparent)',
+            animation: 'edgePulse 0.8s ease-in-out infinite',
+          }}
+        >
+          {dragOverPageEdge === 'new' ? (
+            <div className="flex flex-col items-center gap-1">
+              <Plus className="h-6 w-6" style={{ color: 'rgba(255,255,255,0.9)' }} />
+            </div>
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          )}
+        </div>
+      )}
+
+      {/* Invisible right-edge drop target for "new page" — sits on top of edge zone */}
+      {isDragging && dragOverPageEdge === 'new' && (
+        <div
+          className="fixed right-0 top-0 z-[60] h-full w-20"
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={handleNewPageEdgeDrop}
+        />
       )}
 
       <section
