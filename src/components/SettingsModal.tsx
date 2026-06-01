@@ -1,4 +1,4 @@
-import { BotMessageSquare, Cloud, Database, Download, FlaskConical, LayoutGrid, Layers, LogIn, LogOut, Palette, Plus, RotateCcw, Search, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { BotMessageSquare, Cloud, Database, Download, FlaskConical, LayoutGrid, Layers, LogIn, LogOut, Palette, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppConfig, AiPortal, AiPortalSize, Locale, SearchEngine, SearchEngineId, Space, ThemeName } from '../types';
 import { AI_PORTAL_SIZE_DEFAULT, SPACE_ACCENTS } from '../types';
