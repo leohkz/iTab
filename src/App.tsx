@@ -14,7 +14,7 @@ import { AiPortalBar } from './components/AiPortalBar';
 import { defaultConfig, recentTabs } from './data/mockStore';
 import { createTranslator } from './i18n';
 import { usePageAnimations } from './lib/usePageAnimations';
-import type { AppConfig, AppShortcut, Prompt, Space, WidgetMeta, WidgetState } from './types';
+import type { AppConfig, AppShortcut, Folder, Prompt, Space, WidgetMeta, WidgetState } from './types';
 import { DEFAULT_NOTE_TABS, DEFAULT_SPACES, DEFAULT_TODO_LISTS, DEFAULT_AI_PORTALS, AI_PORTAL_SIZE_DEFAULT } from './types';
 
 type EditorState = {
@@ -96,6 +96,33 @@ function glassBtn(glass: number, active = false): React.CSSProperties {
     WebkitBackdropFilter: `blur(${blur}px)`,
   };
 }
+
+// ── pageIndex helpers ──────────────────────────────────────────────────────
+// Items without a pageIndex are treated as legacy; we assign them page 0.
+function getPageIndex(item: { pageIndex?: number }): number {
+  return item.pageIndex ?? 0;
+}
+
+// Find the first free slot on a given page, or -1 if full.
+function firstFreeSlot(
+  items: Array<{ pageIndex?: number }>,
+  page: number,
+  capacity: number,
+): boolean {
+  const count = items.filter((i) => getPageIndex(i) === page).length;
+  return count < capacity;
+}
+
+// Compute the next available page (creates a new page if last page is full).
+function nextAvailablePage(
+  items: Array<{ pageIndex?: number }>,
+  capacity: number,
+): number {
+  let page = 0;
+  while (!firstFreeSlot(items, page, capacity)) page++;
+  return page;
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 function NewTab() {
   const [config, setConfig] = useState<AppConfig>(() => cloneDefaultConfig());
@@ -256,7 +283,12 @@ function NewTab() {
       return;
     }
     const id = `${shortcut.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
-    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: config.currentSpaceId }] });
+    // Place new app on the first available page in this space
+    const spaceItems = config.apps
+      .filter((a) => (!a.spaceId || a.spaceId === config.currentSpaceId) && !config.pinnedIds.includes(a.id));
+    const capacity = config.gridColumns * config.gridRows;
+    const page = nextAvailablePage(spaceItems, capacity);
+    updateConfig({ ...config, apps: [...config.apps, { id, ...shortcut, spaceId: config.currentSpaceId, pageIndex: page }] });
     notify(t('addWebsite'));
   };
 
@@ -276,52 +308,78 @@ function NewTab() {
     notify('Pinned to Dock');
   };
 
-  // Reorder within the grid. Also handles drops from Dock: unpin the app first
-  // so it becomes a normal grid item, then splice it next to the target.
+  // Reorder: swap pageIndex values between dragged and target.
+  // Also handles Dock→Grid: remove from pinned, assign target's pageIndex.
   const reorderItems = (draggedId: string, targetId: string) => {
     const isPinned = config.pinnedIds.includes(draggedId);
     let apps = config.apps;
     let pinnedIds = config.pinnedIds;
 
     if (isPinned) {
-      // Remove from pinned so it shows up in the grid
       pinnedIds = pinnedIds.filter((id) => id !== draggedId);
     }
 
-    const draggedIndex = apps.findIndex((app) => app.id === draggedId);
-    const targetIndex  = apps.findIndex((app) => app.id === targetId);
-    if (draggedIndex === -1 || targetIndex === -1) return;
+    const draggedApp = apps.find((a) => a.id === draggedId);
+    const targetApp  = apps.find((a) => a.id === targetId);
+    if (!draggedApp || !targetApp) return;
 
-    const next = [...apps];
-    const [dragged] = next.splice(draggedIndex, 1);
-    // Also make sure the app belongs to the current space after a cross-origin drop
-    next.splice(targetIndex, 0, { ...dragged, spaceId: config.currentSpaceId, folderId: null });
-    updateConfig({ ...config, apps: next, pinnedIds });
+    const draggedPage = isPinned ? (targetApp.pageIndex ?? 0) : (draggedApp.pageIndex ?? 0);
+    const targetPage  = targetApp.pageIndex ?? 0;
+
+    apps = apps.map((a) => {
+      if (a.id === draggedId) return { ...a, pageIndex: targetPage, spaceId: config.currentSpaceId, folderId: null };
+      if (a.id === targetId && !isPinned) return { ...a, pageIndex: draggedPage };
+      return a;
+    });
+
+    updateConfig({ ...config, apps, pinnedIds });
     if (isPinned) notify('Moved to Home Screen');
   };
 
-  // Move a single app to the very end of the global apps array.
-  // Also handles Dock→empty-page drops: unpin first.
+  // Move app to the first free slot on the last (or a new) page.
+  // Also handles Dock→empty drop.
   const moveAppToEnd = (appId: string) => {
     const isPinned = config.pinnedIds.includes(appId);
-    const idx = config.apps.findIndex((app) => app.id === appId);
-    if (idx === -1) return;
-    const next = [...config.apps];
-    const [app] = next.splice(idx, 1);
-    next.push({ ...app, spaceId: config.currentSpaceId, folderId: null });
+    const app = config.apps.find((a) => a.id === appId);
+    if (!app) return;
+
+    const capacity = config.gridColumns * config.gridRows;
+    // Consider all non-pinned items in this space to find a free page
+    const spaceItems = config.apps.filter(
+      (a) => (!a.spaceId || a.spaceId === config.currentSpaceId) && !config.pinnedIds.includes(a.id) && a.id !== appId,
+    );
+    // Find the last used page
+    const maxPage = spaceItems.reduce((m, a) => Math.max(m, a.pageIndex ?? 0), 0);
+    // If last page has room, use it; otherwise create a new page
+    const lastPageCount = spaceItems.filter((a) => (a.pageIndex ?? 0) === maxPage).length;
+    const targetPage = lastPageCount < capacity ? maxPage : maxPage + 1;
+
     const pinnedIds = isPinned ? config.pinnedIds.filter((id) => id !== appId) : config.pinnedIds;
-    updateConfig({ ...config, apps: next, pinnedIds });
+    const apps = config.apps.map((a) =>
+      a.id === appId ? { ...a, pageIndex: targetPage, spaceId: config.currentSpaceId, folderId: null } : a,
+    );
+    updateConfig({ ...config, apps, pinnedIds });
     if (isPinned) notify('Moved to Home Screen');
   };
 
   const moveToFolder = (appId: string, folderId: string) => {
     if (!config.apps.some((app) => app.id === appId)) return;
-    updateConfig({ ...config, apps: config.apps.map((app) => (app.id === appId ? { ...app, folderId } : app)) });
+    // Folder stays on same page; just set folderId
+    const targetFolder = config.folders.find((f) => f.id === folderId);
+    const folderPage = targetFolder?.pageIndex ?? 0;
+    updateConfig({ ...config, apps: config.apps.map((app) =>
+      app.id === appId ? { ...app, folderId, pageIndex: folderPage } : app,
+    ) });
     notify('Moved to folder');
   };
 
   const moveOutOfFolder = (appId: string) => {
-    updateConfig({ ...config, apps: config.apps.map((app) => (app.id === appId ? { ...app, folderId: null } : app)) });
+    const app = config.apps.find((a) => a.id === appId);
+    if (!app) return;
+    // Put it back on the same page the folder is on, outside the folder
+    updateConfig({ ...config, apps: config.apps.map((a) =>
+      a.id === appId ? { ...a, folderId: null } : a,
+    ) });
     notify('Moved to Home Screen');
   };
 
@@ -333,7 +391,13 @@ function NewTab() {
 
   const addFolder = () => {
     const id = `folder-${Date.now().toString(36)}`;
-    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder'), appIds: [], spaceId: config.currentSpaceId }] });
+    const capacity = config.gridColumns * config.gridRows;
+    const spaceItems: Array<{ pageIndex?: number }> = [
+      ...config.apps.filter((a) => (!a.spaceId || a.spaceId === config.currentSpaceId) && !config.pinnedIds.includes(a.id)),
+      ...config.folders.filter((f) => !f.spaceId || f.spaceId === config.currentSpaceId),
+    ];
+    const page = nextAvailablePage(spaceItems, capacity);
+    updateConfig({ ...config, folders: [...config.folders, { id, name: t('newFolder'), appIds: [], spaceId: config.currentSpaceId, pageIndex: page }] });
     notify(t('newFolder'));
   };
 
@@ -423,6 +487,24 @@ function NewTab() {
     notify('Space deleted');
   };
 
+  // Expose a callback so AppGrid can tell App what page was navigated to
+  // (needed so moveAppToPage can navigate there after drop)
+  const [pendingNavigatePage, setPendingNavigatePage] = useState<number | null>(null);
+
+  // Move an item to a specific pageIndex (used by AppGrid edge-drop)
+  const moveAppToPage = (appId: string, pageIndex: number) => {
+    const isPinned = config.pinnedIds.includes(appId);
+    const app = config.apps.find((a) => a.id === appId);
+    if (!app) return;
+    const pinnedIds = isPinned ? config.pinnedIds.filter((id) => id !== appId) : config.pinnedIds;
+    const apps = config.apps.map((a) =>
+      a.id === appId ? { ...a, pageIndex, spaceId: config.currentSpaceId, folderId: null } : a,
+    );
+    updateConfig({ ...config, apps, pinnedIds });
+    setPendingNavigatePage(pageIndex);
+    if (isPinned) notify('Moved to Home Screen');
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
       <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
@@ -496,6 +578,8 @@ function NewTab() {
           currentSpaceId={config.currentSpaceId}
           spaces={spaces}
           spaceDirection={spaceDirection}
+          pendingNavigatePage={pendingNavigatePage}
+          onNavigated={() => setPendingNavigatePage(null)}
           t={t}
           onOpenFolder={setSelectedFolderId}
           onCloseFolder={() => setSelectedFolderId(null)}
@@ -509,6 +593,7 @@ function NewTab() {
           onDeleteFolder={deleteFolder}
           onReorder={reorderItems}
           onMoveToEnd={moveAppToEnd}
+          onMoveToPage={moveAppToPage}
           onMoveToFolder={moveToFolder}
           onMoveOutOfFolder={moveOutOfFolder}
           onMoveToSpace={moveToSpace}

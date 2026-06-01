@@ -90,6 +90,8 @@ export interface AppShortcut {
   icon?: string;
   iconColor?: string;
   spaceId?: string;
+  /** iOS-style: which page (0-based) this icon lives on. undefined = legacy, treated as page 0 */
+  pageIndex?: number;
 }
 
 export interface Folder {
@@ -97,6 +99,8 @@ export interface Folder {
   name: string;
   appIds: string[];
   spaceId?: string;
+  /** iOS-style: which page (0-based) this folder lives on. */
+  pageIndex?: number;
 }
 
 export const SPACE_ACCENTS = [
@@ -165,7 +169,6 @@ export const DEFAULT_AI_PORTALS: AiPortal[] = [
 export type AiPortalSize = 'sm' | 'md' | 'lg' | 'xl';
 export const AI_PORTAL_SIZE_DEFAULT: AiPortalSize = 'lg';
 
-// Which shortcuts to show in the popup AI tab
 export type PopupShortcutSource = 'ai' | 'dock' | `space:${string}`;
 
 export interface AppConfig {
@@ -189,7 +192,6 @@ export interface AppConfig {
   aiPortals?: AiPortal[];
   aiPortalSize?: AiPortalSize;
   popupShortcutSource?: PopupShortcutSource;
-  /** Enable GSAP entrance animations on new tab open */
   gsapAnimations?: boolean;
   experiments: {
     smartRecommendations: boolean;
