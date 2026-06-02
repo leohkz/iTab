@@ -640,26 +640,31 @@ export function AppGrid({
 
       {selectedFolder && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center"
           onPointerDown={(e) => { if (e.target === e.currentTarget) onCloseFolder(); }}
-          style={{ animation: 'fadeIn 0.15s ease' }}
+          style={{
+            background: 'rgba(10,14,26,0.40)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            animation: 'folderOverlayIn 0.18s ease both',
+          }}
         >
           <div
             className="relative w-full max-w-sm overflow-hidden rounded-[2rem] p-6"
             style={{
-              background: 'rgba(255,255,255,0.18)',
-              backdropFilter: 'blur(40px) saturate(1.8)',
-              WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+              background: 'rgba(20,24,40,0.72)',
+              backdropFilter: 'blur(48px) saturate(2)',
+              WebkitBackdropFilter: 'blur(48px) saturate(2)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              animation: 'folderPanelIn 0.24s cubic-bezier(0.34,1.4,0.64,1) both',
             }}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
               <p className="text-base font-black text-white">{selectedFolder.name}</p>
               <button type="button" onClick={onCloseFolder}
-                className="rounded-xl bg-white/20 px-3 py-1 text-xs font-black text-white hover:bg-white/30">
+                className="rounded-xl bg-white/15 px-3 py-1 text-xs font-black text-white hover:bg-white/25 transition">
                 {t('done')}
               </button>
             </div>
@@ -683,7 +688,7 @@ export function AppGrid({
               ))}
               {editing && (
                 <div
-                  className="flex min-h-[5rem] flex-col items-center justify-center gap-1 rounded-[1.2rem] border-2 border-dashed border-white/30 cursor-pointer hover:border-white/60"
+                  className="flex min-h-[5rem] flex-col items-center justify-center gap-1 rounded-[1.2rem] border-2 border-dashed border-white/30 cursor-pointer hover:border-white/60 transition"
                   onClick={() => onAddShortcut(selectedFolder.id)}
                 >
                   <Plus className="h-5 w-5 text-white/50" />
