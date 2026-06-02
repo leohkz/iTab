@@ -1,5 +1,5 @@
 import { Minus, Pencil } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -28,8 +28,8 @@ type DockProps = {
   [key: string]: unknown;
 };
 
-function badgeSize(scale: number) {
-  return Math.max(18, Math.round(BASE * scale * 0.28));
+function badgeSize(iconSize: number) {
+  return Math.max(18, Math.round(iconSize * 0.28));
 }
 
 function DockDeleteConfirm({ name, onConfirm, onCancel }: {
@@ -68,74 +68,87 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-// Returns scale 1.0 ~ MAX/BASE per icon based on cursor distance
-function useDockScales(count: number, editing: boolean) {
+// ── Exact same logic as the HTML5 drag version ───────────────────────────────
+function useDockSizes(count: number, editing: boolean) {
   const [mouseX, setMouseX] = useState<number | null>(null);
-  const slotRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const [sizes, setSizes] = useState<number[]>(() => Array(count).fill(BASE));
 
-  const scales: number[] = editing || mouseX === null
-    ? Array(count).fill(1)
-    : slotRefs.current.map((el) => {
-        if (!el) return 1;
-        const rect = el.getBoundingClientRect();
-        // Centre of the fixed BASE slot
-        const center = rect.left + rect.width / 2;
-        const dist = Math.abs(mouseX - center);
-        if (dist >= SPREAD) return 1;
-        const t = 1 - dist / SPREAD;
-        // Linear falloff (matches the original HTML5 version feel)
-        return 1 + (MAX / BASE - 1) * t;
-      });
+  useLayoutEffect(() => {
+    if (editing || mouseX === null) {
+      setSizes(Array(count).fill(BASE));
+      return;
+    }
+    const next = itemRefs.current.map((el) => {
+      if (!el) return BASE;
+      const rect = el.getBoundingClientRect();
+      // Use the centre of the element's CURRENT bounding rect
+      const centerX = rect.left + rect.width / 2;
+      const dist = Math.abs(mouseX - centerX);
+      if (dist >= SPREAD) return BASE;
+      const ratio = 1 - dist / SPREAD;
+      return Math.round(BASE + (MAX - BASE) * ratio);
+    });
+    setSizes(next);
+  }, [mouseX, editing, count]);
 
-  return { scales, slotRefs, setMouseX };
+  return { sizes, itemRefs, setMouseX };
 }
 
 function SortableDockItem({
-  app, editing, scale, slotRef, onConfirmDelete, onRename,
+  app, editing, size, liRef, onConfirmDelete, onRename, isDragging: extIsDragging,
 }: {
   app: AppShortcut;
   editing: boolean;
-  scale: number;
-  slotRef: (el: HTMLLIElement | null) => void;
+  size: number;
+  liRef: (el: HTMLLIElement | null) => void;
   onConfirmDelete: () => void;
   onRename: () => void;
+  isDragging?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes, listeners, setNodeRef,
+    transform, transition,
+    isDragging: sortableIsDragging,
+  } = useSortable({
     id: app.id,
     data: { container: DOCK_CONTAINER_ID },
   });
 
-  const bSize = badgeSize(scale);
-  const badgeOffset = Math.round(bSize * -0.28);
+  const dragging = sortableIsDragging || extIsDragging;
+  const marginTop = BASE - size;
+  const bSize = badgeSize(size);
+  const offset = Math.round(bSize * -0.28);
+  const wrapRadius = Math.round(size * 0.22);
 
-  // Slot: always BASE×BASE, never changes — pill stays static
-  const slotStyle: React.CSSProperties = {
+  // Only apply dnd-kit transform while actively dragging
+  // — hover animation uses width/height/marginTop directly, same as HTML5 version
+  const liStyle: React.CSSProperties = {
+    width: size,
+    height: size,
+    marginTop,
     position: 'relative',
-    width: BASE,
-    height: BASE,
     flexShrink: 0,
     touchAction: 'none',
-    opacity: isDragging ? 0.3 : 1,
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? undefined,
-    zIndex: scale > 1 ? 10 : 1,
     overflow: 'visible',
+    opacity: dragging ? 0.3 : 1,
+    // dnd-kit transform only kicks in during a drag
+    transform: CSS.Transform.toString(transform),
+    transition: sortableIsDragging
+      ? (transition ?? undefined)
+      : 'width 0.12s ease, height 0.12s ease, margin-top 0.12s ease',
+    zIndex: size > BASE ? 10 : 1,
   };
 
-  // Icon: CSS scale from bottom-center, grows upward without affecting layout
-  const iconStyle: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
+  const iconWrapper: React.CSSProperties = {
+    width: '100%',
+    height: '100%',
+    borderRadius: wrapRadius,
+    overflow: 'hidden',
+    isolation: 'isolate',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Math.round(BASE * 0.22),
-    overflow: 'hidden',
-    isolation: 'isolate',
-    transformOrigin: 'bottom center',
-    transform: `scale(${scale}) translateY(${((scale - 1) * BASE) / 2 / scale}px)`,
-    // Smooth spring-like transition matching original feel
-    transition: 'transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1)',
   };
 
   const badgeBase: React.CSSProperties = {
@@ -149,13 +162,13 @@ function SortableDockItem({
     WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
     boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8)',
     border: '1px solid rgba(255,255,255,0.6)',
-    transition: 'width 0.15s ease, height 0.15s ease',
+    transition: 'width 0.12s ease, height 0.12s ease',
   };
 
   return (
     <li
-      ref={(el) => { setNodeRef(el); slotRef(el); }}
-      style={slotStyle}
+      ref={(el) => { setNodeRef(el); liRef(el); }}
+      style={liStyle}
       className="app"
       data-testid={`dock-pinned-${app.id}`}
       {...(editing ? { ...attributes, ...listeners } : {})}
@@ -164,20 +177,18 @@ function SortableDockItem({
         <span
           className="animate-jiggle"
           aria-label={app.name}
-          style={{ position: 'absolute', inset: 0 }}
+          style={{ display: 'block', width: '100%', height: '100%', position: 'relative' }}
         >
-          <span style={iconStyle}>
-            <AppIcon app={app} size="dock" />
-          </span>
+          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
           <button type="button" aria-label={`Remove ${app.name} from dock`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
-            style={{ ...badgeBase, top: badgeOffset, left: badgeOffset }}
+            style={{ ...badgeBase, top: offset, left: offset }}
           >
             <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
           </button>
           <button type="button" aria-label={`Edit ${app.name}`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-            style={{ ...badgeBase, top: badgeOffset, right: badgeOffset }}
+            style={{ ...badgeBase, top: offset, right: offset }}
           >
             <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
           </button>
@@ -186,12 +197,10 @@ function SortableDockItem({
         <a
           href={app.url} target="_blank" rel="noreferrer"
           aria-label={`Open ${app.name}`}
-          style={{ position: 'absolute', inset: 0 }}
+          style={{ display: 'flex', width: '100%', height: '100%' }}
           {...attributes} {...listeners}
         >
-          <span style={iconStyle}>
-            <AppIcon app={app} size="dock" />
-          </span>
+          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
         </a>
       )}
     </li>
@@ -209,6 +218,7 @@ function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
     data: { container: DOCK_CONTAINER_ID },
   });
 
+  // Pill is sized to BASE icons — magnified icons bleed upward via overflow:visible
   const pillW = count * BASE + Math.max(0, count - 1) * GAP + PAD_X * 2;
   const pillH = BASE + PAD_Y * 2;
 
@@ -243,7 +253,7 @@ export function Dock({
   onDropApp: _onDropApp, onUnpinApp, onRenameApp, onReorderPinned: _onReorderPinned,
 }: DockProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const { scales, slotRefs, setMouseX } = useDockScales(pinnedApps.length, editing);
+  const { sizes, itemRefs, setMouseX } = useDockSizes(pinnedApps.length, editing);
 
   const alpha = Math.min(0.48, Math.max(0.12, glass / 220));
   const blur  = Math.round(6 + glass / 10);
@@ -277,10 +287,11 @@ export function Dock({
                 key={app.id}
                 app={app}
                 editing={editing}
-                scale={scales[i] ?? 1}
-                slotRef={(el) => { slotRefs.current[i] = el; }}
+                size={sizes[i] ?? BASE}
+                liRef={(el) => { itemRefs.current[i] = el; }}
                 onConfirmDelete={() => setConfirmDeleteId(app.id)}
                 onRename={() => onRenameApp(app.id)}
+                isDragging={activeId === app.id}
               />
             ))}
           </DroppableDock>
