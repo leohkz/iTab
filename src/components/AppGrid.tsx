@@ -368,7 +368,6 @@ function DraggableFolderApp({
     >
       <a
         href={editing ? undefined : app.url}
-        target="_blank" rel="noreferrer"
         onClick={(e) => { if (editing) e.preventDefault(); }}
         className="flex flex-col items-center gap-2 rounded-[1.4rem] p-1 transition duration-200 hover:bg-white/12"
       >
@@ -443,7 +442,6 @@ function SortableGridItem({
     >
       <a
         href={editing ? undefined : item.app.url}
-        target="_blank" rel="noreferrer"
         onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
         className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
       >
