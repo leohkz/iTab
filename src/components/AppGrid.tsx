@@ -55,6 +55,12 @@ const ICON_PX = 72;
 const BADGE_PX = Math.round(ICON_PX * 0.28);
 const BADGE_OFFSET = -Math.round(BADGE_PX * 0.35);
 
+const noSelectStyle: React.CSSProperties = {
+  WebkitUserSelect: 'none',
+  userSelect: 'none',
+  WebkitTouchCallout: 'none',
+};
+
 const glassBadgeBase: React.CSSProperties = {
   position: 'absolute', zIndex: 20,
   width: BADGE_PX, height: BADGE_PX, borderRadius: '50%',
@@ -118,6 +124,7 @@ function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?:
     <span
       className="grid h-[4.5rem] w-[4.5rem] grid-cols-2 grid-rows-2 place-items-center gap-1.5 rounded-[1.35rem] border border-white/55 bg-white/60 p-2.5 backdrop-blur-sm"
       style={{
+        ...noSelectStyle,
         transform: isDropOver ? 'scale(1.08)' : 'scale(1)',
         boxShadow: isDropOver
           ? 'inset 0 1px 0 rgba(255,255,255,0.7), 0 18px 40px rgba(17,24,39,0.22), 0 0 0 3px rgba(255,255,255,0.8)'
@@ -144,7 +151,7 @@ function IconWithBadges({
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   return (
     <span className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
-      style={{ isolation: 'isolate' }} data-anim="app-icon">
+      style={{ ...noSelectStyle, isolation: 'isolate' }} data-anim="app-icon">
       <AppIcon app={app} size="grid" />
       {editing && (
         <>
@@ -258,6 +265,7 @@ function DroppableFolderItem({
   };
 
   const sortableStyle: React.CSSProperties = {
+    ...noSelectStyle,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging || activeId === item.id ? 0.35 : 1,
@@ -275,6 +283,7 @@ function DroppableFolderItem({
       {...listeners}
       className="group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 cursor-grab"
       data-anim="app-icon"
+      onMouseDown={(e) => e.preventDefault()}
     >
       <button
         type="button"
@@ -283,10 +292,11 @@ function DroppableFolderItem({
           onOpenFolder(item.folder.id);
         }}
         className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+        style={noSelectStyle}
       >
         <span
           className={['relative inline-flex', editing ? 'animate-jiggle' : ''].join(' ')}
-          style={{ isolation: 'isolate' }}
+          style={{ ...noSelectStyle, isolation: 'isolate' }}
         >
           <FolderPreview apps={item.apps} isDropOver={isDropTarget} />
           {editing && (
@@ -304,7 +314,7 @@ function DroppableFolderItem({
             </>
           )}
         </span>
-        <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+        <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]" style={noSelectStyle}>
           {item.folder.name}
         </span>
       </button>
@@ -334,6 +344,7 @@ function DraggableFolderApp({
   });
 
   const style: React.CSSProperties = {
+    ...noSelectStyle,
     transform: transform ? `translate(${transform.x}px,${transform.y}px)` : undefined,
     opacity: isDragging || activeId === app.id ? 0.35 : 1,
     touchAction: 'none',
@@ -347,11 +358,14 @@ function DraggableFolderApp({
       {...attributes}
       {...(editing ? listeners : {})}
       className="relative flex flex-col items-center gap-2 rounded-[1.4rem] p-2"
+      onMouseDown={(e) => e.preventDefault()}
     >
       <a
         href={editing ? undefined : app.url}
         onClick={(e) => { if (editing) e.preventDefault(); }}
         className="flex flex-col items-center gap-2 rounded-[1.4rem] p-1 transition duration-200 hover:bg-white/12"
+        style={noSelectStyle}
+        draggable={false}
       >
         <IconWithBadges
           app={app} editing={editing} spaces={spaces} currentSpaceId={currentSpaceId}
@@ -359,7 +373,7 @@ function DraggableFolderApp({
           onRename={onRename}
           onMoveToSpace={onMoveToSpace}
         />
-        <span className="max-w-[5.6rem] truncate text-xs font-bold text-white">{app.name}</span>
+        <span className="max-w-[5.6rem] truncate text-xs font-bold text-white" style={noSelectStyle}>{app.name}</span>
       </a>
     </div>
   );
@@ -406,6 +420,7 @@ function SortableGridItem({
   });
 
   const style: React.CSSProperties = {
+    ...noSelectStyle,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging || activeId === item.id ? 0.35 : 1,
@@ -421,11 +436,14 @@ function SortableGridItem({
       {...listeners}
       className="group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 cursor-grab"
       data-testid={`link-app-${item.app.id}`}
+      onMouseDown={(e) => e.preventDefault()}
     >
       <a
         href={editing ? undefined : item.app.url}
         onClick={(e) => { if (editing) { e.preventDefault(); e.stopPropagation(); } }}
         className="flex flex-col items-center gap-2 rounded-[1.6rem] p-2 transition duration-200 hover:bg-white/12 active:scale-[0.98]"
+        style={noSelectStyle}
+        draggable={false}
       >
         <IconWithBadges
           app={item.app} editing={editing} spaces={spaces} currentSpaceId={currentSpaceId}
@@ -433,7 +451,7 @@ function SortableGridItem({
           onRename={() => onRenameApp(item.app.id)}
           onMoveToSpace={(spaceId) => onMoveToSpace(item.app.id, spaceId)}
         />
-        <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]">
+        <span className="max-w-[6.4rem] truncate text-sm font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)]" style={noSelectStyle}>
           {item.app.name}
         </span>
       </a>
@@ -447,7 +465,8 @@ function DroppableGrid({ id, children, isOver }: { id: string; children: React.R
     <div ref={setNodeRef}
       className={['mx-auto grid gap-x-7 gap-y-8 rounded-[2.3rem] p-6 transition-colors duration-200',
         isOver ? 'ring-2 ring-white/30 ring-inset' : ''].join(' ')}
-      style={{ gridTemplateColumns: 'var(--grid-cols)', maxWidth: 'var(--grid-max-w)' }}
+      style={{ ...noSelectStyle, gridTemplateColumns: 'var(--grid-cols)', maxWidth: 'var(--grid-max-w)' }}
+      onMouseDown={(e) => e.preventDefault()}
     >
       {children}
     </div>
@@ -469,9 +488,8 @@ function useGsapPageTransition(
 
     const el = containerRef.current;
     const xFrom  = slideDir === 'right' ? '8%'  : '-8%';
-    const xBg    = slideDir === 'right' ? '-4%' : '4%'; // parallax bg ghost
+    const xBg    = slideDir === 'right' ? '-4%' : '4%';
 
-    // kill any running tweens on this element
     gsap.killTweensOf(el);
 
     gsap
@@ -554,7 +572,6 @@ export function AppGrid({
     return Math.max(...itemsByPage.keys()) + 1;
   }, [itemsByPage]);
 
-  // notify parent of page state for PageDots
   useEffect(() => {
     onPageStateChange?.(currentPage, totalPages);
   }, [currentPage, totalPages, onPageStateChange]);
@@ -574,8 +591,7 @@ export function AppGrid({
       goToPage(pendingNavigatePage);
       onNavigated?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingNavigatePage]);
+  }, [pendingNavigatePage, currentPage, goToPage, onNavigated]);
 
   useEffect(() => {
     if (spaceDirection) {
@@ -585,10 +601,8 @@ export function AppGrid({
       onPageChange?.(0);
       setTimeout(() => { setAnimating(false); setSlideDir(null); }, 450);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceDirection]);
+  }, [spaceDirection, onPageChange]);
 
-  // GSAP transition hook
   useGsapPageTransition(gridWrapRef, slideDir, animating);
 
   const currentItems = itemsByPage.get(currentPage) ?? [];
@@ -597,6 +611,7 @@ export function AppGrid({
   const isGridOver = overContainer === GRID_CONTAINER_ID;
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     swipeStartX.current = e.clientX;
     swipeStartY.current = e.clientY;
   }, []);
@@ -617,6 +632,7 @@ export function AppGrid({
       ref={mainRef}
       className="relative flex flex-col items-center justify-center"
       style={{
+        ...noSelectStyle,
         minHeight: '100vh',
         paddingTop: '5.5rem',
         paddingBottom: '6.5rem',
@@ -625,8 +641,9 @@ export function AppGrid({
       }}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
+      onMouseDown={(e) => e.preventDefault()}
     >
-      <div ref={gridWrapRef} className="w-full" style={{ willChange: 'transform, opacity, filter' }}>
+      <div ref={gridWrapRef} className="w-full" style={{ ...noSelectStyle, willChange: 'transform, opacity, filter' }}>
         <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
           <DroppableGrid id={GRID_CONTAINER_ID} isOver={isGridOver}>
             {currentItems.map((item) => (
@@ -653,6 +670,7 @@ export function AppGrid({
                 <div
                   className="flex min-h-[7.6rem] flex-col items-center justify-center gap-2 rounded-[1.6rem] border-2 border-dashed border-white/30 p-2 cursor-pointer transition hover:border-white/60 hover:bg-white/8"
                   onClick={() => onAddShortcut()}
+                  style={noSelectStyle}
                 >
                   <Plus className="h-6 w-6 text-white/50" />
                   <span className="text-xs font-bold text-white/50">{t('addWebsite')}</span>
@@ -660,6 +678,7 @@ export function AppGrid({
                 <div
                   className="flex min-h-[7.6rem] flex-col items-center justify-center gap-2 rounded-[1.6rem] border-2 border-dashed border-white/30 p-2 cursor-pointer transition hover:border-white/60 hover:bg-white/8"
                   onClick={onAddFolder}
+                  style={noSelectStyle}
                 >
                   <FolderPlus className="h-6 w-6 text-white/50" />
                   <span className="text-xs font-bold text-white/50">{t('newFolder')}</span>
@@ -722,6 +741,7 @@ export function AppGrid({
                 <div
                   className="flex min-h-[5rem] flex-col items-center justify-center gap-1 rounded-[1.2rem] border-2 border-dashed border-white/30 cursor-pointer hover:border-white/60 transition"
                   onClick={() => onAddShortcut(selectedFolder.id)}
+                  style={noSelectStyle}
                 >
                   <Plus className="h-5 w-5 text-white/50" />
                   <span className="text-[0.65rem] font-bold text-white/50">{t('addWebsite')}</span>
