@@ -18,6 +18,10 @@ type DockProps = {
   glass: number;
   activeId?: string | null;
   overContainer?: string | null;
+  // PageDots
+  totalPages?: number;
+  currentPage?: number;
+  onPageSelect?: (i: number) => void;
   onDropApp: (appId: string) => void;
   onUnpinApp: (appId: string) => void;
   onRenameApp: (appId: string) => void;
@@ -200,9 +204,40 @@ function DroppableDock({ children, isOver, onMouseMove, onMouseLeave }: {
   );
 }
 
+// ── PageDots ──────────────────────────────────────────────────────────
+function PageDots({
+  total, current, onSelect,
+}: { total: number; current: number; onSelect: (i: number) => void }) {
+  if (total <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-[7px] pb-2">
+      {Array.from({ length: total }).map((_, i) => (
+        <button
+          key={i}
+          type="button"
+          aria-label={`Page ${i + 1}`}
+          onClick={() => onSelect(i)}
+          className="transition-all"
+          style={{
+            width: i === current ? 8 : 7,
+            height: i === current ? 8 : 7,
+            borderRadius: '50%',
+            background: i === current ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.35)',
+            boxShadow: i === current ? '0 0 6px rgba(255,255,255,0.5)' : 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function Dock({
   pinnedApps, recentTabs: _recentTabs, editing, glass,
   activeId, overContainer,
+  totalPages = 1, currentPage = 0, onPageSelect,
   onDropApp: _onDropApp, onUnpinApp, onRenameApp, onReorderPinned: _onReorderPinned,
 }: DockProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -224,6 +259,13 @@ export function Dock({
     <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2"
       style={{ overflow: 'visible' }}
     >
+      {/* PageDots sit directly above the Dock pill */}
+      <PageDots
+        total={totalPages}
+        current={currentPage}
+        onSelect={onPageSelect ?? (() => {})}
+      />
+
       <div
         className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
         style={{ ...dockBg, overflow: 'visible' }}

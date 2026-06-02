@@ -1,5 +1,6 @@
 /// <reference types="chrome" />
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { gsap } from 'gsap';
 import {
   DndContext,
   DragOverlay,
@@ -136,7 +137,7 @@ function nextAvailablePage(
 export const GRID_CONTAINER_ID = 'app-grid';
 export const DOCK_CONTAINER_ID = 'dock';
 
-// ── iOS-style collision detection ────────────────────────────────────────
+// ── iOS-style collision detection ───────────────────────────────────────────
 const iosFolderCollision: CollisionDetection = (args) => {
   const { droppableContainers, active, pointerCoordinates } = args;
   if (!pointerCoordinates) return closestCenter(args);
@@ -170,6 +171,47 @@ const iosFolderCollision: CollisionDetection = (args) => {
 
 const EDGE_ZONE = 96;
 
+// ── GSAP Space-switch animation helpers ───────────────────────────────────────
+function animateSpaceSwitch(
+  bgEl: HTMLElement | null,
+  gridEl: HTMLElement | null,
+  dir: 'left' | 'right',
+) {
+  if (!bgEl || !gridEl) return;
+
+  const flipSign = dir === 'right' ? 1 : -1;
+
+  gsap.killTweensOf([bgEl, gridEl]);
+
+  // Background colour pulse — quick flash to a slightly lighter/darker tint
+  gsap.timeline()
+    .to(bgEl, { filter: 'brightness(1.25) saturate(1.4)', duration: 0.14, ease: 'power2.out' })
+    .to(bgEl, { filter: 'brightness(1) saturate(1)',      duration: 0.28, ease: 'power2.inOut',
+      clearProps: 'filter' });
+
+  // Grid 3-D flip — rotateY out → snap content → rotateY in
+  gsap.timeline()
+    .set(gridEl, { transformPerspective: 900, transformOrigin: '50% 50%' })
+    .to(gridEl, {
+      rotateY:  flipSign * 25,
+      scale:    0.88,
+      opacity:  0,
+      filter:   'blur(6px)',
+      duration: 0.18,
+      ease:     'power2.in',
+    })
+    .set(gridEl, { rotateY: -flipSign * 25 })         // snap to opposite angle
+    .to(gridEl, {
+      rotateY: 0,
+      scale:   1,
+      opacity: 1,
+      filter:  'blur(0px)',
+      duration: 0.30,
+      ease:    'expo.out',
+      clearProps: 'rotateY,scale,opacity,filter,transformPerspective,transformOrigin',
+    });
+}
+
 function NewTab() {
   const [config, setConfig] = useState<AppConfig>(() => cloneDefaultConfig());
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -186,9 +228,18 @@ function NewTab() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overContainer, setOverContainer] = useState<string | null>(null);
 
+  // PageDots state lifted here so Dock can render them
+  const [gridCurrentPage, setGridCurrentPage] = useState(0);
+  const [gridTotalPages, setGridTotalPages] = useState(1);
+  const [pendingDotPage, setPendingDotPage] = useState<number | null>(null);
+
   const pageFlipTimerRef = useRef<number | null>(null);
   const currentPageRef = useRef(0);
   const [externalPage, setExternalPage] = useState<number | null>(null);
+
+  // Refs for GSAP space animation
+  const bgRef  = useRef<HTMLDivElement>(null);
+  const gridWrapperRef = useRef<HTMLDivElement>(null);
 
   const clearPageFlip = () => {
     if (pageFlipTimerRef.current !== null) {
@@ -295,8 +346,16 @@ function NewTab() {
     spaceDirectionRef.current = dir;
     setSpaceDirection(dir);
     setSelectedFolderId(null);
+
+    // GSAP 3D flip animation
+    animateSpaceSwitch(
+      bgRef.current,
+      gridWrapperRef.current,
+      dir,
+    );
+
     updateConfig({ ...config, currentSpaceId: spaceId });
-    setTimeout(() => setSpaceDirection(null), 400);
+    setTimeout(() => setSpaceDirection(null), 500);
   };
 
   useEffect(() => {
@@ -322,7 +381,8 @@ function NewTab() {
             : allSpaces[(idx - 1 + allSpaces.length) % allSpaces.length];
           const dir: 'left' | 'right' = event.key === 'ArrowRight' ? 'right' : 'left';
           setSpaceDirection(dir);
-          setTimeout(() => setSpaceDirection(null), 400);
+          setTimeout(() => setSpaceDirection(null), 500);
+          animateSpaceSwitch(bgRef.current, gridWrapperRef.current, dir);
           const updated = { ...current, currentSpaceId: next.id };
           if (isChromeExtensionApiAvailable()) chrome.storage.local.set({ [CONFIG_KEY]: updated });
           return updated;
@@ -406,15 +466,12 @@ function NewTab() {
     updateConfig({ ...config, pinnedIds: arrayMove(ids, fromIndex, toIndex) });
   };
 
-  // Reorder grid apps: use arrayMove on the apps array itself.
-  // pageIndex stays unchanged (same page), only array order changes.
   const reorderItems = (draggedId: string, targetId: string) => {
     const isPinned = config.pinnedIds.includes(draggedId);
     let apps = config.apps;
     let pinnedIds = config.pinnedIds;
 
     if (isPinned) {
-      // Moving from dock to grid: unpin and place at target's pageIndex
       pinnedIds = pinnedIds.filter((id) => id !== draggedId);
       const targetApp = apps.find((a) => a.id === targetId);
       if (!targetApp) return;
@@ -423,7 +480,6 @@ function NewTab() {
           ? { ...a, pageIndex: targetApp.pageIndex ?? 0, spaceId: config.currentSpaceId, folderId: null }
           : a,
       );
-      // Move dragged to just before target in array
       const fromIdx = apps.findIndex((a) => a.id === draggedId);
       const toIdx   = apps.findIndex((a) => a.id === targetId);
       if (fromIdx >= 0 && toIdx >= 0) apps = arrayMove(apps, fromIdx, toIdx);
@@ -432,12 +488,10 @@ function NewTab() {
       return;
     }
 
-    // Same-page grid reorder: arrayMove, keep pageIndex the same
     const draggedApp = apps.find((a) => a.id === draggedId);
     const targetApp  = apps.find((a) => a.id === targetId);
     if (!draggedApp || !targetApp) return;
 
-    // If cross-page drop, adopt target's pageIndex
     const newPageIndex = targetApp.pageIndex ?? 0;
     apps = apps.map((a) =>
       a.id === draggedId ? { ...a, pageIndex: newPageIndex } : a,
@@ -609,8 +663,8 @@ function NewTab() {
     if (isPinned) notify('Moved to Home Screen');
   };
 
-  // ── dnd-kit handlers ───────────────────────────────────────────────────
-  const handleDragStart = ({ active }: DragStartEvent) => {
+  // ── dnd-kit handlers ─────────────────────────────────────────────────────
+const handleDragStart = ({ active }: DragStartEvent) => {
     setActiveId(active.id as string);
     setOverContainer(active.data.current?.container ?? null);
     clearPageFlip();
@@ -722,7 +776,13 @@ function NewTab() {
       onDragEnd={handleDragEnd}
     >
       <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-        <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
+        <div
+          ref={bgRef}
+          data-anim="bg"
+          className={`absolute inset-0 ${themeClass}`}
+          aria-hidden="true"
+          style={{ willChange: 'filter' }}
+        />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
         <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
 
@@ -799,54 +859,62 @@ function NewTab() {
           </span>
         </button>
 
-        {showPrompts ? (
-          <PromptLibrary
-            prompts={config.prompts ?? []}
-            glass={config.glass}
-            t={t as (key: string) => string}
-            onClose={() => setShowPrompts(false)}
-            onAdd={addPrompt}
-            onEdit={editPrompt}
-            onDelete={deletePrompt}
-          />
-        ) : (
-          <AppGrid
-            apps={currentSpaceApps}
-            folders={currentSpaceFolders}
-            editing={editing}
-            selectedFolderId={selectedFolderId}
-            gridColumns={config.gridColumns}
-            gridRows={config.gridRows}
-            currentSpaceId={config.currentSpaceId}
-            spaces={spaces}
-            spaceDirection={spaceDirection}
-            pendingNavigatePage={pendingNavigatePage ?? externalPage}
-            onNavigated={() => {
-              setPendingNavigatePage(null);
-              setExternalPage(null);
-            }}
-            onPageChange={(p) => { currentPageRef.current = p; }}
-            t={t}
-            activeId={activeId}
-            overContainer={overContainer}
-            onOpenFolder={setSelectedFolderId}
-            onCloseFolder={() => setSelectedFolderId(null)}
-            onStartEditing={() => setEditing(true)}
-            onStopEditing={() => setEditing(false)}
-            onDeleteApp={deleteApp}
-            onRenameApp={renameShortcut}
-            onAddShortcut={openShortcutEditor}
-            onAddFolder={addFolder}
-            onRenameFolder={renameFolder}
-            onDeleteFolder={deleteFolder}
-            onReorder={reorderItems}
-            onMoveToEnd={moveAppToEnd}
-            onMoveToPage={moveAppToPage}
-            onMoveToFolder={moveToFolder}
-            onMoveOutOfFolder={moveOutOfFolder}
-            onMoveToSpace={moveToSpace}
-          />
-        )}
+        {/* Grid wrapper — GSAP Space 3D flip targets this */}
+        <div ref={gridWrapperRef} style={{ willChange: 'transform, opacity, filter' }}>
+          {showPrompts ? (
+            <PromptLibrary
+              prompts={config.prompts ?? []}
+              glass={config.glass}
+              t={t as (key: string) => string}
+              onClose={() => setShowPrompts(false)}
+              onAdd={addPrompt}
+              onEdit={editPrompt}
+              onDelete={deletePrompt}
+            />
+          ) : (
+            <AppGrid
+              apps={currentSpaceApps}
+              folders={currentSpaceFolders}
+              editing={editing}
+              selectedFolderId={selectedFolderId}
+              gridColumns={config.gridColumns}
+              gridRows={config.gridRows}
+              currentSpaceId={config.currentSpaceId}
+              spaces={spaces}
+              spaceDirection={spaceDirection}
+              pendingNavigatePage={pendingDotPage ?? pendingNavigatePage ?? externalPage}
+              onNavigated={() => {
+                setPendingNavigatePage(null);
+                setExternalPage(null);
+                setPendingDotPage(null);
+              }}
+              onPageChange={(p) => { currentPageRef.current = p; }}
+              onPageStateChange={(cur, tot) => {
+                setGridCurrentPage(cur);
+                setGridTotalPages(tot);
+              }}
+              t={t}
+              activeId={activeId}
+              overContainer={overContainer}
+              onOpenFolder={setSelectedFolderId}
+              onCloseFolder={() => setSelectedFolderId(null)}
+              onStartEditing={() => setEditing(true)}
+              onStopEditing={() => setEditing(false)}
+              onDeleteApp={deleteApp}
+              onRenameApp={renameShortcut}
+              onAddShortcut={openShortcutEditor}
+              onAddFolder={addFolder}
+              onRenameFolder={renameFolder}
+              onDeleteFolder={deleteFolder}
+              onReorder={reorderItems}
+              onMoveToEnd={moveAppToEnd}
+              onMoveToPage={moveAppToPage}
+              onMoveToFolder={moveToFolder}
+              onMoveOutOfFolder={moveOutOfFolder}
+              onMoveToSpace={moveToSpace}
+            />
+          )}
+        </div>
 
         {config.showDock && (
           <Dock
@@ -857,6 +925,9 @@ function NewTab() {
             glass={config.glass}
             activeId={activeId}
             overContainer={overContainer}
+            totalPages={gridTotalPages}
+            currentPage={gridCurrentPage}
+            onPageSelect={(i) => setPendingDotPage(i)}
             onDropApp={pinApp}
             onUnpinApp={unpinApp}
             onRenameApp={renameShortcut}
