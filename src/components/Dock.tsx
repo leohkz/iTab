@@ -68,7 +68,6 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-// ── Exact same logic as the HTML5 drag version ───────────────────────────────
 function useDockSizes(count: number, editing: boolean) {
   const [mouseX, setMouseX] = useState<number | null>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
@@ -82,8 +81,8 @@ function useDockSizes(count: number, editing: boolean) {
     const next = itemRefs.current.map((el) => {
       if (!el) return BASE;
       const rect = el.getBoundingClientRect();
-      // Use the centre of the element's CURRENT bounding rect
-      const centerX = rect.left + rect.width / 2;
+      // Slot is always BASE wide — use its fixed centre
+      const centerX = rect.left + BASE / 2;
       const dist = Math.abs(mouseX - centerX);
       if (dist >= SPREAD) return BASE;
       const ratio = 1 - dist / SPREAD;
@@ -116,39 +115,42 @@ function SortableDockItem({
   });
 
   const dragging = sortableIsDragging || extIsDragging;
-  const marginTop = BASE - size;
   const bSize = badgeSize(size);
-  const offset = Math.round(bSize * -0.28);
+  const badgeOffset = Math.round(bSize * -0.28);
   const wrapRadius = Math.round(size * 0.22);
+  // How much the icon grows above the BASE slot bottom
+  const growUp = size - BASE;
 
-  // Only apply dnd-kit transform while actively dragging
-  // — hover animation uses width/height/marginTop directly, same as HTML5 version
+  // <li> slot: ALWAYS BASE×BASE — flex layout never shifts
   const liStyle: React.CSSProperties = {
-    width: size,
-    height: size,
-    marginTop,
     position: 'relative',
+    width: BASE,
+    height: BASE,
     flexShrink: 0,
     touchAction: 'none',
     overflow: 'visible',
     opacity: dragging ? 0.3 : 1,
-    // dnd-kit transform only kicks in during a drag
     transform: CSS.Transform.toString(transform),
-    transition: sortableIsDragging
-      ? (transition ?? undefined)
-      : 'width 0.12s ease, height 0.12s ease, margin-top 0.12s ease',
+    transition: sortableIsDragging ? (transition ?? undefined) : undefined,
     zIndex: size > BASE ? 10 : 1,
   };
 
-  const iconWrapper: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
+  // Icon wrapper: grows from bottom-center of the BASE slot upward
+  const iconStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: 0,
+    left: '50%',
+    width: size,
+    height: size,
+    transform: `translateX(-50%) translateY(${-growUp}px)`,
     borderRadius: wrapRadius,
     overflow: 'hidden',
     isolation: 'isolate',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    // Same transition feel as HTML5 version
+    transition: 'width 0.12s ease, height 0.12s ease, transform 0.12s ease, border-radius 0.12s ease',
   };
 
   const badgeBase: React.CSSProperties = {
@@ -177,18 +179,18 @@ function SortableDockItem({
         <span
           className="animate-jiggle"
           aria-label={app.name}
-          style={{ display: 'block', width: '100%', height: '100%', position: 'relative' }}
+          style={{ position: 'absolute', inset: 0 }}
         >
-          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+          <span style={iconStyle}><AppIcon app={app} size="dock" /></span>
           <button type="button" aria-label={`Remove ${app.name} from dock`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
-            style={{ ...badgeBase, top: offset, left: offset }}
+            style={{ ...badgeBase, top: badgeOffset, left: badgeOffset }}
           >
             <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
           </button>
           <button type="button" aria-label={`Edit ${app.name}`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-            style={{ ...badgeBase, top: offset, right: offset }}
+            style={{ ...badgeBase, top: badgeOffset, right: badgeOffset }}
           >
             <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
           </button>
@@ -197,10 +199,10 @@ function SortableDockItem({
         <a
           href={app.url} target="_blank" rel="noreferrer"
           aria-label={`Open ${app.name}`}
-          style={{ display: 'flex', width: '100%', height: '100%' }}
+          style={{ position: 'absolute', inset: 0 }}
           {...attributes} {...listeners}
         >
-          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+          <span style={iconStyle}><AppIcon app={app} size="dock" /></span>
         </a>
       )}
     </li>
@@ -218,7 +220,6 @@ function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
     data: { container: DOCK_CONTAINER_ID },
   });
 
-  // Pill is sized to BASE icons — magnified icons bleed upward via overflow:visible
   const pillW = count * BASE + Math.max(0, count - 1) * GAP + PAD_X * 2;
   const pillH = BASE + PAD_Y * 2;
 
