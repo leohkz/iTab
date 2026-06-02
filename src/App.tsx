@@ -451,7 +451,6 @@ function NewTab() {
 
   const moveToFolder = (appId: string, folderId: string) => {
     if (!config.apps.some((app) => app.id === appId)) return;
-    // Bug 2 fix: folder 內的 app 不需要 pageIndex（設為 undefined），避免與主 grid 排序衝突
     updateConfig({ ...config, apps: config.apps.map((app) =>
       app.id === appId ? { ...app, folderId, pageIndex: undefined } : app,
     ) });
@@ -459,7 +458,6 @@ function NewTab() {
   };
 
   const moveOutOfFolder = (appId: string) => {
-    // Bug 1 fix: 移出 folder 時重新分配 pageIndex 到主 grid
     const app = config.apps.find((a) => a.id === appId);
     if (!app) return;
     const capacity = config.gridColumns * config.gridRows;
@@ -618,7 +616,7 @@ function NewTab() {
 
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
 
-    // Bug 1 fix: 從 folder 內拖出到主 grid
+    // 從 folder 內拖出到主 grid
     if (
       typeof fromContainer === 'string' &&
       fromContainer.startsWith(FOLDER_DROP_PREFIX) &&
@@ -668,8 +666,15 @@ function NewTab() {
 
     if (fromContainer === DOCK_CONTAINER_ID && toContainer === DOCK_CONTAINER_ID) {
       if (draggedId !== overId) {
-        const targetIdx = config.pinnedIds.indexOf(overId);
-        if (targetIdx >= 0) reorderPinnedApp(draggedId, targetIdx);
+        const fromIdx = config.pinnedIds.indexOf(draggedId);
+        const toIdx   = config.pinnedIds.indexOf(overId);
+        if (toIdx >= 0) {
+          // After filtering out draggedId, items after fromIdx shift left by 1.
+          // If dragging forward (fromIdx < toIdx), the target's post-filter index is toIdx - 1.
+          // If dragging backward, the target's post-filter index is unchanged (toIdx).
+          const insertAt = fromIdx < toIdx ? toIdx - 1 : toIdx;
+          reorderPinnedApp(draggedId, insertAt);
+        }
       }
       return;
     }
