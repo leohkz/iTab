@@ -10,6 +10,12 @@ import { DOCK_CONTAINER_ID } from '../App';
 const BASE = 52;
 const MAX  = 82;
 const SPREAD = 130;
+// gap between items in px (matches gap-3 = 12px)
+const GAP = 12;
+// pill padding left+right (matches px-5 = 20px each side)
+const PILL_PX = 40;
+// pill padding top+bottom (matches py-3 = 12px each side)
+const PILL_PY = 24;
 
 type DockProps = {
   pinnedApps: AppShortcut[];
@@ -112,26 +118,35 @@ function SortableDockItem({
   const wrapRadius = Math.round(size * 0.3);
 
   const style: React.CSSProperties = {
-    width: size,
-    height: size,
-    marginTop,
-    opacity: isDragging ? 0.3 : 1,
-    transform: CSS.Transform.toString(transform),
-    // size transition only when not being dragged by dnd-kit
-    transition: transition ?? 'width 0.12s ease, height 0.12s ease, margin-top 0.12s ease',
+    // Always BASE wide so pill never resizes; visual size comes from inner iconWrapper
+    width: BASE,
+    height: BASE,
+    marginTop: 0,
+    flexShrink: 0,
     position: 'relative',
     touchAction: 'none',
-    flexShrink: 0,
     overflow: 'visible',
+    opacity: isDragging ? 0.3 : 1,
+    transform: CSS.Transform.toString(transform),
+    transition: transition ?? undefined,
     zIndex: 1,
+    // Centre children so magnified icon grows upward from centre
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   };
 
+  // The actual visible icon — grows upward, centred on BASE slot
   const iconWrapper: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: '100%', height: '100%',
-    borderRadius: wrapRadius,
+    width: size,
+    height: size,
+    flexShrink: 0,
+    borderRadius: Math.round(size * 0.3),
     overflow: 'hidden',
     isolation: 'isolate',
+    transition: 'width 0.12s ease, height 0.12s ease',
+    marginBottom: marginTop, // push icon up as it grows
+    position: 'relative',
   };
 
   const badgeBase: React.CSSProperties = {
@@ -159,9 +174,11 @@ function SortableDockItem({
         <span
           className="app-link animate-jiggle"
           aria-label={app.name}
-          style={{ display: 'flex', width: '100%', height: '100%', position: 'relative' }}
+          style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: '100%', position: 'relative' }}
         >
-          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+          <span style={iconWrapper}>
+            <AppIcon app={app} size="dock" />
+          </span>
           <button type="button" aria-label={`Remove ${app.name} from dock`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
             style={{ ...badgeBase, top: offset, left: offset }}
@@ -179,18 +196,21 @@ function SortableDockItem({
         <a
           href={app.url} target="_blank" rel="noreferrer"
           aria-label={`Open ${app.name}`}
-          style={{ display: 'flex', width: '100%', height: '100%' }}
+          style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: '100%' }}
           {...attributes} {...listeners}
         >
-          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+          <span style={iconWrapper}>
+            <AppIcon app={app} size="dock" />
+          </span>
         </a>
       )}
     </li>
   );
 }
 
-function DroppableDock({ children, onMouseMove, onMouseLeave }: {
+function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
   children: React.ReactNode;
+  count: number;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
 }) {
@@ -198,11 +218,26 @@ function DroppableDock({ children, onMouseMove, onMouseLeave }: {
     id: DOCK_CONTAINER_ID,
     data: { container: DOCK_CONTAINER_ID },
   });
+
+  // Fixed pixel width = BASE * count + GAP * (count-1)
+  // This never changes regardless of hover magnification
+  const fixedWidth = count * BASE + Math.max(0, count - 1) * GAP;
+
   return (
-    // overflow-visible 讓 icon 往上溢出，但背景 pill 完全不動
     <ul
       ref={setNodeRef}
-      className="relative flex items-end gap-3 px-5 py-3 overflow-visible"
+      style={{
+        width: fixedWidth,
+        height: BASE + PILL_PY,
+        padding: `${PILL_PY / 2}px ${PILL_PX / 2}px`,
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: GAP,
+        overflow: 'visible',
+        listStyle: 'none',
+        margin: 0,
+        boxSizing: 'content-box',
+      }}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
     >
@@ -232,16 +267,16 @@ export function Dock({
   const pinnedIds = pinnedApps.map((a) => a.id);
 
   return (
-    // 外層 overflow:visible 保護放大的 icon 不被裁切
     <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2" style={{ overflow: 'visible' }}>
 
-      {/* Glass pill — 完全静態，不參與任何 scale */}
+      {/* Glass pill — width is determined by DroppableDock's fixed ul width + pill padding */}
       <div
         className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
-        style={{ ...dockBg, overflow: 'visible' }}
+        style={{ ...dockBg, overflow: 'visible', display: 'inline-block' }}
       >
         <SortableContext items={pinnedIds} strategy={horizontalListSortingStrategy}>
           <DroppableDock
+            count={pinnedApps.length}
             onMouseMove={(e) => setMouseX(e.clientX)}
             onMouseLeave={() => setMouseX(null)}
           >
@@ -260,7 +295,6 @@ export function Dock({
         </SortableContext>
       </div>
 
-      {/* Drop to pin hint */}
       {isDockOver && !editing && activeId && !pinnedIds.includes(activeId) && (
         <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900/70 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
           Drop to pin
