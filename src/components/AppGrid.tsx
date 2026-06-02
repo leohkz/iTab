@@ -290,10 +290,10 @@ function DroppableFolderItem({
       ref={mergedRef}
       style={sortableStyle}
       {...attributes}
-      {...(editing ? listeners : {})}
+      {...listeners}
       className={[
         'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
-        editing ? 'cursor-grab' : '',
+        'cursor-grab',
       ].join(' ')}
       data-anim="app-icon"
     >
@@ -441,10 +441,10 @@ function SortableGridItem({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...(editing ? listeners : {})}
+      {...listeners}
       className={[
         'group relative flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2',
-        editing ? 'cursor-grab' : '',
+        'cursor-grab',
       ].join(' ')}
       data-testid={`link-app-${item.app.id}`}
     >
@@ -505,285 +505,11 @@ export function AppGrid({
 
   const pageCapacity = gridColumns * gridRows;
 
+  // itemsByPage: preserve apps array order (no secondary sort by position)
   const itemsByPage = useMemo(() => {
     const map = new Map<number, GridItem[]>();
     for (const app of apps) {
       if (app.folderId) continue;
       const p = app.pageIndex ?? 0;
       if (!map.has(p)) map.set(p, []);
-      map.get(p)!.push({ kind: 'app', id: app.id, app });
-    }
-    for (const folder of folders) {
-      const p = folder.pageIndex ?? 0;
-      if (!map.has(p)) map.set(p, []);
-      map.get(p)!.push({ kind: 'folder', id: folder.id, folder, apps: apps.filter((a) => a.folderId === folder.id) });
-    }
-    for (const items of map.values()) {
-      items.sort((a, b) => {
-        const posA = a.kind === 'app' ? (a.app.position ?? 0) : (a.folder.pageIndex ?? 0);
-        const posB = b.kind === 'app' ? (b.app.position ?? 0) : (b.folder.pageIndex ?? 0);
-        return posA - posB;
-      });
-    }
-    return map;
-  }, [apps, folders]);
-
-  const totalPages = useMemo(() => {
-    if (itemsByPage.size === 0) return 1;
-    return Math.max(...itemsByPage.keys()) + 1;
-  }, [itemsByPage]);
-
-  useEffect(() => {
-    if (currentPage >= totalPages) setCurrentPage(Math.max(0, totalPages - 1));
-  }, [totalPages, currentPage]);
-
-  const itemsOnPage = itemsByPage.get(currentPage) ?? [];
-
-  useEffect(() => {
-    if (pendingNavigatePage != null) {
-      const target = Math.max(0, Math.min(pendingNavigatePage, totalPages - 1));
-      setCurrentPage(target);
-      onPageChange?.(target);
-      onNavigated?.();
-    }
-  }, [pendingNavigatePage, onNavigated, onPageChange, totalPages]);
-
-  useEffect(() => { setCurrentPage(0); onPageChange?.(0); }, [currentSpaceId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const goToPage = useCallback((page: number) => {
-    if (page === currentPage || animating) return;
-    const dir = page > currentPage ? 'left' : 'right';
-    setSlideDir(dir);
-    setAnimating(true);
-    setTimeout(() => {
-      setCurrentPage(page);
-      onPageChange?.(page);
-      setSlideDir(null);
-      setAnimating(false);
-    }, 320);
-  }, [currentPage, animating, onPageChange]);
-
-  const goNext = useCallback(() => {
-    if (currentPage < totalPages - 1) goToPage(currentPage + 1);
-  }, [currentPage, totalPages, goToPage]);
-
-  const goPrev = useCallback(() => {
-    if (currentPage > 0) goToPage(currentPage - 1);
-  }, [currentPage, goToPage]);
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (e.target instanceof Element && e.target.closest('a,button,input')) return;
-    swipeStartX.current = e.clientX; swipeStartY.current = e.clientY;
-  };
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (swipeStartX.current === null || swipeStartY.current === null) return;
-    const dx = e.clientX - swipeStartX.current;
-    const dy = e.clientY - swipeStartY.current;
-    swipeStartX.current = null; swipeStartY.current = null;
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
-    if (dx < 0) goNext(); else goPrev();
-  };
-
-  const setLongPress = (target: HTMLElement) => {
-    const timeout = window.setTimeout(onStartEditing, 520);
-    const clear = () => window.clearTimeout(timeout);
-    target.addEventListener('pointerup', clear, { once: true });
-    target.addEventListener('pointerleave', clear, { once: true });
-  };
-
-  let pageSlideStyle: React.CSSProperties;
-  if (animating && slideDir) {
-    pageSlideStyle = { transform: slideDir === 'left' ? 'translateX(-6%)' : 'translateX(6%)', opacity: 0, transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s' };
-  } else {
-    pageSlideStyle = { transform: 'translateX(0)', opacity: 1, transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s' };
-  }
-
-  const spaceAnimStyle: React.CSSProperties = spaceDirection ? {
-    animation: spaceDirection === 'right'
-      ? 'spaceSlideFromRight 0.32s cubic-bezier(0.4,0,0.2,1) both'
-      : 'spaceSlideFromLeft 0.32s cubic-bezier(0.4,0,0.2,1) both',
-  } : {};
-
-  const isGridOver = overContainer === GRID_CONTAINER_ID;
-  const sortableIds = itemsOnPage.map((i) => i.id);
-  const gridCssVars = {
-    '--grid-cols': `repeat(${gridColumns}, minmax(5.8rem, 1fr))`,
-    '--grid-max-w': `${gridColumns * 7.5}rem`,
-  } as React.CSSProperties;
-
-  // folder popup 拖出時自動關閉 folder
-  const prevActiveIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    const wasInFolder = selectedFolder && prevActiveIdRef.current &&
-      selectedFolderApps.some((a) => a.id === prevActiveIdRef.current);
-    const dragEnded = prevActiveIdRef.current !== null && activeId === null;
-    if (wasInFolder && dragEnded) {
-      onCloseFolder();
-    }
-    prevActiveIdRef.current = activeId ?? null;
-  }, [activeId, selectedFolder, selectedFolderApps, onCloseFolder]);
-
-  return (
-    <main
-      ref={mainRef}
-      className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 pb-28 pt-28"
-      data-testid="main-new-tab"
-      data-anim="appgrid"
-      tabIndex={editing ? 0 : undefined}
-      onKeyDown={(e) => { if (editing && e.key === 'Escape') onStopEditing(); }}
-      onContextMenu={(e) => { e.preventDefault(); onStartEditing(); }}
-      onClick={(e) => { if (editing && e.target === mainRef.current) onStopEditing(); }}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      style={gridCssVars}
-    >
-      <style>{`
-        @keyframes spaceSlideFromRight { from { opacity:0; transform:translateX(48px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes spaceSlideFromLeft  { from { opacity:0; transform:translateX(-48px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes folderOverlayIn     { from { opacity:0; } to { opacity:1; } }
-        @keyframes folderPanelIn       { from { opacity:0; transform:scale(0.92) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
-      `}</style>
-
-      {editing && (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center pt-4" aria-live="polite">
-          <span className="rounded-full bg-slate-950/60 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80 backdrop-blur-md">
-            ✏️ {t('editModeHint')}
-          </span>
-        </div>
-      )}
-
-      <section key={currentSpaceId} className="w-full max-w-5xl" aria-label="App grid" style={spaceAnimStyle}>
-        <div style={pageSlideStyle}>
-          <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-            <DroppableGrid id={GRID_CONTAINER_ID} isOver={isGridOver}>
-              {itemsOnPage.map((item) => (
-                <div key={item.id} onPointerDown={(e) => setLongPress(e.currentTarget)}>
-                  <SortableGridItem
-                    item={item}
-                    editing={editing}
-                    spaces={spaces}
-                    currentSpaceId={currentSpaceId}
-                    activeId={activeId}
-                    overContainer={overContainer}
-                    onDeleteApp={(id) => setDeletingAppId(id)}
-                    onRenameApp={onRenameApp}
-                    onMoveToSpace={onMoveToSpace}
-                    onOpenFolder={onOpenFolder}
-                    onDeleteFolder={onDeleteFolder}
-                    onRenameFolder={(id) => setRenamingFolderId(id)}
-                  />
-                </div>
-              ))}
-
-              {editing && currentPage === totalPages - 1 && (
-                <>
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); onAddShortcut(null); }}
-                    className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-                  >
-                    <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                      <Plus className="h-7 w-7" />
-                    </span>
-                    <span className="text-sm font-bold text-white">{t('add')}</span>
-                  </button>
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); onAddFolder(); }}
-                    className="flex min-h-[7.6rem] flex-col items-center justify-center gap-3 rounded-[1.6rem] p-2 text-center transition duration-200 hover:bg-white/12 active:scale-[0.98]"
-                  >
-                    <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                      <FolderPlus className="h-7 w-7" />
-                    </span>
-                    <span className="text-sm font-bold text-white">{t('newFolder')}</span>
-                  </button>
-                </>
-              )}
-
-              {Array.from({ length: Math.max(0, pageCapacity - itemsOnPage.length - (editing && currentPage === totalPages - 1 ? 2 : 0)) }).map((_, i) => (
-                <div key={`slot-${i}`} aria-hidden="true"
-                  style={{ height: 0, minHeight: 0, overflow: 'visible', padding: 0, margin: 0 }} />
-              ))}
-            </DroppableGrid>
-          </SortableContext>
-        </div>
-      </section>
-
-      {totalPages > 1 && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full px-3 py-1.5"
-          style={{ background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(12px) saturate(1.4)', WebkitBackdropFilter: 'blur(12px) saturate(1.4)', border: '1px solid rgba(255,255,255,0.12)' }}>
-          <PageDots total={totalPages} current={currentPage} onSelect={goToPage} />
-        </div>
-      )}
-
-      {selectedFolder && (
-        <div
-          className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/40 px-6"
-          style={{
-            backdropFilter: 'blur(28px) saturate(1.6)',
-            WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
-            animation: 'folderOverlayIn 0.2s ease both',
-          }}
-          role="presentation"
-          onPointerDown={(e) => { if (e.target === e.currentTarget) onCloseFolder(); }}
-        >
-          <section
-            role="dialog" aria-modal="true" aria-label={`${selectedFolder.name} folder`}
-            className="w-[min(34rem,calc(100vw-2rem))] rounded-[2.4rem] border border-white/40 p-6 text-white"
-            style={{
-              background: 'rgba(20,24,40,0.72)',
-              backdropFilter: 'blur(48px) saturate(2)',
-              WebkitBackdropFilter: 'blur(48px) saturate(2)',
-              boxShadow: '0 30px 90px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18)',
-              animation: 'folderPanelIn 0.26s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}
-          >
-            <div className="mb-6 text-center">
-              <h2 className="text-xl font-black tracking-[-0.055em]">{selectedFolder.name}</h2>
-              <p className="mt-1 text-sm font-semibold text-white/60">{selectedFolderApps.length} {t('websites')}</p>
-            </div>
-            <div className="grid grid-cols-4 gap-x-5 gap-y-6 max-sm:grid-cols-3">
-              {selectedFolderApps.map((app) => (
-                <DraggableFolderApp
-                  key={app.id}
-                  app={app}
-                  folderId={selectedFolder.id}
-                  editing={editing}
-                  spaces={spaces}
-                  currentSpaceId={currentSpaceId}
-                  activeId={activeId}
-                  onDelete={() => setDeletingAppId(app.id)}
-                  onRename={() => onRenameApp(app.id)}
-                  onMoveToSpace={(spaceId) => onMoveToSpace(app.id, spaceId)}
-                />
-              ))}
-              {editing && (
-                <button type="button" onClick={() => onAddShortcut(selectedFolder.id)}
-                  className="flex flex-col items-center gap-2 rounded-[1.4rem] p-2 text-center transition duration-200 hover:bg-white/12">
-                  <span className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-[1.35rem] border border-dashed border-white/55 bg-white/15 text-white">
-                    <Plus className="h-7 w-7" />
-                  </span>
-                  <span className="text-xs font-bold text-white">{t('add')}</span>
-                </button>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
-
-      {renamingFolder && (
-        <FolderRenameOverlay name={renamingFolder.name} t={t}
-          onSave={(name) => { onRenameFolder(renamingFolder.id, name); setRenamingFolderId(null); }}
-          onCancel={() => setRenamingFolderId(null)}
-        />
-      )}
-
-      {deletingApp && (
-        <DeleteConfirmSheet
-          title="Delete Shortcut?"
-          message={`\u201c${deletingApp.name}\u201d will be removed from your home screen.`}
-          onConfirm={() => { onDeleteApp(deletingAppId!); setDeletingAppId(null); }}
-          onCancel={() => setDeletingAppId(null)}
-        />
-      )}
-    </main>
-  );
-}
+      map.get(p)!.p

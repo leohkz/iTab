@@ -398,7 +398,6 @@ function NewTab() {
     notify('Pinned to Dock');
   };
 
-  // Use arrayMove to avoid index-offset bug when draggedId precedes overId
   const reorderPinnedApp = (draggedId: string, overId: string) => {
     const ids = config.pinnedIds;
     const fromIndex = ids.indexOf(draggedId);
@@ -407,30 +406,47 @@ function NewTab() {
     updateConfig({ ...config, pinnedIds: arrayMove(ids, fromIndex, toIndex) });
   };
 
+  // Reorder grid apps: use arrayMove on the apps array itself.
+  // pageIndex stays unchanged (same page), only array order changes.
   const reorderItems = (draggedId: string, targetId: string) => {
     const isPinned = config.pinnedIds.includes(draggedId);
     let apps = config.apps;
     let pinnedIds = config.pinnedIds;
 
     if (isPinned) {
+      // Moving from dock to grid: unpin and place at target's pageIndex
       pinnedIds = pinnedIds.filter((id) => id !== draggedId);
+      const targetApp = apps.find((a) => a.id === targetId);
+      if (!targetApp) return;
+      apps = apps.map((a) =>
+        a.id === draggedId
+          ? { ...a, pageIndex: targetApp.pageIndex ?? 0, spaceId: config.currentSpaceId, folderId: null }
+          : a,
+      );
+      // Move dragged to just before target in array
+      const fromIdx = apps.findIndex((a) => a.id === draggedId);
+      const toIdx   = apps.findIndex((a) => a.id === targetId);
+      if (fromIdx >= 0 && toIdx >= 0) apps = arrayMove(apps, fromIdx, toIdx);
+      updateConfig({ ...config, apps, pinnedIds });
+      notify('Moved to Home Screen');
+      return;
     }
 
+    // Same-page grid reorder: arrayMove, keep pageIndex the same
     const draggedApp = apps.find((a) => a.id === draggedId);
     const targetApp  = apps.find((a) => a.id === targetId);
     if (!draggedApp || !targetApp) return;
 
-    const draggedPage = isPinned ? (targetApp.pageIndex ?? 0) : (draggedApp.pageIndex ?? 0);
-    const targetPage  = targetApp.pageIndex ?? 0;
+    // If cross-page drop, adopt target's pageIndex
+    const newPageIndex = targetApp.pageIndex ?? 0;
+    apps = apps.map((a) =>
+      a.id === draggedId ? { ...a, pageIndex: newPageIndex } : a,
+    );
 
-    apps = apps.map((a) => {
-      if (a.id === draggedId) return { ...a, pageIndex: targetPage, spaceId: config.currentSpaceId, folderId: null };
-      if (a.id === targetId && !isPinned) return { ...a, pageIndex: draggedPage };
-      return a;
-    });
-
+    const fromIdx = apps.findIndex((a) => a.id === draggedId);
+    const toIdx   = apps.findIndex((a) => a.id === targetId);
+    if (fromIdx >= 0 && toIdx >= 0) apps = arrayMove(apps, fromIdx, toIdx);
     updateConfig({ ...config, apps, pinnedIds });
-    if (isPinned) notify('Moved to Home Screen');
   };
 
   const moveAppToEnd = (appId: string) => {
@@ -650,7 +666,6 @@ function NewTab() {
           setTimeout(() => reorderPinnedApp(draggedId, overId), 0);
         }
       } else if (draggedId !== overId && overId !== DOCK_CONTAINER_ID) {
-        // Dock 內重排: 直接用 overId 做目標
         reorderPinnedApp(draggedId, overId);
       }
       return;
