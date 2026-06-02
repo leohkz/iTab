@@ -108,7 +108,7 @@ export function SpotlightSearch({
       const pos = tab.content.toLowerCase().indexOf(q);
       if (pos === -1) return;
       const start   = Math.max(0, pos - 30);
-      const snippet = (start > 0 ? '…' : '') + tab.content.slice(start, pos + q.length + 40).trim() + '…';
+      const snippet = (start > 0 ? '\u2026' : '') + tab.content.slice(start, pos + q.length + 40).trim() + '\u2026';
       out.push({ kind: 'note', tab, snippet });
     });
 
@@ -127,14 +127,14 @@ export function SpotlightSearch({
     if (!cleanQuery || !displayEngine) return;
     saveRecent(cleanQuery);
     setRecent(loadRecent());
-    window.open(buildSearchUrl(displayEngine, cleanQuery), '_blank', 'noopener,noreferrer');
+    window.location.href = buildSearchUrl(displayEngine, cleanQuery);
     onClose();
   }, [cleanQuery, displayEngine, onClose]);
 
   const activateItem = useCallback((idx: number) => {
     if (idx < results.length) {
       const r = results[idx];
-      if (r.kind === 'app') { window.open(r.app.url, '_blank', 'noopener,noreferrer'); onClose(); }
+      if (r.kind === 'app') { window.location.href = r.app.url; onClose(); }
       if (r.kind === 'todo')   { navigator.clipboard.writeText(r.item.text).catch(() => {}); onClose(); }
       if (r.kind === 'note')   { navigator.clipboard.writeText(r.tab.content).catch(() => {}); onClose(); }
       if (r.kind === 'prompt') { navigator.clipboard.writeText(r.prompt.content).catch(() => {}); onClose(); }
@@ -265,7 +265,7 @@ export function SpotlightSearch({
                     const isActive  = cursor === globalIdx;
                     return (
                       <a key={r.app.id}
-                        href={r.app.url} target="_blank" rel="noreferrer"
+                        href={r.app.url}
                         data-idx={globalIdx}
                         onClick={() => { saveRecent(cleanQuery); setRecent(loadRecent()); onClose(); }}
                         onMouseEnter={() => setCursor(globalIdx)}
@@ -367,10 +367,10 @@ export function SpotlightSearch({
                         onMouseEnter={() => setCursor(globalIdx)}
                         onClick={() => activateItem(globalIdx)}
                         className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
-                        <span className={['text-base shrink-0', isActive ? 'opacity-80' : 'opacity-50'].join(' ')}>✦</span>
+                        <span className={['text-base shrink-0', isActive ? 'opacity-80' : 'opacity-50'].join(' ')}>\u2726</span>
                         <span>
                           <span className="block text-sm font-black">{r.prompt.title}</span>
-                          <span className={['block text-xs line-clamp-1', isActive ? 'text-white/60' : 'text-white/40'].join(' ')}>{r.prompt.content.slice(0, 60)}…</span>
+                          <span className={['block text-xs line-clamp-1', isActive ? 'text-white/60' : 'text-white/40'].join(' ')}>{r.prompt.content.slice(0, 60)}\u2026</span>
                         </span>
                         {isActive && <span className="ml-auto text-[0.6rem] opacity-60 shrink-0">Copy</span>}
                       </div>
@@ -411,7 +411,7 @@ export function SpotlightSearch({
               <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('appsAndShortcuts')}</p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
                 {apps.slice(0, 12).map(app => (
-                  <a key={app.id} href={app.url} target="_blank" rel="noreferrer" onClick={onClose}
+                  <a key={app.id} href={app.url} onClick={onClose}
                     className="flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center hover:bg-white/8 transition cursor-pointer">
                     <div className="h-10 w-10 overflow-hidden rounded-xl bg-[#3a3a3c] flex items-center justify-center">
                       <FaviconImg

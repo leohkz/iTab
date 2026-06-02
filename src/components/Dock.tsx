@@ -165,7 +165,7 @@ function SortableDockItem({
           </button>
         </span>
       ) : (
-        <a href={app.url} target="_blank" rel="noreferrer" aria-label={`Open ${app.name}`}
+        <a href={app.url} aria-label={`Open ${app.name}`}
           style={{ display: 'flex', width: '100%', height: '100%' }}
         >
           <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>

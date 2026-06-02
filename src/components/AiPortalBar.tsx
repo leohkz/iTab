@@ -5,9 +5,7 @@ import type { TranslationKey } from '../i18n';
 
 // ── Favicon helper ─────────────────────────────────────────────────────
 function getIconSrc(icon: string, url: string): string | null {
-  // Already a full URL — use directly
   if (icon.startsWith('http') || icon.startsWith('data:')) return icon;
-  // 'auto' — use Google gstatic (same API as AppIcon, works in extension context)
   if (icon === 'auto') {
     try {
       const encoded = encodeURIComponent(url);
@@ -131,8 +129,6 @@ export function AiPortalBar({ portals, size = 'lg', glass, t }: Props) {
           <a
             key={portal.id}
             href={portal.url}
-            target="_blank"
-            rel="noopener noreferrer"
             title={portal.name}
             className={`group flex items-center ${s.gap} ${s.btn} ${s.px} ${s.py} text-white/90 shadow transition hover:text-white`}
             style={itemStyle}
