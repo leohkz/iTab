@@ -114,12 +114,12 @@ function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?:
   const previewApps = apps.slice(0, 4);
   return (
     <span
-      className="grid h-[4.5rem] w-[4.5rem] grid-cols-2 grid-rows-2 place-items-center gap-1.5 rounded-[1.35rem] border border-white/35 bg-white/40 p-2.5 backdrop-blur-sm"
+      className="grid h-[4.5rem] w-[4.5rem] grid-cols-2 grid-rows-2 place-items-center gap-1.5 rounded-[1.35rem] border border-white/55 bg-white/60 p-2.5 backdrop-blur-sm"
       style={{
         transform: isDropOver ? 'scale(1.08)' : 'scale(1)',
         boxShadow: isDropOver
-          ? 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2), 0 0 0 3px rgba(255,255,255,0.7)'
-          : 'inset 0 1px 0 rgba(255,255,255,0.5), 0 18px 40px rgba(17,24,39,0.2)',
+          ? 'inset 0 1px 0 rgba(255,255,255,0.7), 0 18px 40px rgba(17,24,39,0.22), 0 0 0 3px rgba(255,255,255,0.8)'
+          : 'inset 0 1px 0 rgba(255,255,255,0.6), 0 18px 40px rgba(17,24,39,0.22)',
         transition: 'box-shadow 100ms, transform 100ms',
       }}
     >
@@ -127,7 +127,7 @@ function FolderPreview({ apps, isDropOver }: { apps: AppShortcut[]; isDropOver?:
         const app = previewApps[i];
         return app
           ? <AppIcon key={app.id} app={app} size="folder" />
-          : <span key={`e-${i}`} className="h-5 w-5 rounded-[0.38rem] bg-white/22" />;
+          : <span key={`e-${i}`} className="h-5 w-5 rounded-[0.38rem] bg-white/40" />;
       })}
     </span>
   );
@@ -496,7 +496,6 @@ export function AppGrid({
   const renamingFolder = folders.find((f) => f.id === renamingFolderId) ?? null;
   const deletingApp = apps.find((a) => a.id === deletingAppId) ?? null;
 
-  // KEY FIX: build itemsByPage preserving apps array order (arrayMove result)
   const itemsByPage = useMemo(() => {
     const map = new Map<number, GridItem[]>();
 
