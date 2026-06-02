@@ -1,10 +1,14 @@
 import { Minus, Pencil } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
+import { DOCK_CONTAINER_ID } from '../App';
 
 const BASE = 52;
-const MAX = 82;
+const MAX  = 82;
 const SPREAD = 130;
 
 type DockProps = {
@@ -12,21 +16,21 @@ type DockProps = {
   recentTabs: AppShortcut[];
   editing: boolean;
   glass: number;
+  activeId?: string | null;
+  overContainer?: string | null;
   onDropApp: (appId: string) => void;
   onUnpinApp: (appId: string) => void;
   onRenameApp: (appId: string) => void;
+  onReorderPinned: (draggedId: string, targetIndex: number) => void;
+  [key: string]: unknown;
 };
 
-// Badge size = ~22% of icon, min 18px
 function badgeSize(iconSize: number) {
   return Math.max(18, Math.round(iconSize * 0.28));
 }
 
-// Apple-style glass confirm dialog for Dock
 function DockDeleteConfirm({ name, onConfirm, onCancel }: {
-  name: string;
-  onConfirm: () => void;
-  onCancel: () => void;
+  name: string; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
     <div
@@ -50,165 +54,226 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
           <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">&ldquo;{name}&rdquo;</p>
         </div>
         <div className="flex border-t border-slate-200/70">
-          <button
-            type="button" onClick={onCancel}
-            className="flex-1 py-3 text-sm font-semibold text-slate-700 transition hover:bg-white/60"
-          >
-            Cancel
-          </button>
+          <button type="button" onClick={onCancel}
+            className="flex-1 py-3 text-sm font-semibold text-slate-700 transition hover:bg-white/60">Cancel</button>
           <span className="w-px bg-slate-200/70" />
-          <button
-            type="button" onClick={onConfirm}
-            className="flex-1 py-3 text-sm font-black text-red-500 transition hover:bg-red-50/60"
-          >
-            Remove
-          </button>
+          <button type="button" onClick={onConfirm}
+            className="flex-1 py-3 text-sm font-black text-red-500 transition hover:bg-red-50/60">Remove</button>
         </div>
       </div>
     </div>
   );
 }
 
-export function Dock({ pinnedApps, recentTabs, editing, glass, onDropApp, onUnpinApp, onRenameApp }: DockProps) {
-  const dockRef = useRef<HTMLUListElement>(null);
-  const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
+function useDockSizes(count: number, editing: boolean) {
   const [mouseX, setMouseX] = useState<number | null>(null);
-  const [sizes, setSizes] = useState<number[]>([]);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-
-  const allApps = [
-    ...pinnedApps.map((app) => ({ app, isRecent: false })),
-    ...recentTabs.map((app) => ({ app, isRecent: true })),
-  ];
+  const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const [sizes, setSizes] = useState<number[]>(() => Array(count).fill(BASE));
 
   useLayoutEffect(() => {
-    if (editing || mouseX === null) { setSizes(allApps.map(() => BASE)); return; }
-    const next = itemRefs.current.map((el) => {
-      if (!el) return BASE;
-      const rect = el.getBoundingClientRect();
-      const dist = Math.abs(mouseX - (rect.left + rect.width / 2));
-      if (dist >= SPREAD) return BASE;
-      return Math.round(BASE + (MAX - BASE) * (1 - dist / SPREAD));
-    });
-    setSizes(next);
-  }, [mouseX, editing, allApps.length]);
+    if (editing || mouseX === null) {
+      setSizes(Array(count).fill(BASE));
+      return;
+    }
+    setSizes(
+      itemRefs.current.map((el) => {
+        if (!el) return BASE;
+        const rect = el.getBoundingClientRect();
+        const center = rect.left + rect.width / 2;
+        const dist = Math.abs(mouseX - center);
+        if (dist >= SPREAD) return BASE;
+        const t = 1 - dist / SPREAD;
+        return Math.round(BASE + (MAX - BASE) * t * t);
+      })
+    );
+  }, [mouseX, editing, count]);
 
-  const dockAlpha = Math.min(0.45, Math.max(0.10, glass / 250));
-  const dockBlur  = Math.round(6 + glass / 10);
-  const dockStyle: React.CSSProperties = {
-    backgroundColor: `rgba(255,255,255,${dockAlpha})`,
-    backdropFilter: `blur(${dockBlur}px)`,
-    WebkitBackdropFilter: `blur(${dockBlur}px)`,
+  return { sizes, itemRefs, setMouseX };
+}
+
+function SortableDockItem({
+  app, editing, size, liRef, onConfirmDelete, onRename,
+}: {
+  app: AppShortcut;
+  editing: boolean;
+  size: number;
+  liRef: (el: HTMLLIElement | null) => void;
+  onConfirmDelete: () => void;
+  onRename: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: app.id,
+    data: { container: DOCK_CONTAINER_ID },
+  });
+
+  const marginTop = BASE - size;
+  const bSize = badgeSize(size);
+  const offset = Math.round(bSize * -0.28);
+  const wrapRadius = Math.round(size * 0.3);
+
+  const style: React.CSSProperties = {
+    width: size,
+    height: size,
+    marginTop,
+    opacity: isDragging ? 0.3 : 1,
+    transform: CSS.Transform.toString(transform),
+    // size transition only when not being dragged by dnd-kit
+    transition: transition ?? 'width 0.12s ease, height 0.12s ease, margin-top 0.12s ease',
+    position: 'relative',
+    touchAction: 'none',
+    flexShrink: 0,
+    overflow: 'visible',
+    zIndex: 1,
   };
 
-  const confirmApp = allApps.find((a) => a.app.id === confirmId)?.app ?? null;
+  const iconWrapper: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '100%', height: '100%',
+    borderRadius: wrapRadius,
+    overflow: 'hidden',
+    isolation: 'isolate',
+  };
 
-  const renderItem = (app: AppShortcut, isRecent: boolean, index: number) => {
-    const size = sizes[index] ?? BASE;
-    const marginTop = BASE - size;
-    const bSize = badgeSize(size);
-    const offset = Math.round(bSize * -0.28);
-
-    const wrapRadius = Math.round(size * 0.3);
-    const iconWrapper: React.CSSProperties = {
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      width: '100%', height: '100%',
-      borderRadius: wrapRadius,
-      overflow: 'hidden', isolation: 'isolate',
-    };
-
-    const badgeBase: React.CSSProperties = {
-      position: 'absolute', zIndex: 20,
-      width: bSize, height: bSize,
-      borderRadius: '50%',
-      display: 'grid', placeItems: 'center',
-      cursor: 'pointer',
-      background: 'rgba(255,255,255,0.75)',
-      backdropFilter: 'blur(12px) saturate(1.6)',
-      WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8)',
-      border: '1px solid rgba(255,255,255,0.6)',
-    };
-
-    return (
-      <li
-        key={app.id}
-        ref={(el) => { itemRefs.current[index] = el; }}
-        className="app"
-        style={{ width: size, height: size, marginTop }}
-        data-testid={isRecent ? `dock-recent-${app.id}` : `dock-pinned-${app.id}`}
-      >
-        {editing ? (
-          <span className="app-link animate-jiggle" draggable
-            onDragStart={(e) => e.dataTransfer.setData('text/plain', app.id)}
-            aria-label={app.name}
-          >
-            <span style={iconWrapper}>
-              <AppIcon app={app} size="dock" />
-            </span>
-            <button
-              type="button"
-              aria-label={`Remove ${app.name} from dock`}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmId(app.id); }}
-              style={{ ...badgeBase, top: offset, left: offset }}
-            >
-              <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
-            </button>
-            <button
-              type="button"
-              aria-label={`Edit ${app.name}`}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRenameApp(app.id); }}
-              style={{ ...badgeBase, top: offset, right: offset }}
-            >
-              <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
-            </button>
-          </span>
-        ) : (
-          <a href={app.url} target="_blank" rel="noreferrer" aria-label={`Open ${app.name}`}>
-            <span style={iconWrapper}>
-              <AppIcon app={app} size="dock" />
-            </span>
-          </a>
-        )}
-        <span className="tooltip" aria-hidden="true">{app.name}</span>
-        {isRecent && <span className="dock-dot" />}
-      </li>
-    );
+  const badgeBase: React.CSSProperties = {
+    position: 'absolute', zIndex: 20,
+    width: bSize, height: bSize,
+    borderRadius: '50%',
+    display: 'grid', placeItems: 'center',
+    cursor: 'pointer',
+    background: 'rgba(255,255,255,0.75)',
+    backdropFilter: 'blur(12px) saturate(1.6)',
+    WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8)',
+    border: '1px solid rgba(255,255,255,0.6)',
   };
 
   return (
-    <>
-      <div className="dock-root" aria-label="Dock">
-        <nav
-          className={['dock', editing ? 'dock--editing' : ''].join(' ')}
-          style={dockStyle}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { const appId = e.dataTransfer.getData('text/plain'); if (appId) onDropApp(appId); }}
-          data-testid="dock-drop-target"
+    <li
+      ref={(el) => { setNodeRef(el); liRef(el); }}
+      style={style}
+      className="app"
+      data-testid={`dock-pinned-${app.id}`}
+      {...(editing ? { ...attributes, ...listeners } : {})}
+    >
+      {editing ? (
+        <span
+          className="app-link animate-jiggle"
+          aria-label={app.name}
+          style={{ display: 'flex', width: '100%', height: '100%', position: 'relative' }}
         >
-          <ul
-            ref={dockRef}
-            onMouseMove={editing ? undefined : (e) => setMouseX(e.clientX)}
-            onMouseLeave={editing ? undefined : () => { setMouseX(null); setSizes(allApps.map(() => BASE)); }}
+          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+          <button type="button" aria-label={`Remove ${app.name} from dock`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
+            style={{ ...badgeBase, top: offset, left: offset }}
           >
-            {pinnedApps.map((app, i) => renderItem(app, false, i))}
-            {recentTabs.length > 0 && (
-              <>
-                <li aria-hidden="true"><span className="dock-separator" /></li>
-                {recentTabs.map((app, i) => renderItem(app, true, pinnedApps.length + i))}
-              </>
-            )}
-          </ul>
-        </nav>
+            <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
+          </button>
+          <button type="button" aria-label={`Edit ${app.name}`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
+            style={{ ...badgeBase, top: offset, right: offset }}
+          >
+            <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
+          </button>
+        </span>
+      ) : (
+        <a
+          href={app.url} target="_blank" rel="noreferrer"
+          aria-label={`Open ${app.name}`}
+          style={{ display: 'flex', width: '100%', height: '100%' }}
+          {...attributes} {...listeners}
+        >
+          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+        </a>
+      )}
+    </li>
+  );
+}
+
+function DroppableDock({ children, onMouseMove, onMouseLeave }: {
+  children: React.ReactNode;
+  onMouseMove: (e: React.MouseEvent) => void;
+  onMouseLeave: () => void;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: DOCK_CONTAINER_ID,
+    data: { container: DOCK_CONTAINER_ID },
+  });
+  return (
+    // overflow-visible 讓 icon 往上溢出，但背景 pill 完全不動
+    <ul
+      ref={setNodeRef}
+      className="relative flex items-end gap-3 px-5 py-3 overflow-visible"
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+    >
+      {children}
+    </ul>
+  );
+}
+
+export function Dock({
+  pinnedApps, recentTabs: _recentTabs, editing, glass,
+  activeId, overContainer,
+  onDropApp: _onDropApp, onUnpinApp, onRenameApp, onReorderPinned: _onReorderPinned,
+}: DockProps) {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const { sizes, itemRefs, setMouseX } = useDockSizes(pinnedApps.length, editing);
+
+  const alpha = Math.min(0.45, Math.max(0.10, glass / 250));
+  const blur  = Math.round(6 + glass / 10);
+  const dockBg: React.CSSProperties = {
+    backgroundColor: `rgba(255,255,255,${alpha})`,
+    backdropFilter: `blur(${blur}px) saturate(1.8)`,
+    WebkitBackdropFilter: `blur(${blur}px) saturate(1.8)`,
+  };
+
+  const isDockOver = overContainer === DOCK_CONTAINER_ID;
+  const confirmApp = pinnedApps.find((a) => a.id === confirmDeleteId);
+  const pinnedIds = pinnedApps.map((a) => a.id);
+
+  return (
+    // 外層 overflow:visible 保護放大的 icon 不被裁切
+    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2" style={{ overflow: 'visible' }}>
+
+      {/* Glass pill — 完全静態，不參與任何 scale */}
+      <div
+        className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
+        style={{ ...dockBg, overflow: 'visible' }}
+      >
+        <SortableContext items={pinnedIds} strategy={horizontalListSortingStrategy}>
+          <DroppableDock
+            onMouseMove={(e) => setMouseX(e.clientX)}
+            onMouseLeave={() => setMouseX(null)}
+          >
+            {pinnedApps.map((app, i) => (
+              <SortableDockItem
+                key={app.id}
+                app={app}
+                editing={editing}
+                size={sizes[i] ?? BASE}
+                liRef={(el) => { itemRefs.current[i] = el; }}
+                onConfirmDelete={() => setConfirmDeleteId(app.id)}
+                onRename={() => onRenameApp(app.id)}
+              />
+            ))}
+          </DroppableDock>
+        </SortableContext>
       </div>
+
+      {/* Drop to pin hint */}
+      {isDockOver && !editing && activeId && !pinnedIds.includes(activeId) && (
+        <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900/70 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
+          Drop to pin
+        </div>
+      )}
 
       {confirmApp && (
         <DockDeleteConfirm
           name={confirmApp.name}
-          onConfirm={() => { onUnpinApp(confirmId!); setConfirmId(null); }}
-          onCancel={() => setConfirmId(null)}
+          onConfirm={() => { onUnpinApp(confirmApp.id); setConfirmDeleteId(null); }}
+          onCancel={() => setConfirmDeleteId(null)}
         />
       )}
-    </>
+    </div>
   );
 }
