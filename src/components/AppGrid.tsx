@@ -415,7 +415,6 @@ function SortableGridItem({
     );
   }
 
-  // hooks must be called unconditionally
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging,
@@ -479,7 +478,7 @@ export function AppGrid({
   apps, folders, editing, selectedFolderId, gridColumns, gridRows,
   currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, onPageChange, t,
   activeId, overContainer,
-  onOpenFolder, onCloseFolder, onStartEditing, onStopEditing,
+  onOpenFolder, onCloseFolder,
   onDeleteApp, onRenameApp, onAddShortcut, onAddFolder, onRenameFolder, onDeleteFolder,
   onMoveToSpace, onMoveToPage: _onMoveToPage,
 }: AppGridProps) {
@@ -497,14 +496,10 @@ export function AppGrid({
   const renamingFolder = folders.find((f) => f.id === renamingFolderId) ?? null;
   const deletingApp = apps.find((a) => a.id === deletingAppId) ?? null;
 
-  const pageCapacity = gridColumns * gridRows;
-
-  // KEY FIX: build itemsByPage preserving apps array order (arrayMove result),
-  // do NOT re-sort by any position field inside each page.
+  // KEY FIX: build itemsByPage preserving apps array order (arrayMove result)
   const itemsByPage = useMemo(() => {
     const map = new Map<number, GridItem[]>();
 
-    // Apps first (preserves array order)
     for (const app of apps) {
       if (app.folderId) continue;
       const p = app.pageIndex ?? 0;
@@ -512,7 +507,6 @@ export function AppGrid({
       map.get(p)!.push({ kind: 'app', id: app.id, app });
     }
 
-    // Then folders (also preserves array order)
     for (const folder of folders) {
       const p = folder.pageIndex ?? 0;
       if (!map.has(p)) map.set(p, []);
@@ -542,6 +536,7 @@ export function AppGrid({
       goToPage(pendingNavigatePage);
       onNavigated?.();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingNavigatePage]);
 
   useEffect(() => {
@@ -552,6 +547,7 @@ export function AppGrid({
       onPageChange?.(0);
       setTimeout(() => setAnimating(false), 320);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceDirection]);
 
   const currentItems = itemsByPage.get(currentPage) ?? [];
@@ -622,7 +618,7 @@ export function AppGrid({
                   onClick={() => onAddShortcut()}
                 >
                   <Plus className="h-6 w-6 text-white/50" />
-                  <span className="text-xs font-bold text-white/50">{t('addShortcut')}</span>
+                  <span className="text-xs font-bold text-white/50">{t('addWebsite')}</span>
                 </div>
                 <div
                   className="flex min-h-[7.6rem] flex-col items-center justify-center gap-2 rounded-[1.6rem] border-2 border-dashed border-white/30 p-2 cursor-pointer transition hover:border-white/60 hover:bg-white/8"
@@ -665,7 +661,7 @@ export function AppGrid({
               <p className="text-base font-black text-white">{selectedFolder.name}</p>
               <button type="button" onClick={onCloseFolder}
                 className="rounded-xl bg-white/20 px-3 py-1 text-xs font-black text-white hover:bg-white/30">
-                {t('close')}
+                {t('done')}
               </button>
             </div>
             <div
@@ -692,7 +688,7 @@ export function AppGrid({
                   onClick={() => onAddShortcut(selectedFolder.id)}
                 >
                   <Plus className="h-5 w-5 text-white/50" />
-                  <span className="text-[0.65rem] font-bold text-white/50">{t('addShortcut')}</span>
+                  <span className="text-[0.65rem] font-bold text-white/50">{t('addWebsite')}</span>
                 </div>
               )}
             </div>
@@ -711,7 +707,7 @@ export function AppGrid({
 
       {deletingApp && (
         <DeleteConfirmSheet
-          title={t('deleteShortcut')}
+          title={t('delete')}
           message={deletingApp.name}
           onConfirm={() => { onDeleteApp(deletingAppId!); setDeletingAppId(null); }}
           onCancel={() => setDeletingAppId(null)}
