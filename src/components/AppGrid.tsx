@@ -475,7 +475,7 @@ function DroppableGrid({ id, children, isOver }: { id: string; children: React.R
 }
 
 export function AppGrid({
-  apps, folders, editing, selectedFolderId, gridColumns, gridRows,
+  apps, folders, editing, selectedFolderId, gridColumns, gridRows: _gridRows,
   currentSpaceId, spaces, spaceDirection, pendingNavigatePage, onNavigated, onPageChange, t,
   activeId, overContainer,
   onOpenFolder, onCloseFolder,
