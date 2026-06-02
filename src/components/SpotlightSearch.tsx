@@ -166,37 +166,44 @@ export function SpotlightSearch({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 backdrop-blur-md"
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       role="presentation"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <section
         role="dialog" aria-modal="true" aria-label="Spotlight search"
-        className="w-[min(44rem,calc(100vw-2rem))] max-h-[80vh] overflow-hidden rounded-[1.7rem] border border-white/10 bg-[#1c1c1e] shadow-[0_32px_90px_rgba(0,0,0,0.8)] flex flex-col"
+        className="w-[min(44rem,calc(100vw-2rem))] max-h-[80vh] overflow-hidden rounded-[1.7rem] flex flex-col"
+        style={{
+          background: 'rgba(255,255,255,0.82)',
+          backdropFilter: 'blur(48px) saturate(2)',
+          WebkitBackdropFilter: 'blur(48px) saturate(2)',
+          boxShadow: '0 32px 90px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.06)',
+        }}
       >
         {/* ── Input row ── */}
-        <div className="flex items-center gap-3 border-b border-white/8 bg-[#1c1c1e] px-5 py-4 shrink-0">
-          <Search className="h-5 w-5 shrink-0 text-white/40" />
+        <div className="flex items-center gap-3 px-5 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
+          <Search className="h-5 w-5 shrink-0 text-slate-400" />
           <input
             ref={inputRef} value={query}
             onChange={e => { setQuery(e.target.value); setCursor(-1); }}
             onKeyDown={onKeyDown}
             placeholder={t('searchPlaceholder')}
-            className="min-w-0 flex-1 bg-transparent text-lg font-bold tracking-[-0.04em] text-white placeholder:text-white/30 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-lg font-bold tracking-[-0.04em] text-slate-900 placeholder:text-slate-400 focus:outline-none"
           />
           {displayEngine && (
-            <span className="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-black text-white/60 ring-1 ring-white/10">
+            <span className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500 ring-1 ring-slate-200">
               {displayEngine.name}
             </span>
           )}
           <button type="button" onClick={onClose} aria-label={t('cancel')}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/60 transition duration-200 hover:bg-white/20">
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition duration-200 hover:bg-slate-200">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* ── Engine icon strip ── */}
-        <div className="border-b border-white/8 bg-[#2c2c2e] shrink-0" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+        <div className="shrink-0" style={{ borderBottom: '1px solid rgba(0,0,0,0.07)', background: 'rgba(248,248,250,0.7)', overflowX: 'auto', overflowY: 'visible' }}>
           <div className="flex items-center gap-1.5 px-5 pt-2.5 pb-8 min-w-max">
             {enabledEngines.map((eng) => {
               const isActive = eng.id === displayEngine?.id;
@@ -209,8 +216,8 @@ export function SpotlightSearch({
                   className={[
                     'group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition duration-150',
                     isActive
-                      ? 'bg-white/15 ring-2 ring-white/30 ring-offset-1 ring-offset-[#2c2c2e]'
-                      : 'bg-white/8 hover:bg-white/15',
+                      ? 'bg-white ring-2 ring-slate-300 ring-offset-1 ring-offset-[rgba(248,248,250,0.7)] shadow-sm'
+                      : 'bg-black/5 hover:bg-white hover:shadow-sm',
                   ].join(' ')}
                 >
                   <FaviconImg
@@ -220,12 +227,12 @@ export function SpotlightSearch({
                     size={18}
                     className="rounded-[3px]"
                   />
-                  <span className="pointer-events-none absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
+                  <span className="pointer-events-none absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800/90 px-2 py-0.5 text-[0.65rem] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
                     {eng.name}
                     {eng.shortcut && <span className="ml-1 opacity-60">/{eng.shortcut}</span>}
                   </span>
                   {isActive && (
-                    <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white/50" />
+                    <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-slate-400" />
                   )}
                 </button>
               );
@@ -238,13 +245,13 @@ export function SpotlightSearch({
 
           {showRecent && (
             <div>
-              <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('recentSearches')}</p>
+              <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('recentSearches')}</p>
               <div className="flex flex-wrap gap-2">
                 {recent.map((r, i) => (
                   <button key={i} type="button"
                     onClick={() => setQuery(r)}
-                    className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-sm font-semibold text-white/70 hover:bg-white/15 transition">
-                    <Clock className="h-3 w-3 text-white/30" />
+                    className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition">
+                    <Clock className="h-3 w-3 text-slate-400" />
                     {r}
                   </button>
                 ))}
@@ -252,13 +259,13 @@ export function SpotlightSearch({
             </div>
           )}
 
-          {/* App shortcuts — icon grid */}
+          {/* App shortcuts */}
           {normalized && (() => {
             const appItems = results.filter(r => r.kind === 'app') as { kind: 'app'; app: AppShortcut }[];
             if (!appItems.length) return null;
             return (
               <div>
-                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('appsAndShortcuts')}</p>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
                   {appItems.map((r) => {
                     const globalIdx = results.indexOf(r);
@@ -271,10 +278,10 @@ export function SpotlightSearch({
                         onMouseEnter={() => setCursor(globalIdx)}
                         className={[
                           'flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center transition duration-150 cursor-pointer',
-                          isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80',
+                          isActive ? 'bg-slate-100 text-slate-900' : 'hover:bg-slate-50 text-slate-700',
                         ].join(' ')}
                       >
-                        <div className="h-10 w-10 overflow-hidden rounded-xl bg-[#3a3a3c] flex items-center justify-center shrink-0">
+                        <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                           <FaviconImg
                             siteUrl={r.app.url}
                             customIcon={r.app.iconType === 'url' ? r.app.iconValue : undefined}
@@ -283,7 +290,7 @@ export function SpotlightSearch({
                             className="rounded-lg"
                           />
                         </div>
-                        <span className={['text-[0.65rem] font-black leading-tight line-clamp-2 w-full', isActive ? 'text-white' : 'text-white/60'].join(' ')}>
+                        <span className={['text-[0.65rem] font-black leading-tight line-clamp-2 w-full', isActive ? 'text-slate-700' : 'text-slate-500'].join(' ')}>
                           {r.app.name}
                         </span>
                       </a>
@@ -300,7 +307,7 @@ export function SpotlightSearch({
             if (!todoItems.length) return null;
             return (
               <div>
-                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('todo')}</p>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('todo')}</p>
                 <div className="grid gap-1">
                   {todoItems.map(r => {
                     const globalIdx = results.indexOf(r);
@@ -309,10 +316,10 @@ export function SpotlightSearch({
                       <div key={r.item.id} data-idx={globalIdx}
                         onMouseEnter={() => setCursor(globalIdx)}
                         onClick={() => activateItem(globalIdx)}
-                        className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
-                        <Hash className={['h-4 w-4 shrink-0', isActive ? 'text-white/60' : 'text-white/30'].join(' ')} />
+                        className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-slate-100 text-slate-900' : 'hover:bg-slate-50 text-slate-700'].join(' ')}>
+                        <Hash className={['h-4 w-4 shrink-0', isActive ? 'text-slate-400' : 'text-slate-300'].join(' ')} />
                         <span className="text-sm font-semibold">{r.item.text}</span>
-                        {isActive && <span className="ml-auto text-[0.6rem] opacity-60">Copy</span>}
+                        {isActive && <span className="ml-auto text-[0.6rem] text-slate-400">Copy</span>}
                       </div>
                     );
                   })}
@@ -327,7 +334,7 @@ export function SpotlightSearch({
             if (!noteItems.length) return null;
             return (
               <div>
-                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('quickNote')}</p>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('quickNote')}</p>
                 <div className="grid gap-1">
                   {noteItems.map(r => {
                     const globalIdx = results.indexOf(r);
@@ -336,13 +343,13 @@ export function SpotlightSearch({
                       <div key={r.tab.id} data-idx={globalIdx}
                         onMouseEnter={() => setCursor(globalIdx)}
                         onClick={() => activateItem(globalIdx)}
-                        className={['flex items-start gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
-                        <FileText className={['h-4 w-4 mt-0.5 shrink-0', isActive ? 'text-white/60' : 'text-white/30'].join(' ')} />
+                        className={['flex items-start gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-slate-100 text-slate-900' : 'hover:bg-slate-50 text-slate-700'].join(' ')}>
+                        <FileText className={['h-4 w-4 mt-0.5 shrink-0', isActive ? 'text-slate-400' : 'text-slate-300'].join(' ')} />
                         <span>
-                          <span className={['block text-xs font-black', isActive ? 'text-white/70' : 'text-white/40'].join(' ')}>{r.tab.name}</span>
+                          <span className={['block text-xs font-black', isActive ? 'text-slate-500' : 'text-slate-400'].join(' ')}>{r.tab.name}</span>
                           <span className="block text-sm font-semibold line-clamp-1">{r.snippet}</span>
                         </span>
-                        {isActive && <span className="ml-auto text-[0.6rem] opacity-60 shrink-0 mt-0.5">Copy</span>}
+                        {isActive && <span className="ml-auto text-[0.6rem] text-slate-400 shrink-0 mt-0.5">Copy</span>}
                       </div>
                     );
                   })}
@@ -357,7 +364,7 @@ export function SpotlightSearch({
             if (!promptItems.length) return null;
             return (
               <div>
-                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('prompts')}</p>
+                <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('prompts')}</p>
                 <div className="grid gap-1">
                   {promptItems.map(r => {
                     const globalIdx = results.indexOf(r);
@@ -366,13 +373,13 @@ export function SpotlightSearch({
                       <div key={r.prompt.id} data-idx={globalIdx}
                         onMouseEnter={() => setCursor(globalIdx)}
                         onClick={() => activateItem(globalIdx)}
-                        className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-white/15 text-white' : 'hover:bg-white/8 text-white/80'].join(' ')}>
-                        <span className={['text-base shrink-0', isActive ? 'opacity-80' : 'opacity-50'].join(' ')}>\u2726</span>
+                        className={['flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition', isActive ? 'bg-slate-100 text-slate-900' : 'hover:bg-slate-50 text-slate-700'].join(' ')}>
+                        <span className={['text-base shrink-0', isActive ? 'opacity-70' : 'opacity-40'].join(' ')}>\u2726</span>
                         <span>
                           <span className="block text-sm font-black">{r.prompt.title}</span>
-                          <span className={['block text-xs line-clamp-1', isActive ? 'text-white/60' : 'text-white/40'].join(' ')}>{r.prompt.content.slice(0, 60)}\u2026</span>
+                          <span className={['block text-xs line-clamp-1', isActive ? 'text-slate-500' : 'text-slate-400'].join(' ')}>{r.prompt.content.slice(0, 60)}\u2026</span>
                         </span>
-                        {isActive && <span className="ml-auto text-[0.6rem] opacity-60 shrink-0">Copy</span>}
+                        {isActive && <span className="ml-auto text-[0.6rem] text-slate-400 shrink-0">Copy</span>}
                       </div>
                     );
                   })}
@@ -389,31 +396,31 @@ export function SpotlightSearch({
               <button type="button" data-idx={searchIdx}
                 onMouseEnter={() => setCursor(searchIdx)}
                 onClick={submitSearch}
-                className={['flex items-center justify-between rounded-xl px-3 py-3 text-left transition duration-200', isActive ? 'bg-white/15 text-white' : 'bg-white/8 text-white/80 hover:bg-white/12'].join(' ')}>
+                className={['flex items-center justify-between rounded-xl px-3 py-3 text-left transition duration-200', isActive ? 'bg-slate-100 text-slate-900' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'].join(' ')}>
                 <span className="flex items-center gap-3">
-                  <Globe2 className="h-5 w-5" />
+                  <Globe2 className="h-5 w-5 text-slate-500" />
                   <span>
                     <span className="block text-sm font-black">{t('searchWith').replace('{engine}', displayEngine?.name ?? '')}</span>
-                    <span className={['block text-xs font-semibold', isActive ? 'text-white/60' : 'text-white/40'].join(' ')}>{cleanQuery}</span>
+                    <span className={['block text-xs font-semibold', isActive ? 'text-slate-500' : 'text-slate-400'].join(' ')}>{cleanQuery}</span>
                   </span>
                 </span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 text-slate-400" />
               </button>
             );
           })()}
 
           {normalized && results.length === 0 && !hasSearch && (
-            <p className="py-6 text-center text-sm font-semibold text-white/30">{t('noResults')}</p>
+            <p className="py-6 text-center text-sm font-semibold text-slate-400">{t('noResults')}</p>
           )}
 
           {!normalized && (
             <div>
-              <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-white/30">{t('appsAndShortcuts')}</p>
+              <p className="px-2 pb-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('appsAndShortcuts')}</p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
                 {apps.slice(0, 12).map(app => (
                   <a key={app.id} href={app.url} onClick={onClose}
-                    className="flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center hover:bg-white/8 transition cursor-pointer">
-                    <div className="h-10 w-10 overflow-hidden rounded-xl bg-[#3a3a3c] flex items-center justify-center">
+                    className="flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center hover:bg-slate-50 transition cursor-pointer">
+                    <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100 flex items-center justify-center">
                       <FaviconImg
                         siteUrl={app.url}
                         customIcon={app.iconType === 'url' ? app.iconValue : undefined}
@@ -422,7 +429,7 @@ export function SpotlightSearch({
                         className="rounded-lg"
                       />
                     </div>
-                    <span className="text-[0.65rem] font-black leading-tight line-clamp-2 w-full text-white/60">{app.name}</span>
+                    <span className="text-[0.65rem] font-black leading-tight line-clamp-2 w-full text-slate-500">{app.name}</span>
                   </a>
                 ))}
               </div>
