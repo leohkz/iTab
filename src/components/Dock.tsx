@@ -114,7 +114,6 @@ function SortableDockItem({
     position: 'relative',
     touchAction: 'none',
     flexShrink: 0,
-    // Allow icon to visually overflow the glass pill
     overflow: 'visible',
     zIndex: 1,
   };
@@ -123,7 +122,6 @@ function SortableDockItem({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: '100%', height: '100%',
     borderRadius: wrapRadius,
-    // No overflow:hidden so magnified icon bleeds outside glass
     isolation: 'isolate',
   };
 
@@ -177,9 +175,8 @@ function SortableDockItem({
   );
 }
 
-function DroppableDock({ children, isOver, onMouseMove, onMouseLeave }: {
+function DroppableDock({ children, onMouseMove, onMouseLeave }: {
   children: React.ReactNode;
-  isOver: boolean;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
 }) {
@@ -190,11 +187,7 @@ function DroppableDock({ children, isOver, onMouseMove, onMouseLeave }: {
   return (
     <ul
       ref={setNodeRef}
-      className={[
-        // overflow-visible so magnified icons bleed upward
-        'relative flex items-end gap-3 px-5 py-3 transition-all duration-200 overflow-visible',
-        isOver ? 'scale-[1.03]' : '',
-      ].join(' ')}
+      className="relative flex items-end gap-3 px-5 py-3 overflow-visible"
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
     >
@@ -225,7 +218,6 @@ export function Dock({
 
   return (
     <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2"
-      // overflow-visible so magnified icons are not clipped at the wrapper level
       style={{ overflow: 'visible' }}
     >
       {/* Glass pill — overflow:visible so icons can bleed upward */}
@@ -235,7 +227,6 @@ export function Dock({
       >
         <SortableContext items={pinnedIds} strategy={horizontalListSortingStrategy}>
           <DroppableDock
-            isOver={isDockOver}
             onMouseMove={(e) => setMouseX(e.clientX)}
             onMouseLeave={() => setMouseX(null)}
           >
