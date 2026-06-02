@@ -12,6 +12,7 @@ import {
   type DragOverEvent,
   type CollisionDetection,
 } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { BookMarked } from 'lucide-react';
 import { AppGrid, FOLDER_DROP_PREFIX } from './components/AppGrid';
 import { Dock } from './components/Dock';
@@ -397,11 +398,13 @@ function NewTab() {
     notify('Pinned to Dock');
   };
 
-  const reorderPinnedApp = (draggedId: string, targetIndex: number) => {
-    const ids = config.pinnedIds.filter((id) => id !== draggedId);
-    const clamped = Math.max(0, Math.min(targetIndex, ids.length));
-    ids.splice(clamped, 0, draggedId);
-    updateConfig({ ...config, pinnedIds: ids });
+  // Use arrayMove to avoid index-offset bug when draggedId precedes overId
+  const reorderPinnedApp = (draggedId: string, overId: string) => {
+    const ids = config.pinnedIds;
+    const fromIndex = ids.indexOf(draggedId);
+    const toIndex = ids.indexOf(overId);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+    updateConfig({ ...config, pinnedIds: arrayMove(ids, fromIndex, toIndex) });
   };
 
   const reorderItems = (draggedId: string, targetId: string) => {
@@ -451,7 +454,6 @@ function NewTab() {
 
   const moveToFolder = (appId: string, folderId: string) => {
     if (!config.apps.some((app) => app.id === appId)) return;
-    // Bug 2 fix: folder 內的 app 不需要 pageIndex（設為 undefined），避免與主 grid 排序衝突
     updateConfig({ ...config, apps: config.apps.map((app) =>
       app.id === appId ? { ...app, folderId, pageIndex: undefined } : app,
     ) });
@@ -459,7 +461,6 @@ function NewTab() {
   };
 
   const moveOutOfFolder = (appId: string) => {
-    // Bug 1 fix: 移出 folder 時重新分配 pageIndex 到主 grid
     const app = config.apps.find((a) => a.id === appId);
     if (!app) return;
     const capacity = config.gridColumns * config.gridRows;
@@ -618,7 +619,6 @@ function NewTab() {
 
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
 
-    // Bug 1 fix: 從 folder 內拖出到主 grid
     if (
       typeof fromContainer === 'string' &&
       fromContainer.startsWith(FOLDER_DROP_PREFIX) &&
@@ -645,14 +645,13 @@ function NewTab() {
 
     if (toContainer === DOCK_CONTAINER_ID) {
       if (!isDraggedPinned) {
-        if (overId === DOCK_CONTAINER_ID) {
-          pinApp(draggedId);
-        } else {
-          const targetIdx = config.pinnedIds.indexOf(overId);
-          const insertAt = targetIdx >= 0 ? targetIdx : config.pinnedIds.length;
-          pinApp(draggedId);
-          setTimeout(() => reorderPinnedApp(draggedId, insertAt), 0);
+        pinApp(draggedId);
+        if (overId !== DOCK_CONTAINER_ID) {
+          setTimeout(() => reorderPinnedApp(draggedId, overId), 0);
         }
+      } else if (draggedId !== overId && overId !== DOCK_CONTAINER_ID) {
+        // Dock 內重排: 直接用 overId 做目標
+        reorderPinnedApp(draggedId, overId);
       }
       return;
     }
@@ -662,14 +661,6 @@ function NewTab() {
         reorderItems(draggedId, overId);
       } else {
         moveAppToEnd(draggedId);
-      }
-      return;
-    }
-
-    if (fromContainer === DOCK_CONTAINER_ID && toContainer === DOCK_CONTAINER_ID) {
-      if (draggedId !== overId) {
-        const targetIdx = config.pinnedIds.indexOf(overId);
-        if (targetIdx >= 0) reorderPinnedApp(draggedId, targetIdx);
       }
       return;
     }

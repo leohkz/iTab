@@ -21,7 +21,7 @@ type DockProps = {
   onDropApp: (appId: string) => void;
   onUnpinApp: (appId: string) => void;
   onRenameApp: (appId: string) => void;
-  onReorderPinned: (draggedId: string, targetIndex: number) => void;
+  onReorderPinned: (draggedId: string, overId: string) => void;
   [key: string]: unknown;
 };
 
@@ -144,7 +144,8 @@ function SortableDockItem({
       style={style}
       className="app"
       data-testid={`dock-pinned-${app.id}`}
-      {...(editing ? { ...attributes, ...listeners } : {})}
+      {...attributes}
+      {...listeners}
     >
       {editing ? (
         <span className="app-link animate-jiggle" aria-label={app.name}
@@ -166,7 +167,6 @@ function SortableDockItem({
       ) : (
         <a href={app.url} target="_blank" rel="noreferrer" aria-label={`Open ${app.name}`}
           style={{ display: 'flex', width: '100%', height: '100%' }}
-          {...attributes} {...listeners}
         >
           <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
         </a>
