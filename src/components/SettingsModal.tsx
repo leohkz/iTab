@@ -232,8 +232,8 @@ function CloudSyncPanel({ config, t, onConfigChange, onAction }: {
   };
 
   const handleAutoSyncChange = async (val: boolean) => { setAutoSync(val); await saveIds(gistId, val); };
-  const statusIsError = status?.startsWith('\u274c') || status?.startsWith(t('gistError').slice(0, 4)) || status?.startsWith(t('gistLoginFailed').slice(0, 4));
-  const statusIsOk    = status?.startsWith('\u2705');
+  const statusIsError = status?.startsWith('❌') || status?.startsWith(t('gistError').slice(0, 4)) || status?.startsWith(t('gistLoginFailed').slice(0, 4));
+  const statusIsOk    = status?.startsWith('✅');
 
   return (
     <div className="grid gap-4">
@@ -321,7 +321,7 @@ function CloudSyncPanel({ config, t, onConfigChange, onAction }: {
   );
 }
 
-// ── Search Engine Row with inline icon editor ────────────────────────────────────────────
+// ── Search Engine Row with inline icon editor ──────────────────────────────────────────
 function EngineRow({ engine, t, onUpdate, onDelete }: {
   engine: SearchEngine;
   t: (k: TranslationKey) => string;
@@ -625,8 +625,8 @@ export function SettingsModal({
                   onSizeChange={(size: AiPortalSize) => onConfigChange({ ...config, aiPortalSize: size })}
                 />
                 <div className="rounded-2xl bg-white p-4 shadow-sm">
-                  <h4 className="font-black">📱 Popup 捕捳來源</h4>
-                  <p className="mb-3 mt-1 text-sm font-semibold text-slate-600">Popup 的 AI 頁面額外顯示哪個區域的捕捳</p>
+                  <h4 className="font-black">📱 Popup 捕捧來源</h4>
+                  <p className="mb-3 mt-1 text-sm font-semibold text-slate-600">Popup 的 AI 頁面額外顯示哪個區域的捕捧</p>
                   <select
                     value={config.popupShortcutSource ?? 'ai'}
                     onChange={(e) => onConfigChange({ ...config, popupShortcutSource: e.target.value as AppConfig['popupShortcutSource'] })}
