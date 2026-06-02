@@ -135,7 +135,7 @@ function nextAvailablePage(
 export const GRID_CONTAINER_ID = 'app-grid';
 export const DOCK_CONTAINER_ID = 'dock';
 
-// ── iOS-style collision detection ────────────────────────────────────────
+// ── iOS-style collision detection ────────────────────────────────────────────
 const iosFolderCollision: CollisionDetection = (args) => {
   const { droppableContainers, active, pointerCoordinates } = args;
   if (!pointerCoordinates) return closestCenter(args);
@@ -451,6 +451,7 @@ function NewTab() {
 
   const moveToFolder = (appId: string, folderId: string) => {
     if (!config.apps.some((app) => app.id === appId)) return;
+    // Bug 2 fix: folder 內的 app 不需要 pageIndex（設為 undefined），避免與主 grid 排序衝突
     updateConfig({ ...config, apps: config.apps.map((app) =>
       app.id === appId ? { ...app, folderId, pageIndex: undefined } : app,
     ) });
@@ -458,6 +459,7 @@ function NewTab() {
   };
 
   const moveOutOfFolder = (appId: string) => {
+    // Bug 1 fix: 移出 folder 時重新分配 pageIndex 到主 grid
     const app = config.apps.find((a) => a.id === appId);
     if (!app) return;
     const capacity = config.gridColumns * config.gridRows;
@@ -537,11 +539,8 @@ function NewTab() {
     notify(t('resetDefaults'));
   };
 
-  const isDark = config.theme === 'dark';
-
-  const themeClass = isDark
-    ? 'bg-[#0a0a0a]'
-    : config.theme === 'slate'
+  const themeClass =
+    config.theme === 'slate'
       ? 'bg-[radial-gradient(circle_at_18%_18%,rgba(148,163,184,0.75),transparent_23%),linear-gradient(135deg,#111827_0%,#334155_52%,#64748b_100%)]'
       : config.theme === 'ventura'
         ? 'bg-[radial-gradient(circle_at_18%_18%,rgba(255,244,187,0.75),transparent_23%),linear-gradient(135deg,#1a8fb7_0%,#71b8d5_45%,#fed7aa_100%)]'
@@ -593,7 +592,7 @@ function NewTab() {
     if (isPinned) notify('Moved to Home Screen');
   };
 
-  // ── dnd-kit handlers ───────────────────────────────────────────────────
+  // ── dnd-kit handlers ─────────────────────────────────────────────────────────────────────
   const handleDragStart = ({ active }: DragStartEvent) => {
     setActiveId(active.id as string);
     setOverContainer(active.data.current?.container ?? null);
@@ -619,6 +618,7 @@ function NewTab() {
 
     const isDraggedPinned = config.pinnedIds.includes(draggedId);
 
+    // Bug 1 fix: 從 folder 內拖出到主 grid
     if (
       typeof fromContainer === 'string' &&
       fromContainer.startsWith(FOLDER_DROP_PREFIX) &&
@@ -717,12 +717,8 @@ function NewTab() {
     >
       <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
         <div data-anim="bg" className={`absolute inset-0 ${themeClass}`} aria-hidden="true" />
-        {!isDark && (
-          <>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
-            <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
-          </>
-        )}
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.38))]" aria-hidden="true" />
+        <div className="absolute inset-0 opacity-[0.18] mix-blend-soft-light [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" aria-hidden="true" />
 
         {activeId && totalPages > 1 && (
           <>
@@ -765,8 +761,8 @@ function NewTab() {
           onSettingsClick={() => setSettingsOpen(true)}
           onToggleEditing={() => setEditing((v) => !v)}
           onToggleTheme={() => {
-            const themes = ['sonoma', 'ventura', 'slate', 'dark'] as const;
-            const index = themes.indexOf(config.theme as typeof themes[number]);
+            const themes = ['sonoma', 'ventura', 'slate'] as const;
+            const index = themes.indexOf(config.theme as 'sonoma' | 'ventura' | 'slate');
             updateConfig({ ...config, theme: themes[(index + 1) % themes.length] });
           }}
           onWidgetsChange={handleWidgetsChange}
