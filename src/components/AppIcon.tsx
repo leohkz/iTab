@@ -4,28 +4,32 @@ import { getFaviconUrl, getInitials } from '../lib/favicon';
 
 type AppIconProps = {
   app: AppShortcut;
-  size?: 'grid' | 'dock' | 'mini';
+  size?: 'grid' | 'dock' | 'mini' | 'folder';
 };
 
-// grid: 72px × 30% ≈ 21.6px → rounded-[1.35rem]
-// dock: 52px × 30% ≈ 16px  → rounded-[16px]  (fixed so it looks correct at base size)
-// mini: 24px × 30% ≈ 7px   → rounded-[0.48rem]
+// grid:   72px × 30% ≈ 21.6px → rounded-[1.35rem]
+// dock:   52px × 30% ≈ 16px  → rounded-[16px]
+// mini:   24px × 30% ≈ 7px   → rounded-[0.48rem]
+// folder: 20px (inside folder preview grid) → rounded-[0.38rem]
 const sizeClasses = {
-  grid: 'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
-  dock: 'h-full w-full rounded-[16px]',
-  mini: 'h-6 w-6 rounded-[0.48rem]',
+  grid:   'h-[4.5rem] w-[4.5rem] rounded-[1.35rem]',
+  dock:   'h-full w-full rounded-[16px]',
+  mini:   'h-6 w-6 rounded-[0.48rem]',
+  folder: 'h-5 w-5 rounded-[0.38rem]',
 };
 
 const monogramSizes = {
-  grid: 'text-xl',
-  dock: 'text-sm',
-  mini: 'text-[0.62rem]',
+  grid:   'text-xl',
+  dock:   'text-sm',
+  mini:   'text-[0.62rem]',
+  folder: 'text-[0.55rem]',
 };
 
 const faviconSizes = {
-  grid: 'h-[62%] w-[62%]',
-  dock: 'h-[60%] w-[60%]',
-  mini: 'h-[70%] w-[70%]',
+  grid:   'h-[62%] w-[62%]',
+  dock:   'h-[60%] w-[60%]',
+  mini:   'h-[70%] w-[70%]',
+  folder: 'h-[70%] w-[70%]',
 };
 
 function autoAccent(input: string) {
