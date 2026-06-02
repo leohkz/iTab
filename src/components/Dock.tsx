@@ -10,9 +10,9 @@ import { DOCK_CONTAINER_ID } from '../App';
 const BASE = 52;
 const MAX  = 82;
 const SPREAD = 130;
-const GAP = 12;    // gap-3
-const PAD_X = 20; // px-5
-const PAD_Y = 12; // py-3
+const GAP = 12;
+const PAD_X = 20;
+const PAD_Y = 12;
 
 type DockProps = {
   pinnedApps: AppShortcut[];
@@ -77,7 +77,8 @@ function useDockSizes(count: number, editing: boolean) {
     : itemRefs.current.map((el) => {
         if (!el) return BASE;
         const rect = el.getBoundingClientRect();
-        const center = rect.left + rect.width / 2;
+        // Use centre of the fixed BASE slot, not current size
+        const center = rect.left + BASE / 2;
         const dist = Math.abs(mouseX - center);
         if (dist >= SPREAD) return BASE;
         const t = 1 - dist / SPREAD;
@@ -102,30 +103,36 @@ function SortableDockItem({
     data: { container: DOCK_CONTAINER_ID },
   });
 
-  const marginTop = BASE - size;
   const bSize = badgeSize(size);
-  const offset = Math.round(bSize * -0.28);
+  const badgeOffset = Math.round(bSize * -0.28);
   const wrapRadius = Math.round(size * 0.3);
 
-  const style: React.CSSProperties = {
-    width: size,
-    height: size,
-    marginTop,
+  // <li> slot is always BASE×BASE — pill width never changes
+  const liStyle: React.CSSProperties = {
+    position: 'relative',
+    width: BASE,
+    height: BASE,
+    flexShrink: 0,
+    touchAction: 'none',
     opacity: isDragging ? 0.3 : 1,
     transform: CSS.Transform.toString(transform),
-    transition: transition ?? 'width 0.12s ease, height 0.12s ease, margin-top 0.12s ease',
-    position: 'relative',
-    touchAction: 'none',
-    flexShrink: 0,
-    overflow: 'visible',
+    transition: transition ?? undefined,
     zIndex: size > BASE ? 10 : 1,
+    overflow: 'visible',
   };
 
-  const iconWrapper: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: '100%', height: '100%',
+  // The visible icon: centred on the BASE slot, grows upward from bottom
+  const iconStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: 0,
+    left: '50%',
+    transform: `translateX(-50%)`,
+    width: size,
+    height: size,
     borderRadius: wrapRadius,
-    overflow: 'hidden', isolation: 'isolate',
+    overflow: 'hidden',
+    isolation: 'isolate',
+    transition: 'width 0.12s ease, height 0.12s ease, border-radius 0.12s ease',
   };
 
   const badgeBase: React.CSSProperties = {
@@ -139,39 +146,57 @@ function SortableDockItem({
     WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
     boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8)',
     border: '1px solid rgba(255,255,255,0.6)',
+    transition: 'width 0.12s ease, height 0.12s ease',
   };
 
-  return (
-    <li
-      ref={(el) => { setNodeRef(el); liRef(el); }}
-      style={style}
-      className="app"
-      data-testid={`dock-pinned-${app.id}`}
-      {...(editing ? { ...attributes, ...listeners } : {})}
-    >
-      {editing ? (
-        <span className="app-link animate-jiggle" aria-label={app.name}
-          style={{ display: 'block', width: '100%', height: '100%', position: 'relative' }}>
-          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+  const innerContent = (
+    <>
+      <span style={iconStyle}>
+        <AppIcon app={app} size="dock" />
+      </span>
+      {editing && (
+        <>
           <button type="button" aria-label={`Remove ${app.name} from dock`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
-            style={{ ...badgeBase, top: offset, left: offset }}
+            style={{ ...badgeBase, top: badgeOffset, left: badgeOffset }}
           >
             <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
           </button>
           <button type="button" aria-label={`Edit ${app.name}`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-            style={{ ...badgeBase, top: offset, right: offset }}
+            style={{ ...badgeBase, top: badgeOffset, right: badgeOffset }}
           >
             <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
           </button>
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <li
+      ref={(el) => { setNodeRef(el); liRef(el); }}
+      style={liStyle}
+      className="app"
+      data-testid={`dock-pinned-${app.id}`}
+      {...(editing ? { ...attributes, ...listeners } : {})}
+    >
+      {editing ? (
+        <span
+          className="animate-jiggle"
+          aria-label={app.name}
+          style={{ position: 'absolute', inset: 0 }}
+        >
+          {innerContent}
         </span>
       ) : (
-        <a href={app.url} target="_blank" rel="noreferrer" aria-label={`Open ${app.name}`}
-          style={{ display: 'flex', width: '100%', height: '100%' }}
+        <a
+          href={app.url} target="_blank" rel="noreferrer"
+          aria-label={`Open ${app.name}`}
+          style={{ position: 'absolute', inset: 0 }}
           {...attributes} {...listeners}
         >
-          <span style={iconWrapper}><AppIcon app={app} size="dock" /></span>
+          {innerContent}
         </a>
       )}
     </li>
@@ -189,12 +214,10 @@ function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
     data: { container: DOCK_CONTAINER_ID },
   });
 
-  // Pill is sized to BASE icons only — magnified icons overflow upward via overflow:visible
   const pillW = count * BASE + Math.max(0, count - 1) * GAP + PAD_X * 2;
   const pillH = BASE + PAD_Y * 2;
 
   return (
-    // Outer div holds the fixed pill dimensions — never resizes
     <div style={{ width: pillW, height: pillH, position: 'relative' }}>
       <ul
         ref={setNodeRef}
@@ -244,7 +267,6 @@ export function Dock({
       className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2"
       style={{ overflow: 'visible' }}
     >
-      {/* Glass pill: fixed size, icons bleed upward via overflow:visible */}
       <div
         className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
         style={{ ...dockBg, overflow: 'visible', display: 'inline-block' }}
