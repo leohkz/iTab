@@ -1,5 +1,5 @@
 import { Minus, Pencil } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -7,12 +7,12 @@ import { AppIcon } from './AppIcon';
 import type { AppShortcut } from '../types';
 import { DOCK_CONTAINER_ID } from '../App';
 
+// Base icon size (px)
 const BASE = 52;
-const MAX  = 82;
-const SPREAD = 130;
-const GAP = 12;
-const PILL_PX = 40;
-const PILL_PY = 24;
+// Max magnified size (px)
+const MAX = 80;
+// Mouse influence radius (px)
+const SPREAD = 120;
 
 type DockProps = {
   pinnedApps: AppShortcut[];
@@ -28,7 +28,8 @@ type DockProps = {
   [key: string]: unknown;
 };
 
-function badgeSize(iconSize: number) {
+function badgeSize(scale: number) {
+  const iconSize = BASE * scale;
   return Math.max(18, Math.round(iconSize * 0.28));
 }
 
@@ -68,38 +69,32 @@ function DockDeleteConfirm({ name, onConfirm, onCancel }: {
   );
 }
 
-function useDockSizes(count: number, editing: boolean) {
+// Returns scale factor 1.0 ~ (MAX/BASE) based on mouse distance
+function useIconScales(count: number, editing: boolean) {
   const [mouseX, setMouseX] = useState<number | null>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
-  const [sizes, setSizes] = useState<number[]>(() => Array(count).fill(BASE));
 
-  useLayoutEffect(() => {
-    if (editing || mouseX === null) {
-      setSizes(Array(count).fill(BASE));
-      return;
-    }
-    setSizes(
-      itemRefs.current.map((el) => {
-        if (!el) return BASE;
+  const scales: number[] = editing || mouseX === null
+    ? Array(count).fill(1)
+    : itemRefs.current.map((el) => {
+        if (!el) return 1;
         const rect = el.getBoundingClientRect();
         const center = rect.left + rect.width / 2;
         const dist = Math.abs(mouseX - center);
-        if (dist >= SPREAD) return BASE;
+        if (dist >= SPREAD) return 1;
         const t = 1 - dist / SPREAD;
-        return Math.round(BASE + (MAX - BASE) * t * t);
-      })
-    );
-  }, [mouseX, editing, count]);
+        return 1 + (MAX / BASE - 1) * t * t;
+      });
 
-  return { sizes, itemRefs, setMouseX };
+  return { scales, itemRefs, setMouseX };
 }
 
 function SortableDockItem({
-  app, editing, size, liRef, onConfirmDelete, onRename,
+  app, editing, scale, liRef, onConfirmDelete, onRename,
 }: {
   app: AppShortcut;
   editing: boolean;
-  size: number;
+  scale: number;        // 1.0 = BASE, (MAX/BASE) = fully magnified
   liRef: (el: HTMLLIElement | null) => void;
   onConfirmDelete: () => void;
   onRename: () => void;
@@ -109,37 +104,40 @@ function SortableDockItem({
     data: { container: DOCK_CONTAINER_ID },
   });
 
-  const marginTop = BASE - size;
-  const bSize = badgeSize(size);
-  const offset = Math.round(bSize * -0.28);
+  // How many px the icon grows upward
+  const growth = (scale - 1) * BASE;
+  const bSize = badgeSize(scale);
+  const badgeOffset = Math.round(bSize * -0.3);
+  const borderRadius = Math.round(BASE * scale * 0.22);
 
-  const style: React.CSSProperties = {
+  // <li> is always BASE×BASE — pill never resizes
+  // The icon uses CSS transform: scale + translateY to grow upward from bottom
+  const liStyle: React.CSSProperties = {
     width: BASE,
     height: BASE,
-    marginTop: 0,
     flexShrink: 0,
     position: 'relative',
     touchAction: 'none',
-    overflow: 'visible',
     opacity: isDragging ? 0.3 : 1,
     transform: CSS.Transform.toString(transform),
     transition: transition ?? undefined,
-    zIndex: 1,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    zIndex: scale > 1 ? 10 : 1,
+    overflow: 'visible',
   };
 
-  const iconWrapper: React.CSSProperties = {
-    width: size,
-    height: size,
-    flexShrink: 0,
-    borderRadius: Math.round(size * 0.3),
+  const iconStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: 0,
+    left: '50%',
+    width: BASE,
+    height: BASE,
+    borderRadius,
     overflow: 'hidden',
+    // scale from bottom-centre, translate up so icon grows upward
+    transform: `translateX(-50%) scale(${scale}) translateY(${-growth / 2 / scale}px)`,
+    transformOrigin: 'bottom center',
+    transition: 'transform 0.12s cubic-bezier(0.34,1.3,0.64,1), border-radius 0.12s ease',
     isolation: 'isolate',
-    transition: 'width 0.12s ease, height 0.12s ease',
-    marginBottom: marginTop,
-    position: 'relative',
   };
 
   const badgeBase: React.CSSProperties = {
@@ -153,34 +151,35 @@ function SortableDockItem({
     WebkitBackdropFilter: 'blur(12px) saturate(1.6)',
     boxShadow: '0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8)',
     border: '1px solid rgba(255,255,255,0.6)',
+    transition: 'width 0.12s ease, height 0.12s ease',
   };
 
   return (
     <li
       ref={(el) => { setNodeRef(el); liRef(el); }}
-      style={style}
+      style={liStyle}
       className="app"
       data-testid={`dock-pinned-${app.id}`}
       {...(editing ? { ...attributes, ...listeners } : {})}
     >
       {editing ? (
         <span
-          className="app-link animate-jiggle"
+          className="animate-jiggle"
           aria-label={app.name}
-          style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: '100%', position: 'relative' }}
+          style={{ position: 'absolute', inset: 0 }}
         >
-          <span style={iconWrapper}>
+          <span style={iconStyle}>
             <AppIcon app={app} size="dock" />
           </span>
           <button type="button" aria-label={`Remove ${app.name} from dock`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(); }}
-            style={{ ...badgeBase, top: offset, left: offset }}
+            style={{ ...badgeBase, top: badgeOffset, left: badgeOffset }}
           >
             <Minus style={{ width: bSize * 0.48, height: bSize * 0.48, color: '#ef4444', strokeWidth: 3 }} />
           </button>
           <button type="button" aria-label={`Edit ${app.name}`}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRename(); }}
-            style={{ ...badgeBase, top: offset, right: offset }}
+            style={{ ...badgeBase, top: badgeOffset, right: badgeOffset }}
           >
             <Pencil style={{ width: bSize * 0.44, height: bSize * 0.44, color: '#334155', strokeWidth: 2 }} />
           </button>
@@ -189,10 +188,10 @@ function SortableDockItem({
         <a
           href={app.url} target="_blank" rel="noreferrer"
           aria-label={`Open ${app.name}`}
-          style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: '100%' }}
+          style={{ position: 'absolute', inset: 0 }}
           {...attributes} {...listeners}
         >
-          <span style={iconWrapper}>
+          <span style={iconStyle}>
             <AppIcon app={app} size="dock" />
           </span>
         </a>
@@ -201,9 +200,8 @@ function SortableDockItem({
   );
 }
 
-function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
+function DroppableDock({ children, onMouseMove, onMouseLeave }: {
   children: React.ReactNode;
-  count: number;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
 }) {
@@ -211,24 +209,12 @@ function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
     id: DOCK_CONTAINER_ID,
     data: { container: DOCK_CONTAINER_ID },
   });
-
-  const fixedWidth = count * BASE + Math.max(0, count - 1) * GAP;
-
   return (
     <ul
       ref={setNodeRef}
-      style={{
-        width: fixedWidth,
-        height: BASE + PILL_PY,
-        padding: `${PILL_PY / 2}px ${PILL_PX / 2}px`,
-        display: 'flex',
-        alignItems: 'flex-end',
-        gap: GAP,
-        overflow: 'visible',
-        listStyle: 'none',
-        margin: 0,
-        boxSizing: 'content-box',
-      }}
+      // overflow-visible lets magnified icons bleed upward outside the pill
+      className="flex items-end gap-3 px-4 py-3 overflow-visible"
+      style={{ listStyle: 'none', margin: 0 }}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
     >
@@ -243,7 +229,7 @@ export function Dock({
   onDropApp: _onDropApp, onUnpinApp, onRenameApp, onReorderPinned: _onReorderPinned,
 }: DockProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const { sizes, itemRefs, setMouseX } = useDockSizes(pinnedApps.length, editing);
+  const { scales, itemRefs, setMouseX } = useIconScales(pinnedApps.length, editing);
 
   const alpha = Math.min(0.45, Math.max(0.10, glass / 250));
   const blur  = Math.round(6 + glass / 10);
@@ -258,14 +244,17 @@ export function Dock({
   const pinnedIds = pinnedApps.map((a) => a.id);
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2" style={{ overflow: 'visible' }}>
+    <div
+      className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2"
+      style={{ overflow: 'visible' }}
+    >
+      {/* Glass pill — never resizes, icons overflow upward */}
       <div
         className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
-        style={{ ...dockBg, overflow: 'visible', display: 'inline-block' }}
+        style={{ ...dockBg, overflow: 'visible' }}
       >
         <SortableContext items={pinnedIds} strategy={horizontalListSortingStrategy}>
           <DroppableDock
-            count={pinnedApps.length}
             onMouseMove={(e) => setMouseX(e.clientX)}
             onMouseLeave={() => setMouseX(null)}
           >
@@ -274,7 +263,7 @@ export function Dock({
                 key={app.id}
                 app={app}
                 editing={editing}
-                size={sizes[i] ?? BASE}
+                scale={scales[i] ?? 1}
                 liRef={(el) => { itemRefs.current[i] = el; }}
                 onConfirmDelete={() => setConfirmDeleteId(app.id)}
                 onRename={() => onRenameApp(app.id)}
