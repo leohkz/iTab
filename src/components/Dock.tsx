@@ -10,11 +10,8 @@ import { DOCK_CONTAINER_ID } from '../App';
 const BASE = 52;
 const MAX  = 82;
 const SPREAD = 130;
-// gap between items in px (matches gap-3 = 12px)
 const GAP = 12;
-// pill padding left+right (matches px-5 = 20px each side)
 const PILL_PX = 40;
-// pill padding top+bottom (matches py-3 = 12px each side)
 const PILL_PY = 24;
 
 type DockProps = {
@@ -115,10 +112,8 @@ function SortableDockItem({
   const marginTop = BASE - size;
   const bSize = badgeSize(size);
   const offset = Math.round(bSize * -0.28);
-  const wrapRadius = Math.round(size * 0.3);
 
   const style: React.CSSProperties = {
-    // Always BASE wide so pill never resizes; visual size comes from inner iconWrapper
     width: BASE,
     height: BASE,
     marginTop: 0,
@@ -130,13 +125,11 @@ function SortableDockItem({
     transform: CSS.Transform.toString(transform),
     transition: transition ?? undefined,
     zIndex: 1,
-    // Centre children so magnified icon grows upward from centre
     display: 'flex',
     alignItems: 'flex-end',
     justifyContent: 'center',
   };
 
-  // The actual visible icon — grows upward, centred on BASE slot
   const iconWrapper: React.CSSProperties = {
     width: size,
     height: size,
@@ -145,7 +138,7 @@ function SortableDockItem({
     overflow: 'hidden',
     isolation: 'isolate',
     transition: 'width 0.12s ease, height 0.12s ease',
-    marginBottom: marginTop, // push icon up as it grows
+    marginBottom: marginTop,
     position: 'relative',
   };
 
@@ -219,8 +212,6 @@ function DroppableDock({ children, count, onMouseMove, onMouseLeave }: {
     data: { container: DOCK_CONTAINER_ID },
   });
 
-  // Fixed pixel width = BASE * count + GAP * (count-1)
-  // This never changes regardless of hover magnification
   const fixedWidth = count * BASE + Math.max(0, count - 1) * GAP;
 
   return (
@@ -268,8 +259,6 @@ export function Dock({
 
   return (
     <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2" style={{ overflow: 'visible' }}>
-
-      {/* Glass pill — width is determined by DroppableDock's fixed ul width + pill padding */}
       <div
         className="rounded-[2rem] border border-white/35 shadow-[0_8px_40px_rgba(15,23,42,0.28),inset_0_1px_0_rgba(255,255,255,0.5)]"
         style={{ ...dockBg, overflow: 'visible', display: 'inline-block' }}
